@@ -80,6 +80,7 @@ sealed class SelfTest
         Capture(_w, shot);   // на снимке не должно быть стандартного окна печати движка
         _w.PrintWindowForTest?.Close();
         await Task.Delay(1300);
+        Capture(_w, shot + "-after");   // после закрытия окна «Дымки» стандартного окна движка быть не должно
         if (!scripted) return;
 
         await core.ExecuteScriptAsync("setTimeout(function(){window.print();},0)");
