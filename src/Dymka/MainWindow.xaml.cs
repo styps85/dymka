@@ -338,7 +338,9 @@ public partial class MainWindow : Window
 
         try
         {
-            core.Profile.PreferredTrackingPreventionLevel = CoreWebView2TrackingPreventionLevel.Strict;
+            // трекеры блокирует сам браузер по своим спискам: так счётчик на щите честный, а выключение блокировки на сайте
+            // действительно выключает её (встроенная «строгая» защита движка срабатывала бы до нас и мимо исключений)
+            core.Profile.PreferredTrackingPreventionLevel = CoreWebView2TrackingPreventionLevel.Basic;
             s.IsPasswordAutosaveEnabled = false;
             s.IsGeneralAutofillEnabled = false;
         }
