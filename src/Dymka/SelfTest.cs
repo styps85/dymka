@@ -109,9 +109,12 @@ sealed class SelfTest
             startCore.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", testDir,
                 Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
             var probe = _w.ActiveTab!;
+            probe.SeenHosts = new List<string>();
             _w.Navigate(probe, "https://trackers.dymka-test.org/trackers.html");
             await WaitFor(() => probe.Url.Contains("trackers.html") && !probe.IsLoading, 30);
             await Task.Delay(2500);
+            Line("запросы страницы, которые видел браузер: " + string.Join(", ", probe.SeenHosts));
+            probe.SeenHosts = null;
             Check(probe.Blocked >= 5, $"трекеры на тестовой странице заблокированы: {probe.Blocked} из 5");
             var okImg = await startCore.ExecuteScriptAsync("document.getElementById('ok').naturalWidth > 0");
             Check(okImg == "true", "обычная картинка с другого сайта загрузилась (блокировка не лишняя)");

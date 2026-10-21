@@ -23,6 +23,9 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public string PendingUrl { get; set; } = "";
 
     public DateTime LastActive { get; set; } = DateTime.Now;
+
+    /// <summary>Для самопроверки: какие хосты запрашивала страница и какие из них заблокированы.</summary>
+    public List<string>? SeenHosts { get; set; }
     public bool IsPlayingAudio { get; set; }
 
     string _title = "Новая вкладка";

@@ -610,6 +610,7 @@ public partial class MainWindow : Window
         if (e.ResourceContext == CoreWebView2WebResourceContext.Document && url == tab.PendingUrl) return;
 
         bool thirdParty = UrlTools.IsThirdParty(host, page);
+        tab.SeenHosts?.Add(host + " (" + e.ResourceContext + ")");
         if (thirdParty && !_settings.IsTrackerException(page) && _blocklist.IsBlocked(host))
         {
             e.Response = _env!.CreateWebResourceResponse(new MemoryStream(), 403, "Blocked", "Content-Type: text/plain");
