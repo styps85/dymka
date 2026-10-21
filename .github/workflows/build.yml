@@ -27,11 +27,16 @@ jobs:
         run: dotnet run --project tests/Dymka.Tests -c Release
 
       - name: Сборка - один файл Dymka.exe
-        run: >
-          dotnet publish src/Dymka/Dymka.csproj -c Release -r win-x64 --self-contained true
-          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true -p:DebugType=none
-          -p:Version=1.0.${{ github.run_number }} -o dist/single
+        run: |
+          Write-Host "::remove-matcher owner=csc::"
+          $out = dotnet publish src/Dymka/Dymka.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -p:EnableCompressionInSingleFile=true -p:DebugType=none -p:Version=1.0.${{ github.run_number }} -o dist/single 2>&1 | Out-String
+          $code = $LASTEXITCODE
+          Write-Host $out
+          if ($code -ne 0) {
+            $errs = ($out -split "`r?`n" | Where-Object { $_ -match "error [A-Z]+[0-9]+" } | ForEach-Object { ($_ -replace '^.*[\\/]src[\\/]', 'src/') -replace '\s*\[[^\]]*\]\s*$', '' } | Select-Object -Unique | Select-Object -First 60) -join "%0A"
+            Write-Host "::error title=Ошибки сборки::$errs"
+            exit 1
+          }
 
       - name: Сборка - папка (быстрый запуск)
         run: |
@@ -64,6 +69,18 @@ jobs:
           name: selftest-${{ github.run_number }}
           path: dist/selftest
           if-no-files-found: ignore
+
+      - name: Снимки самопроверки - в служебный выпуск «selftest»
+        if: always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if (-not (Test-Path dist/selftest)) { exit 0 }
+          if (-not (Get-ChildItem dist/selftest)) { exit 0 }
+          Compress-Archive -Path dist/selftest/* -DestinationPath dist/selftest.zip -Force
+          gh release delete selftest --yes --cleanup-tag 2>$null
+          $global:LASTEXITCODE = 0
+          gh release create selftest dist/selftest.zip --prerelease --latest=false --target ${{ github.sha }} --title "Самопроверка сборки ${{ github.run_number }} (служебное)" --notes "Снимки окна и отчёт автоматической самопроверки. Скачивать не нужно."
 
       - uses: actions/upload-artifact@v4
         with:
