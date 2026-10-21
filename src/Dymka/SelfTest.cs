@@ -68,6 +68,33 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Ctrl+P с фокусом внутри страницы и window.print() должны открывать окно печати «Дымки».</summary>
+    async Task TestPrintTriggers(string shot, BrowserTab tab, Microsoft.Web.WebView2.Core.CoreWebView2 core, bool scripted)
+    {
+        tab.View!.Focus();
+        await Task.Delay(600);
+        Native.PressCtrl(0x50); // Ctrl+P
+        bool opened = await WaitFor(() => _w.PrintWindowForTest != null, 6);
+        Check(opened, $"Ctrl+P ({shot}) открывает окно печати «Дымки»");
+        await Task.Delay(1500);
+        Capture(_w, shot);   // на снимке не должно быть стандартного окна печати движка
+        _w.PrintWindowForTest?.Close();
+        await Task.Delay(1300);
+        if (!scripted) return;
+
+        await core.ExecuteScriptAsync("setTimeout(function(){window.print();},0)");
+        Check(await WaitFor(() => _w.PrintWindowForTest != null, 6), "кнопка «Печать» на сайте (window.print) открывает окно «Дымки»");
+        _w.PrintWindowForTest?.Close();
+        await Task.Delay(1300);
+
+        await core.ExecuteScriptAsync(
+            "var f=document.createElement('iframe');f.srcdoc='<button>p</button>';document.body.appendChild(f);" +
+            "f.onload=function(){f.contentWindow.print();};");
+        Check(await WaitFor(() => _w.PrintWindowForTest != null, 6), "печать из фрейма на странице открывает окно «Дымки»");
+        _w.PrintWindowForTest?.Close();
+        await Task.Delay(1300);
+    }
+
     async Task TestPrintDialog(string shot, int expectedPages)
     {
         _w.OpenPrintDialog();
@@ -165,6 +192,7 @@ sealed class SelfTest
             _w.Navigate(probe, "https://trackers.dymka-test.org/long.html");
             await WaitFor(() => probe.Url.Contains("long.html") && !probe.IsLoading, 20);
             await Task.Delay(800);
+            await TestPrintTriggers("10-ctrlp-page", probe, startCore, scripted: true);
             await TestPrintDialog("08-print", 3);
 
             // тот же документ в виде PDF (встроенный просмотрщик PDF)
@@ -173,6 +201,7 @@ sealed class SelfTest
             _w.Navigate(probe, "https://trackers.dymka-test.org/long.pdf");
             await WaitFor(() => probe.Url.Contains("long.pdf") && !probe.IsLoading, 20);
             await Task.Delay(2500);
+            await TestPrintTriggers("11-ctrlp-pdf", probe, startCore, scripted: false);
             await TestPrintDialog("09-print-pdf", 3);
 
             // горячие клавиши, когда фокус внутри страницы

@@ -79,8 +79,19 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _memTimer = new() { Interval = TimeSpan.FromSeconds(4) };
 
     /// <summary>Кнопки «Печать» на сайтах (window.print) открывают окно печати «Дымки».</summary>
-    const string PrintScript =
-        "(function(){try{var w=window;if(w.top!==w)return;var o=w.print;w.print=function(){try{w.chrome.webview.postMessage({__dymka:'print'});}catch(e){o.call(w);}};}catch(e){}})();";
+    const string PrintScript = """
+        (function(){try{
+          var w=window, isTop=(w.top===w), orig=w.print;
+          function ask(){try{
+            if(isTop){w.chrome.webview.postMessage({__dymka:'print'});}else{w.top.postMessage({__dymkaPrint:1},'*');}
+            return true;}catch(e){return false;}}
+          w.print=function(){if(!ask())orig.call(w);};
+          w.addEventListener('keydown',function(e){
+            if((e.ctrlKey||e.metaKey)&&!e.altKey&&!e.shiftKey&&(e.code==='KeyP'||e.keyCode===80)){
+              e.preventDefault();e.stopImmediatePropagation();ask();}},true);
+          if(isTop){w.addEventListener('message',function(e){if(e.data&&e.data.__dymkaPrint===1)ask();});}
+        }catch(e){}})();
+        """;
 
     const string GpcScript =
         "try{Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:function(){return true},configurable:true});}catch(e){}";
@@ -396,6 +407,7 @@ public partial class MainWindow : Window
             tab.Title = UrlTools.IsStartPage(core.Source) ? "Новая вкладка" : core.DocumentTitle;
         core.FaviconChanged += async (_, _) => await LoadFaviconAsync(tab, core);
         core.NewWindowRequested += (_, e) => OnNewWindowRequested(tab, e);
+        core.ContextMenuRequested += (_, e) => ReplacePrintMenuItem(e);
         core.PermissionRequested += (_, e) => OnPermissionRequested(e);
         core.WebMessageReceived += (_, e) => OnWebMessage(tab, core, e);
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
@@ -1212,14 +1224,40 @@ public partial class MainWindow : Window
     }
 
     PrintWindow? _printWindow;
+    DateTime _lastPrintRequest;
+
+    /// <summary>Пункт «Печать» в контекстном меню страницы открывает окно печати «Дымки».</summary>
+    void ReplacePrintMenuItem(CoreWebView2ContextMenuRequestedEventArgs e)
+    {
+        try
+        {
+            var items = e.MenuItems;
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (items[i].Name != "print") continue;
+                var custom = _env!.CreateContextMenuItem(items[i].Label, null, CoreWebView2ContextMenuItemKind.Command);
+                custom.CustomItemSelected += (_, _) => Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
+                items.RemoveAt(i);
+                items.Insert(i, custom);
+                break;
+            }
+        }
+        catch (Exception ex)
+        {
+            App.Log("Контекстное меню: " + ex.Message);
+        }
+    }
 
     public void OpenPrintDialog()
     {
         var tab = _active;
         var core = tab?.View?.CoreWebView2;
         if (tab == null || core == null || tab.IsStart || _printWindow != null) return;
+        // Ctrl+P может прийти дважды (от окна и от страницы) - второй запрос игнорируем
+        if (DateTime.Now - _lastPrintRequest < TimeSpan.FromSeconds(1)) return;
+        _lastPrintRequest = DateTime.Now;
         _printWindow = new PrintWindow(core, _env!, _settings, tab.Title) { Owner = this };
-        _printWindow.Closed += (_, _) => _printWindow = null;
+        _printWindow.Closed += (_, _) => { _printWindow = null; _lastPrintRequest = DateTime.Now; };
         if (_selfTestDir != null) _printWindow.Show(); else _printWindow.ShowDialog();
     }
 
