@@ -89,6 +89,34 @@ sealed class SelfTest
             await Task.Delay(2500);
             Capture(_w, "01-top-start");
 
+            var startCore = _w.ActiveTab!.View!.CoreWebView2;
+            var tiles = await startCore.ExecuteScriptAsync("document.querySelectorAll('.tile:not(.add)').length");
+            Check(tiles == _w.Settings.Shortcuts.Count.ToString(), $"стартовая страница получила плитки сайтов ({tiles})");
+
+            // страница с трекерами: счётчики Google, Яндекса, Mail.ru и пиксель Facebook должны быть заблокированы
+            var testDir = Path.Combine(_dir, "web");
+            Directory.CreateDirectory(testDir);
+            File.WriteAllText(Path.Combine(testDir, "trackers.html"),
+                "<!doctype html><html><head><meta charset=\"utf-8\"><title>Проверка трекеров</title>" +
+                "<script src=\"https://www.google-analytics.com/analytics.js\"></script>" +
+                "<script src=\"https://www.googletagmanager.com/gtag/js?id=G-TEST\"></script>" +
+                "<script src=\"https://connect.facebook.net/en_US/fbevents.js\"></script></head><body>" +
+                "<h1>Проверка трекеров</h1>" +
+                "<img src=\"https://mc.yandex.ru/watch/12345\" alt=\"\">" +
+                "<img src=\"https://top-fwz1.mail.ru/counter?id=1\" alt=\"\">" +
+                "<img id=\"ok\" src=\"https://www.python.org/static/favicon.ico\" alt=\"\">" +
+                "</body></html>");
+            startCore.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", testDir,
+                Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            var probe = _w.ActiveTab!;
+            _w.Navigate(probe, "https://trackers.dymka-test.org/trackers.html");
+            await WaitFor(() => probe.Url.Contains("trackers.html") && !probe.IsLoading, 30);
+            await Task.Delay(2500);
+            Check(probe.Blocked >= 5, $"трекеры на тестовой странице заблокированы: {probe.Blocked} из 5");
+            var okImg = await startCore.ExecuteScriptAsync("document.getElementById('ok').naturalWidth > 0");
+            Check(okImg == "true", "обычная картинка с другого сайта загрузилась (блокировка не лишняя)");
+            Capture(_w, "01b-trackers");
+
             var first = _w.ActiveTab!;
             _w.Navigate(first, "https://example.com/?utm_source=selftest&x=1");
             Check(await WaitFor(() => first.Url.StartsWith("https://example.com") && !first.IsLoading, 40),
@@ -107,9 +135,15 @@ sealed class SelfTest
             _w.ClosePopups();
 
             var third = await _w.NewTabAsync("https://www.wikipedia.org/", activate: false);
-            Check(await WaitFor(() => third.View?.CoreWebView2 != null && !third.IsLoading, 40), "фоновая вкладка загружена");
+            Check(await WaitFor(() => third.View?.CoreWebView2 != null && third.Title.Contains("Wikipedia") && !third.IsLoading, 40),
+                "фоновая вкладка загружена: " + third.Title);
+            _w.UpdateMemory();
+            long before = _w.MemoryBytes;
             _w.SleepTab(third);
             Check(third.IsSleeping && third.View == null, "фоновая вкладка уснула");
+            await Task.Delay(2500);
+            _w.UpdateMemory();
+            Line($"память до усыпления {before / 1048576} МБ, после {_w.MemoryBytes / 1048576} МБ");
 
             _w.SetLayout("side");
             await Task.Delay(1500);
@@ -134,6 +168,7 @@ sealed class SelfTest
 
             _w.UpdateMemory();
             Line($"память браузера: {_w.MemoryBytes / (1024 * 1024)} МБ, вкладок {_w.Tabs.Count}");
+            Line("по процессам: " + _w.MemoryDetails);
             Check(_w.MemoryBytes > 0, "подсчёт памяти работает");
 
             _w.SetLayout("top");

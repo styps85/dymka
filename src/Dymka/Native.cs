@@ -23,6 +23,36 @@ static class Native
     [DllImport("user32.dll")] static extern short GetKeyState(int key);
     [DllImport("dwmapi.dll")] static extern int DwmSetWindowAttribute(IntPtr hwnd, int attr, ref int value, int size);
 
+    [DllImport("kernel32.dll")] static extern IntPtr OpenProcess(int access, bool inherit, int pid);
+    [DllImport("kernel32.dll")] static extern bool CloseHandle(IntPtr h);
+    [DllImport("psapi.dll", SetLastError = true)] static extern bool GetProcessMemoryInfo(IntPtr process, ref PROCESS_MEMORY_COUNTERS_EX2 counters, int size);
+
+    [StructLayout(LayoutKind.Sequential)]
+    struct PROCESS_MEMORY_COUNTERS_EX2
+    {
+        public int cb;
+        public int PageFaultCount;
+        public UIntPtr PeakWorkingSetSize, WorkingSetSize, QuotaPeakPagedPoolUsage, QuotaPagedPoolUsage,
+            QuotaPeakNonPagedPoolUsage, QuotaNonPagedPoolUsage, PagefileUsage, PeakPagefileUsage, PrivateUsage,
+            PrivateWorkingSetSize;
+        public ulong SharedCommitUsage;
+    }
+
+    /// <summary>Частный рабочий набор процесса - то же число, что показывает диспетчер задач в столбце «Память».</summary>
+    public static long PrivateWorkingSet(int pid)
+    {
+        var h = OpenProcess(0x1000, false, pid); // PROCESS_QUERY_LIMITED_INFORMATION
+        if (h == IntPtr.Zero) return -1;
+        try
+        {
+            var c = new PROCESS_MEMORY_COUNTERS_EX2 { cb = Marshal.SizeOf<PROCESS_MEMORY_COUNTERS_EX2>() };
+            if (!GetProcessMemoryInfo(h, ref c, c.cb)) return -1;
+            long v = (long)c.PrivateWorkingSetSize.ToUInt64();
+            return v > 0 ? v : (long)c.WorkingSetSize.ToUInt64();
+        }
+        finally { CloseHandle(h); }
+    }
+
     [StructLayout(LayoutKind.Sequential)]
     struct RECT { public int Left, Top, Right, Bottom; }
 

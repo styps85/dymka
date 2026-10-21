@@ -1237,25 +1237,35 @@ public partial class MainWindow : Window
     // ===================================================================== память
 
     public long MemoryBytes { get; private set; }
+    public string MemoryDetails { get; private set; } = "";
+
+    static long MemoryOf(int pid)
+    {
+        long v = Native.PrivateWorkingSet(pid);
+        if (v > 0) return v;
+        try { using var p = Process.GetProcessById(pid); return p.WorkingSet64; } catch { return 0; }
+    }
 
     internal void UpdateMemory()
     {
         if (_env == null) return;
         long total = 0;
+        var parts = new List<string>();
         try
         {
-            total += Process.GetCurrentProcess().WorkingSet64;
+            long own = MemoryOf(Environment.ProcessId);
+            total += own;
+            parts.Add($"окно {own / 1048576} МБ");
             foreach (var info in _env.GetProcessInfos())
             {
-                try
-                {
-                    using var p = Process.GetProcessById(info.ProcessId);
-                    total += p.WorkingSet64;
-                }
-                catch { }
+                long m = MemoryOf(info.ProcessId);
+                if (m <= 0) continue;
+                total += m;
+                parts.Add($"{info.Kind} {m / 1048576} МБ");
             }
         }
         catch { return; }
+        MemoryDetails = string.Join(", ", parts);
 
         MemoryBytes = total;
         string text = total >= 1024L * 1024 * 1024
