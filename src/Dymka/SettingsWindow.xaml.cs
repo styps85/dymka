@@ -40,6 +40,14 @@ public partial class SettingsWindow : Window
         }
         if (!any) ((RadioButton)SleepPanel.Children[1]).IsChecked = true;
 
+        foreach (var (id, text) in new[] { ("off", "Выключена"), ("bank", "Только в «Банке»"), ("all", "Везде") })
+            SmartScreenPanel.Children.Add(new RadioButton
+            {
+                Content = text, Tag = id, GroupName = "smartscreen", Style = chip, IsChecked = _s.SmartScreenMode == id,
+            });
+        CheckUpdatesBox.IsChecked = _s.CheckUpdates;
+        VersionInfo.Text = $"Установлена версия {App.VersionText}. Новая версия скачивается и устанавливается по вашему согласию.";
+
         ClearOnExit.IsChecked = _s.ClearCookiesOnExit;
         Block3p.IsChecked = _s.BlockThirdPartyCookies;
         AutoLists.IsChecked = _s.AutoUpdateLists;
@@ -72,6 +80,9 @@ public partial class SettingsWindow : Window
             if (r.IsChecked == true) _s.SearchEngineId = (string)r.Tag;
         foreach (RadioButton r in SleepPanel.Children)
             if (r.IsChecked == true) _s.SleepMinutes = (int)r.Tag;
+        foreach (RadioButton r in SmartScreenPanel.Children)
+            if (r.IsChecked == true) _s.SmartScreenMode = (string)r.Tag;
+        _s.CheckUpdates = CheckUpdatesBox.IsChecked == true;
         _s.ClearCookiesOnExit = ClearOnExit.IsChecked == true;
         _s.BlockThirdPartyCookies = Block3p.IsChecked == true;
         _s.AutoUpdateLists = AutoLists.IsChecked == true;

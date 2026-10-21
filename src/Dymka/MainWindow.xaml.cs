@@ -78,6 +78,10 @@ public partial class MainWindow : Window
     readonly DispatcherTimer _sleepTimer = new() { Interval = TimeSpan.FromSeconds(30) };
     readonly DispatcherTimer _memTimer = new() { Interval = TimeSpan.FromSeconds(4) };
 
+    /// <summary>Кнопки «Печать» на сайтах (window.print) открывают окно печати «Дымки».</summary>
+    const string PrintScript =
+        "(function(){try{var w=window;if(w.top!==w)return;var o=w.print;w.print=function(){try{w.chrome.webview.postMessage({__dymka:'print'});}catch(e){o.call(w);}};}catch(e){}})();";
+
     const string GpcScript =
         "try{Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:function(){return true},configurable:true});}catch(e){}";
 
@@ -169,6 +173,9 @@ public partial class MainWindow : Window
         if (_settings.AutoUpdateLists && _selfTestDir == null && DateTime.Now - _settings.LastListUpdate > TimeSpan.FromDays(7))
             _ = UpdateListsAsync();
 
+        if (_settings.CheckUpdates && _selfTestDir == null && MemTestFile == null)
+            _ = CheckUpdatesAsync(silent: true);
+
         if (_selfTestDir != null)
             _ = new SelfTest(this, _selfTestDir).RunAsync();
         else if (MemTestFile != null)
@@ -209,7 +216,7 @@ public partial class MainWindow : Window
 
         var disabled = string.Join(",",
             "BrowsingTopics", "Fledge", "InterestGroupStorage", "PrivacySandboxAdsAPIs", "AttributionReportingCrossAppWeb",
-            "msSmartScreenProtection", "msEdgeShoppingAssistant", "msEdgeCollections", "OptimizationHints",
+            "msEdgeShoppingAssistant", "msEdgeCollections", "OptimizationHints",
             "MediaRouter", "DialMediaRouteProvider");
         var args = string.Join(" ",
             "--disable-features=" + disabled,
@@ -342,7 +349,7 @@ public partial class MainWindow : Window
         s.IsZoomControlEnabled = true;
         s.IsBuiltInErrorPageEnabled = true;
         s.AreBrowserAcceleratorKeysEnabled = true;
-        try { s.IsReputationCheckingRequired = false; } catch { }
+        try { s.IsReputationCheckingRequired = _settings.UseSmartScreen(tab.Container); } catch { }
         try
         {
             // выглядеть как обычный Chrome - самый распространённый браузер, без лишней приметы «Edg/…»
@@ -369,6 +376,7 @@ public partial class MainWindow : Window
         core.SetVirtualHostNameToFolderMapping(UrlTools.StartHost, _uiDir, CoreWebView2HostResourceAccessKind.DenyCors);
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(GpcScript);
+        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(PrintScript);
 
         core.WebResourceRequested += (_, e) => OnWebResourceRequested(tab, e);
         core.NavigationStarting += (_, e) => OnNavigationStarting(tab, core, e);
@@ -769,11 +777,16 @@ public partial class MainWindow : Window
 
     void OnWebMessage(BrowserTab tab, CoreWebView2 core, CoreWebView2WebMessageReceivedEventArgs e)
     {
-        if (!UrlTools.IsStartPage(e.Source)) return;
         try
         {
             using var doc = JsonDocument.Parse(e.WebMessageAsJson);
             var root = doc.RootElement;
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("__dymka", out var dm) && dm.GetString() == "print")
+            {
+                if (tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
+                return;
+            }
+            if (!UrlTools.IsStartPage(e.Source)) return;
             var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
             switch (type)
             {
@@ -1195,8 +1208,22 @@ public partial class MainWindow : Window
     void Print_Click(object sender, RoutedEventArgs e)
     {
         ClosePopups();
-        try { _active?.View?.CoreWebView2?.ShowPrintUI(CoreWebView2PrintDialogKind.Browser); } catch { }
+        OpenPrintDialog();
     }
+
+    PrintWindow? _printWindow;
+
+    public void OpenPrintDialog()
+    {
+        var tab = _active;
+        var core = tab?.View?.CoreWebView2;
+        if (tab == null || core == null || tab.IsStart || _printWindow != null) return;
+        _printWindow = new PrintWindow(core, _env!, _settings, tab.Title) { Owner = this };
+        _printWindow.Closed += (_, _) => _printWindow = null;
+        if (_selfTestDir != null) _printWindow.Show(); else _printWindow.ShowDialog();
+    }
+
+    public PrintWindow? PrintWindowForTest => _printWindow;
 
     void Downloads_Click(object sender, RoutedEventArgs e)
     {
@@ -1232,6 +1259,8 @@ public partial class MainWindow : Window
             _settings.Save();
             ApplyLayout();
             UpdateToolbar();
+            foreach (var t in _tabs)
+                try { if (t.View?.CoreWebView2 != null) t.View.CoreWebView2.Settings.IsReputationCheckingRequired = _settings.UseSmartScreen(t.Container); } catch { }
             if (w.UpdateListsRequested) _ = UpdateListsAsync();
         }
     }
@@ -1255,6 +1284,66 @@ public partial class MainWindow : Window
             $"Заблокировано сегодня: {_settings.BlockedToday:N0}.\n\n" +
             "Данные браузера хранятся в папке:\n" + _dataDir,
             new[] { "Закрыть" });
+    }
+
+    // ===================================================================== обновления
+
+    UpdateInfo? _update;
+    bool _updating;
+
+    async Task CheckUpdatesAsync(bool silent)
+    {
+        try
+        {
+            if (silent) await Task.Delay(TimeSpan.FromSeconds(8));
+            _update = await UpdateChecker.CheckAsync();
+        }
+        catch (Exception ex)
+        {
+            App.Log("Проверка обновлений: " + ex.Message);
+            _update = null;
+        }
+        UpdateDot.Visibility = _update != null ? Visibility.Visible : Visibility.Collapsed;
+        UpdateItemText.Text = _update != null ? $"Обновить до версии {_update.Version}" : "Проверить обновления";
+        if (!silent && _update == null)
+            Dialogs.Show(this, "Обновлений нет", $"У вас последняя версия «Дымки» ({App.VersionText}).", new[] { "Хорошо" });
+        else if (!silent && _update != null)
+            await InstallUpdateAsync();
+    }
+
+    async void UpdateItem_Click(object sender, RoutedEventArgs e)
+    {
+        ClosePopups();
+        if (_updating) return;
+        if (_update == null) await CheckUpdatesAsync(silent: false);
+        else await InstallUpdateAsync();
+    }
+
+    async Task InstallUpdateAsync()
+    {
+        var u = _update;
+        if (u == null || _updating) return;
+        var (i, _) = Dialogs.Show(this, $"Доступна версия {u.Version}",
+            $"Сейчас установлена версия {App.VersionText}. Скачать обновление? Это займёт около минуты, " +
+            "потом браузер перезапустится. Открытые вкладки закроются.",
+            new[] { "Обновить", "Позже" });
+        if (i != 0) return;
+        _updating = true;
+        UpdateItemText.Text = "Скачиваю обновление…";
+        bool ready = false;
+        try { ready = await UpdateChecker.PrepareAsync(u); }
+        catch (Exception ex) { App.Log("Обновление: " + ex.Message); }
+        _updating = false;
+        if (ready)
+        {
+            Close();
+            return;
+        }
+        UpdateItemText.Text = $"Обновить до версии {u.Version}";
+        Dialogs.Show(this, "Не удалось обновить автоматически",
+            "Откроется страница выпуска: скачайте новую версию и замените ею старый файл (или папку).",
+            new[] { "Открыть" });
+        _ = NewTabAsync(u.PageUrl, activate: true);
     }
 
     // ===================================================================== память
@@ -1531,6 +1620,7 @@ public partial class MainWindow : Window
         else if (alt && key == Key.Left) Back_Click(this, new RoutedEventArgs());
         else if (alt && key == Key.Right) Forward_Click(this, new RoutedEventArgs());
         else if (ctrl && key == Key.J) Downloads_Click(this, new RoutedEventArgs());
+        else if (ctrl && !shift && key == Key.P) OpenPrintDialog();
         else if (key == Key.Escape && _active?.IsLoading == true && !Address.IsKeyboardFocused)
         {
             try { _active.View?.CoreWebView2?.Stop(); } catch { }

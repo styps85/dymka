@@ -128,6 +128,13 @@
               </StackPanel>
             </DockPanel>
 
+            <StackPanel Margin="0,0,0,12">
+              <TextBlock Text="Проверка сайтов и загрузок (SmartScreen)"/>
+              <TextBlock Text="Предупреждает о мошеннических сайтах и опасных файлах, но для этого отправляет адреса страниц в Microsoft."
+                         Style="{StaticResource Hint}"/>
+              <WrapPanel x:Name="SmartScreenPanel" Margin="0,8,0,0"/>
+            </StackPanel>
+
             <DockPanel Margin="0,0,0,4">
               <CheckBox x:Name="AutoLists" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
               <StackPanel Margin="0,0,16,0">
@@ -155,6 +162,19 @@
             <TextBlock Text="Если сайт работает неправильно, блокировку на нём можно выключить. По одному в строке." Style="{StaticResource Hint}" Margin="0,-6,0,8"/>
             <TextBox x:Name="Exceptions" Style="{StaticResource FieldBox}" AcceptsReturn="True" Height="90"
                      TextWrapping="NoWrap" VerticalContentAlignment="Top"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Обновления" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="CheckUpdatesBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Проверять обновления при запуске"/>
+                <TextBlock x:Name="VersionInfo" Style="{StaticResource Hint}"/>
+              </StackPanel>
+            </DockPanel>
           </StackPanel>
         </Border>
 

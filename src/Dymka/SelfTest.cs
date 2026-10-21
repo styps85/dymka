@@ -68,6 +68,26 @@ sealed class SelfTest
         }
     }
 
+    async Task TestPrintDialog(string shot, int expectedPages)
+    {
+        _w.OpenPrintDialog();
+        var pw = _w.PrintWindowForTest;
+        Check(pw != null, "окно печати открылось");
+        if (pw == null) return;
+        pw.Topmost = true;
+        await WaitFor(() => pw.PreviewReady, 30);
+        Check(pw.TotalPages == expectedPages, $"предпросмотр печати: страниц {pw.TotalPages} (ожидалось {expectedPages})");
+        pw.SelectAllButLastForTest();
+        var sel = pw.SelectedPages();
+        Check(sel != null && Dymka.Core.PageRanges.ToRangeString(sel) == "1-" + (expectedPages - 1),
+            "«все, кроме последней»: " + (sel == null ? "ошибка" : Dymka.Core.PageRanges.ToRangeString(sel)));
+        pw.SetPerSheetForTest(2);
+        await Task.Delay(1200);
+        Capture(pw, shot);
+        pw.Close();
+        await Task.Delay(300);
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
@@ -136,6 +156,24 @@ sealed class SelfTest
             var ct = startCore.DocumentTitle;
             Check(ct.Contains("первая сторона: записан"), "cookie самого сайта сохраняются: " + ct);
             Check(ct.Contains("frame-cookie:заблокирован"), "сторонние cookie (во фрейме другого сайта) заблокированы");
+
+            // окно печати: документ на 3 страницы, «все, кроме последней», 2 страницы на листе
+            File.WriteAllText(Path.Combine(testDir, "long.html"),
+                "<!doctype html><meta charset=\"utf-8\"><title>Три страницы</title><style>body{font:28px Segoe UI}" +
+                ".p{break-after:page;height:400px;border:4px solid #3D63DD;padding:30px}</style>" +
+                "<div class=p>Страница 1</div><div class=p>Страница 2</div><div style=\"height:400px;border:4px solid #C2552E;padding:30px\">Страница 3</div>");
+            _w.Navigate(probe, "https://trackers.dymka-test.org/long.html");
+            await WaitFor(() => probe.Url.Contains("long.html") && !probe.IsLoading, 20);
+            await Task.Delay(800);
+            await TestPrintDialog("08-print", 3);
+
+            // тот же документ в виде PDF (встроенный просмотрщик PDF)
+            var pdfPath = Path.Combine(testDir, "long.pdf");
+            await startCore.PrintToPdfAsync(pdfPath, null);
+            _w.Navigate(probe, "https://trackers.dymka-test.org/long.pdf");
+            await WaitFor(() => probe.Url.Contains("long.pdf") && !probe.IsLoading, 20);
+            await Task.Delay(2500);
+            await TestPrintDialog("09-print-pdf", 3);
 
             // горячие клавиши, когда фокус внутри страницы
             int tabsBefore = _w.Tabs.Count;

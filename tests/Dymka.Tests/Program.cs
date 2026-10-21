@@ -91,5 +91,21 @@ File.WriteAllText(tmp, "{ это не json");
 Eq(AppSettings.Load(tmp).Layout, "top", "битый файл настроек");
 File.Delete(tmp);
 
+// --- печать: диапазоны страниц
+Eq(string.Join(",", PageRanges.Parse("1-3, 5", 10)!), "1,2,3,5", "диапазон 1-3, 5");
+Eq(string.Join(",", PageRanges.Parse("8-", 10)!), "8,9,10", "диапазон до конца");
+Eq(string.Join(",", PageRanges.Parse("2–4", 10)!), "2,3,4", "длинное тире в диапазоне");
+Eq(PageRanges.Parse("5-2", 10), null, "обратный диапазон - ошибка");
+Eq(PageRanges.Parse("abc", 10), null, "буквы - ошибка");
+Eq(PageRanges.Parse("12", 10), null, "страницы нет в документе");
+Eq(string.Join(",", PageRanges.AllButLast(5)), "1,2,3,4", "все, кроме последней");
+Eq(string.Join(",", PageRanges.AllButLast(1)), "1", "одна страница печатается");
+Eq(PageRanges.ToRangeString(new[] { 1, 2, 3, 5, 7, 8 }), "1-3,5,7-8", "сжатая запись диапазона");
+Eq(PageRanges.Grid(2, false), (2, 1, true), "2 на листе: альбомный лист, рядом");
+Eq(PageRanges.Grid(2, true), (1, 2, false), "2 на листе для альбомных страниц: книжный лист, друг под другом");
+Eq(PageRanges.Grid(4, false), (2, 2, false), "4 на листе");
+Eq(new AppSettings().UseSmartScreen("bank"), true, "SmartScreen в «Банке» по умолчанию");
+Eq(new AppSettings().UseSmartScreen("work"), false, "SmartScreen в «Работе» выключен по умолчанию");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;

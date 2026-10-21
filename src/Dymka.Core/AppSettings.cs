@@ -40,6 +40,23 @@ public sealed class AppSettings
     public int SleepMinutes { get; set; } = 15;
 
     public bool ClearCookiesOnExit { get; set; } = true;
+
+    /// <summary>SmartScreen (предупреждения о мошеннических сайтах и опасных файлах): "off", "bank" - только
+    /// в контейнере «Банк», "all" - везде. SmartScreen отправляет адреса страниц в Microsoft.</summary>
+    public string SmartScreenMode { get; set; } = "bank";
+
+    public bool CheckUpdates { get; set; } = true;
+
+    // --- печать: запоминаем последний выбор
+    public string PrintPrinter { get; set; } = "";
+    public bool PrintLandscape { get; set; }
+    public int PrintPagesPerSheet { get; set; } = 1;
+    public bool PrintColor { get; set; } = true;
+    public string PrintDuplex { get; set; } = "none";
+    public string PrintMargins { get; set; } = "default";
+    public int PrintScale { get; set; } = 100;
+    public bool PrintHeaders { get; set; }
+    public bool PrintBackgrounds { get; set; }
     public bool BlockThirdPartyCookies { get; set; } = true;
     public bool AutoUpdateLists { get; set; } = true;
     public DateTime LastListUpdate { get; set; } = DateTime.MinValue;
@@ -105,6 +122,9 @@ public sealed class AppSettings
         }
         s.Path = path;
         if (s.Layout != "top" && s.Layout != "side") s.Layout = "top";
+        if (s.SmartScreenMode is not ("off" or "bank" or "all")) s.SmartScreenMode = "bank";
+        if (s.PrintPagesPerSheet is not (1 or 2 or 4 or 6 or 9 or 16)) s.PrintPagesPerSheet = 1;
+        s.PrintScale = Math.Clamp(s.PrintScale, 10, 200);
         if (s.StatsDate.Date != DateTime.Today) { s.StatsDate = DateTime.Today; s.BlockedToday = 0; }
         return s;
     }
@@ -130,6 +150,9 @@ public sealed class AppSettings
         if (StatsDate.Date != DateTime.Today) { StatsDate = DateTime.Today; BlockedToday = 0; }
         BlockedToday += n;
     }
+
+    public bool UseSmartScreen(string container) =>
+        SmartScreenMode == "all" || (SmartScreenMode == "bank" && container == "bank");
 
     public bool KeepsCookies(string host) => UrlTools.HostMatches(host, CookieWhitelist);
 

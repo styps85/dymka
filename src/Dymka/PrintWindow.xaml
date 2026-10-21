@@ -1,0 +1,274 @@
+<Window x:Class="Dymka.PrintWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Dymka"
+        Title="Печать - Дымка" Width="1000" Height="720" MinWidth="760" MinHeight="520"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="White" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+  <Window.Resources>
+    <Geometry x:Key="IcPortrait">M7 3 L14 3 L18 7 L18 21 L7 21 Z M14 3 L14 7 L18 7</Geometry>
+    <Geometry x:Key="IcLandscape">M3 6 L17 6 L21 10 L21 18 L3 18 Z M17 6 L17 10 L21 10</Geometry>
+
+    <Style x:Key="Label" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12.5"/>
+      <Setter Property="FontWeight" Value="SemiBold"/>
+      <Setter Property="Foreground" Value="{StaticResource Ink2}"/>
+      <Setter Property="Margin" Value="0,16,0,8"/>
+    </Style>
+    <Style x:Key="Hint" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+    </Style>
+    <Style x:Key="Chip" TargetType="RadioButton">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,6,6"/>
+      <Setter Property="MinWidth" Value="40"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" CornerRadius="15" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
+                    Background="White" Padding="12,5">
+              <ContentPresenter HorizontalAlignment="Center" TextElement.FontSize="13"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="IconChoice" TargetType="RadioButton">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" CornerRadius="12" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
+                    Background="White" Padding="8,8,8,6">
+              <ContentPresenter HorizontalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="Radio" TargetType="RadioButton">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,0,8"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <StackPanel Orientation="Horizontal" Background="Transparent">
+              <Grid Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center">
+                <Ellipse x:Name="Ring" Stroke="{StaticResource LineStrong}" StrokeThickness="1.6" Fill="White"/>
+                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource Accent}" Visibility="Collapsed"/>
+              </Grid>
+              <ContentPresenter VerticalAlignment="Center"/>
+            </StackPanel>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+    <Style x:Key="StepButton" TargetType="Button" BasedOn="{StaticResource SecondaryButton}">
+      <Setter Property="Width" Value="38"/>
+      <Setter Property="Padding" Value="0"/>
+      <Setter Property="FontSize" Value="16"/>
+    </Style>
+  </Window.Resources>
+
+  <Grid>
+    <Grid.ColumnDefinitions>
+      <ColumnDefinition Width="*"/>
+      <ColumnDefinition Width="360"/>
+    </Grid.ColumnDefinitions>
+
+    <!-- Предпросмотр -->
+    <DockPanel Background="#E9EDF3">
+      <DockPanel DockPanel.Dock="Top" Margin="20,14,20,6">
+        <TextBlock x:Name="SheetsInfo" DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
+        <TextBlock Text="Предпросмотр" FontSize="15" FontWeight="Bold"/>
+      </DockPanel>
+      <Grid>
+        <ScrollViewer x:Name="PreviewScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="0,6,0,20">
+          <ItemsControl x:Name="Sheets" HorizontalAlignment="Center">
+            <ItemsControl.ItemTemplate>
+              <DataTemplate>
+                <StackPanel Margin="0,10">
+                  <Border Background="White" Width="{Binding Width}" Height="{Binding Height}" Padding="{Binding Pad}">
+                    <Border.Effect>
+                      <DropShadowEffect BlurRadius="16" ShadowDepth="3" Direction="270" Opacity="0.16" Color="#1B2230"/>
+                    </Border.Effect>
+                    <ItemsControl ItemsSource="{Binding Pages}">
+                      <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                          <UniformGrid Columns="{Binding DataContext.Cols, RelativeSource={RelativeSource AncestorType=Border}}"
+                                       Rows="{Binding DataContext.Rows, RelativeSource={RelativeSource AncestorType=Border}}"/>
+                        </ItemsPanelTemplate>
+                      </ItemsControl.ItemsPanel>
+                      <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                          <Border Margin="2" BorderBrush="#E3E7EE" BorderThickness="{Binding Frame}">
+                            <Image Source="{Binding Image}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"/>
+                          </Border>
+                        </DataTemplate>
+                      </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                  </Border>
+                  <TextBlock Text="{Binding Caption}" HorizontalAlignment="Center" Margin="0,8,0,0" FontSize="12"
+                             Foreground="{StaticResource Muted}"/>
+                </StackPanel>
+              </DataTemplate>
+            </ItemsControl.ItemTemplate>
+          </ItemsControl>
+        </ScrollViewer>
+        <Border x:Name="Busy" Background="#CCE9EDF3" Visibility="Collapsed">
+          <TextBlock Text="Готовлю предпросмотр…" HorizontalAlignment="Center" VerticalAlignment="Center"
+                     FontSize="14" Foreground="{StaticResource Ink2}"/>
+        </Border>
+      </Grid>
+    </DockPanel>
+
+    <!-- Параметры -->
+    <DockPanel Grid.Column="1" Background="White">
+      <Border DockPanel.Dock="Top" Padding="22,16,22,0">
+        <TextBlock Text="Печать" FontSize="20" FontWeight="Bold"/>
+      </Border>
+
+      <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
+        <DockPanel>
+          <TextBlock x:Name="ErrorText" DockPanel.Dock="Top" Foreground="{StaticResource Danger}" FontSize="12"
+                     TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"/>
+          <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="Отмена" Style="{StaticResource SecondaryButton}" MinWidth="100" IsCancel="True" Click="Cancel_Click"/>
+            <Button x:Name="PrintBtn" Content="Печать" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="8,0,0,0"
+                    IsDefault="True" Click="Print_Click"/>
+          </StackPanel>
+        </DockPanel>
+      </Border>
+
+      <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="22,0,22,12">
+        <StackPanel>
+          <TextBlock Text="Принтер" Style="{StaticResource Label}"/>
+          <ComboBox x:Name="PrinterBox" Height="36" FontSize="13.5" VerticalContentAlignment="Center" Padding="8,0"/>
+
+          <TextBlock Text="Копии" Style="{StaticResource Label}"/>
+          <StackPanel Orientation="Horizontal">
+            <Button Content="−" Style="{StaticResource StepButton}" Click="CopiesMinus_Click"/>
+            <TextBox x:Name="CopiesBox" Style="{StaticResource FieldBox}" Width="60" Margin="6,0" Text="1"
+                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
+            <Button Content="+" Style="{StaticResource StepButton}" Click="CopiesPlus_Click"/>
+          </StackPanel>
+
+          <TextBlock Text="Макет" Style="{StaticResource Label}"/>
+          <StackPanel Orientation="Horizontal">
+            <RadioButton x:Name="Portrait" GroupName="orient" Style="{StaticResource IconChoice}" Width="96" Margin="0,0,8,0"
+                         Checked="Layout_Changed" ToolTip="Книжная">
+              <StackPanel>
+                <local:Glyph Data="{StaticResource IcPortrait}" Size="30" StrokeWidth="1.6" Foreground="{StaticResource Ink2}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Книжная" FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+              </StackPanel>
+            </RadioButton>
+            <RadioButton x:Name="Landscape" GroupName="orient" Style="{StaticResource IconChoice}" Width="96"
+                         Checked="Layout_Changed" ToolTip="Альбомная">
+              <StackPanel>
+                <local:Glyph Data="{StaticResource IcLandscape}" Size="30" StrokeWidth="1.6" Foreground="{StaticResource Ink2}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Альбомная" FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,0"/>
+              </StackPanel>
+            </RadioButton>
+          </StackPanel>
+
+          <DockPanel Margin="0,16,0,8">
+            <TextBlock x:Name="TotalInfo" DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Bottom"/>
+            <TextBlock Text="Страницы" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink2}"/>
+          </DockPanel>
+          <RadioButton x:Name="PagesAll" GroupName="pages" Style="{StaticResource Radio}" Content="Все" Checked="Selection_Changed"/>
+          <RadioButton x:Name="PagesButLast" GroupName="pages" Style="{StaticResource Radio}" Content="Все, кроме последней"
+                       Checked="Selection_Changed"/>
+          <DockPanel>
+            <RadioButton x:Name="PagesCustom" GroupName="pages" Style="{StaticResource Radio}" Content="Выбрать:"
+                         Checked="Selection_Changed" Margin="0,0,10,0" VerticalAlignment="Center"/>
+            <TextBox x:Name="RangeBox" Style="{StaticResource FieldBox}" TextChanged="Range_TextChanged"
+                     GotKeyboardFocus="Range_GotFocus" ToolTip="Например: 1-3, 5"/>
+          </DockPanel>
+          <TextBlock Text="Например: 1-3, 5, 8-" Style="{StaticResource Hint}" Margin="28,4,0,0"/>
+
+          <TextBlock Text="Страниц на листе" Style="{StaticResource Label}"/>
+          <WrapPanel x:Name="PerSheetPanel"/>
+
+          <TextBlock Text="Цвет" Style="{StaticResource Label}"/>
+          <WrapPanel>
+            <RadioButton x:Name="ColorOn" GroupName="color" Style="{StaticResource Chip}" Content="Цветная"/>
+            <RadioButton x:Name="ColorOff" GroupName="color" Style="{StaticResource Chip}" Content="Чёрно-белая"/>
+          </WrapPanel>
+
+          <TextBlock Text="Двусторонняя печать" Style="{StaticResource Label}"/>
+          <WrapPanel>
+            <RadioButton x:Name="DuplexNone" GroupName="duplex" Style="{StaticResource Chip}" Content="Нет"/>
+            <RadioButton x:Name="DuplexLong" GroupName="duplex" Style="{StaticResource Chip}" Content="По длинному краю"/>
+            <RadioButton x:Name="DuplexShort" GroupName="duplex" Style="{StaticResource Chip}" Content="По короткому краю"/>
+          </WrapPanel>
+
+          <Expander x:Name="MoreExpander" Header="Дополнительно" Margin="0,16,0,0" FontSize="12.5" FontWeight="SemiBold"
+                    Foreground="{StaticResource Ink2}">
+            <StackPanel TextElement.FontWeight="Normal" TextElement.FontSize="13.5" TextElement.Foreground="{StaticResource Ink}">
+              <TextBlock Text="Поля" Style="{StaticResource Label}" Margin="0,10,0,8"/>
+              <WrapPanel>
+                <RadioButton x:Name="MarginsDefault" GroupName="margins" Style="{StaticResource Chip}" Content="Обычные" Checked="Layout_Changed"/>
+                <RadioButton x:Name="MarginsNarrow" GroupName="margins" Style="{StaticResource Chip}" Content="Узкие" Checked="Layout_Changed"/>
+                <RadioButton x:Name="MarginsNone" GroupName="margins" Style="{StaticResource Chip}" Content="Без полей" Checked="Layout_Changed"/>
+              </WrapPanel>
+
+              <TextBlock Text="Масштаб, %" Style="{StaticResource Label}"/>
+              <StackPanel Orientation="Horizontal">
+                <Button Content="−" Style="{StaticResource StepButton}" Click="ScaleMinus_Click"/>
+                <TextBox x:Name="ScaleBox" Style="{StaticResource FieldBox}" Width="70" Margin="6,0" Text="100"
+                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" LostKeyboardFocus="Scale_LostFocus"
+                         KeyDown="Scale_KeyDown"/>
+                <Button Content="+" Style="{StaticResource StepButton}" Click="ScalePlus_Click"/>
+              </StackPanel>
+
+              <DockPanel Margin="0,16,0,0">
+                <CheckBox x:Name="HeadersBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="Layout_Changed"/>
+                <StackPanel Margin="0,0,12,0">
+                  <TextBlock Text="Колонтитулы"/>
+                  <TextBlock Text="Дата, адрес страницы и номера страниц" Style="{StaticResource Hint}"/>
+                </StackPanel>
+              </DockPanel>
+              <DockPanel Margin="0,12,0,0">
+                <CheckBox x:Name="BackgroundsBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" Click="Layout_Changed"/>
+                <StackPanel Margin="0,0,12,0">
+                  <TextBlock Text="Фон"/>
+                  <TextBlock Text="Фоновые цвета и картинки" Style="{StaticResource Hint}"/>
+                </StackPanel>
+              </DockPanel>
+            </StackPanel>
+          </Expander>
+        </StackPanel>
+      </ScrollViewer>
+    </DockPanel>
+  </Grid>
+</Window>

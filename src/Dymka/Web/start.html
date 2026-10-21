@@ -40,6 +40,16 @@
     transition: transform .12s ease, box-shadow .12s ease;
   }
   .tile:hover .ic { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(27,34,48,.07), 0 10px 22px rgba(27,34,48,.08); }
+  .tile:active .ic { transform: scale(.92); background: #E9EDF3; box-shadow: 0 1px 2px rgba(27,34,48,.08); transition-duration: .05s; }
+  .tile.opening .ic { background: #E9EDF3; transform: scale(.96); box-shadow: none; }
+  .tile.opening .ic span { opacity: .35; }
+  .tile.opening .ic::after {
+    content: ""; position: absolute; width: 30px; height: 30px; border-radius: 50%;
+    border: 3px solid rgba(61,99,221,.22); border-top-color: var(--accent); animation: spin .7s linear infinite;
+  }
+  .tile.opening .name { color: var(--accent); }
+  .tile .ic { position: relative; }
+  @keyframes spin { to { transform: rotate(360deg); } }
   .tile .name { max-width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .tile .rm {
     position: absolute; top: 0; right: 6px; width: 22px; height: 22px; border-radius: 11px; border: 0;
@@ -114,7 +124,13 @@
     for (const s of d.shortcuts) {
       const a = document.createElement('a');
       a.className = 'tile'; a.href = s.url; a.title = s.url;
-      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = s.letter; ic.style.color = s.fg;
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.style.color = s.fg;
+      const letter = document.createElement('span'); letter.textContent = s.letter; ic.append(letter);
+      a.addEventListener('click', (e) => {
+        if (e.ctrlKey || e.shiftKey || e.metaKey || e.button !== 0) return;
+        document.querySelectorAll('.tile.opening').forEach(t => t.classList.remove('opening'));
+        a.classList.add('opening');
+      });
       const nm = document.createElement('span'); nm.className = 'name'; nm.textContent = s.title;
       const rm = document.createElement('button'); rm.className = 'rm'; rm.type = 'button'; rm.title = 'Убрать';
       rm.setAttribute('aria-label', 'Убрать ' + s.title);
@@ -157,6 +173,7 @@
     if (url) send({ type: 'add', url, title });
   });
 
+  window.addEventListener('pageshow', () => document.querySelectorAll('.tile.opening').forEach(t => t.classList.remove('opening')));
   document.addEventListener('visibilitychange', () => { if (!document.hidden) send({ type: 'init' }); });
 </script>
 </body>
