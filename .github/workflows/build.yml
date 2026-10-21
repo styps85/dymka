@@ -33,7 +33,7 @@ jobs:
           $code = $LASTEXITCODE
           Write-Host $out
           if ($code -ne 0) {
-            $errs = ($out -split "`r?`n" | Where-Object { $_ -match "error [A-Z]+[0-9]+" } | ForEach-Object { ($_ -replace '^.*[\\/]src[\\/]', 'src/') -replace '\s*\[[^\]]*\]\s*$', '' } | Select-Object -Unique | Select-Object -First 60) -join "%0A"
+            $errs = ($out -split "`r?`n" | Where-Object { $_ -match "error [A-Z]+[0-9]+" } | ForEach-Object { ($_ -replace '\s*\[[^\]]*\]\s*$', '') -replace '^.*?[\\/]src[\\/]', 'src/' } | Select-Object -Unique | Select-Object -First 60) -join "%0A"
             Write-Host "::error title=Ошибки сборки::$errs"
             exit 1
           }

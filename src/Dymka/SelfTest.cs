@@ -136,16 +136,16 @@ sealed class SelfTest
             Line("ИНФО cookie: " + startCore.DocumentTitle);
 
             // горячие клавиши, когда фокус внутри страницы
-            int before = _w.Tabs.Count;
+            int tabsBefore = _w.Tabs.Count;
             probe.View!.Focus();
             await Task.Delay(500);
             Native.PressCtrl(0x54); // Ctrl+T
-            bool keyOk = await WaitFor(() => _w.Tabs.Count == before + 1, 5);
+            bool keyOk = await WaitFor(() => _w.Tabs.Count == tabsBefore + 1, 5);
             Line((keyOk ? "ИНФО OK " : "ИНФО НЕТ ") + "Ctrl+T из страницы открывает вкладку");
             if (keyOk)
             {
                 Native.PressCtrl(0x57); // Ctrl+W
-                await WaitFor(() => _w.Tabs.Count == before, 5);
+                await WaitFor(() => _w.Tabs.Count == tabsBefore, 5);
                 Line("ИНФО Ctrl+W: вкладок " + _w.Tabs.Count);
             }
             if (_w.ActiveTab != probe) _w.Activate(probe);
