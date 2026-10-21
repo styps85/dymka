@@ -178,7 +178,7 @@
           <TextBlock Text="Копии" Style="{StaticResource Label}"/>
           <StackPanel Orientation="Horizontal">
             <Button Content="−" Style="{StaticResource StepButton}" Click="CopiesMinus_Click"/>
-            <TextBox x:Name="CopiesBox" Style="{StaticResource FieldBox}" Width="60" Margin="6,0" Text="1"
+            <TextBox x:Name="CopiesBox" Style="{StaticResource FieldBox}" Width="60" Height="38" Padding="6,0" Margin="6,0" Text="1"
                      HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
             <Button Content="+" Style="{StaticResource StepButton}" Click="CopiesPlus_Click"/>
           </StackPanel>
@@ -211,7 +211,7 @@
           <DockPanel>
             <RadioButton x:Name="PagesCustom" GroupName="pages" Style="{StaticResource Radio}" Content="Выбрать:"
                          Checked="Selection_Changed" Margin="0,0,10,0" VerticalAlignment="Center"/>
-            <TextBox x:Name="RangeBox" Style="{StaticResource FieldBox}" TextChanged="Range_TextChanged"
+            <TextBox x:Name="RangeBox" Style="{StaticResource FieldBox}" Height="36" Padding="10,0" VerticalContentAlignment="Center" TextChanged="Range_TextChanged"
                      GotKeyboardFocus="Range_GotFocus" ToolTip="Например: 1-3, 5"/>
           </DockPanel>
           <TextBlock Text="Например: 1-3, 5, 8-" Style="{StaticResource Hint}" Margin="28,4,0,0"/>
@@ -245,7 +245,7 @@
               <TextBlock Text="Масштаб, %" Style="{StaticResource Label}"/>
               <StackPanel Orientation="Horizontal">
                 <Button Content="−" Style="{StaticResource StepButton}" Click="ScaleMinus_Click"/>
-                <TextBox x:Name="ScaleBox" Style="{StaticResource FieldBox}" Width="70" Margin="6,0" Text="100"
+                <TextBox x:Name="ScaleBox" Style="{StaticResource FieldBox}" Width="70" Height="38" Padding="6,0" Margin="6,0" Text="100"
                          HorizontalContentAlignment="Center" VerticalContentAlignment="Center" LostKeyboardFocus="Scale_LostFocus"
                          KeyDown="Scale_KeyDown"/>
                 <Button Content="+" Style="{StaticResource StepButton}" Click="ScalePlus_Click"/>

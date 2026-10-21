@@ -329,7 +329,8 @@
           <ControlTemplate TargetType="TextBox">
             <Border x:Name="Bd" Background="{TemplateBinding Background}" BorderBrush="{TemplateBinding BorderBrush}"
                     BorderThickness="{TemplateBinding BorderThickness}" CornerRadius="10">
-              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalScrollBarVisibility="Auto"/>
+              <ScrollViewer x:Name="PART_ContentHost" Margin="{TemplateBinding Padding}" VerticalScrollBarVisibility="Auto"
+                            VerticalAlignment="{TemplateBinding VerticalContentAlignment}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsKeyboardFocused" Value="True">
