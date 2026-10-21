@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Новая вкладка</title>
+<style>
+  :root {
+    --ink: #1B2230; --ink2: #3D4656; --muted: #5B6475; --line: #E8ECF2;
+    --ground: #F7F9FC; --accent: #3D63DD; --green: #1C7F53;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0; background: var(--ground); color: var(--ink);
+    font-family: "Segoe UI Variable Text", "Segoe UI", system-ui, sans-serif;
+    display: flex; align-items: center; justify-content: center;
+    -webkit-user-select: none; user-select: none;
+  }
+  main { width: 100%; max-width: 680px; padding: 32px 20px 56px; display: flex; flex-direction: column; align-items: center; gap: 34px; }
+  .brand { display: flex; align-items: center; gap: 14px; }
+  .brand h1 { margin: 0; font-size: 32px; font-weight: 700; letter-spacing: -0.02em; }
+  form.search {
+    width: 100%; max-width: 640px; height: 56px; background: #fff; border-radius: 28px;
+    box-shadow: 0 1px 2px rgba(27,34,48,.06), 0 10px 30px rgba(27,34,48,.07);
+    display: flex; align-items: center; gap: 12px; padding: 0 22px; border: 1.5px solid transparent;
+  }
+  form.search:focus-within { border-color: var(--accent); }
+  form.search input {
+    flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink);
+    -webkit-user-select: text; user-select: text;
+  }
+  form.search input::placeholder { color: #7A8394; }
+  .grid { width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 18px 12px; }
+  .tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-decoration: none; color: var(--ink2); font-size: 12px; font-weight: 500; border-radius: 16px; padding: 6px 4px; }
+  .tile .ic {
+    width: 64px; height: 64px; border-radius: 20px; background: #fff;
+    box-shadow: 0 1px 2px rgba(27,34,48,.06), 0 6px 16px rgba(27,34,48,.05);
+    display: flex; align-items: center; justify-content: center; font-size: 22px; font-weight: 700;
+    transition: transform .12s ease, box-shadow .12s ease;
+  }
+  .tile:hover .ic { transform: translateY(-2px); box-shadow: 0 2px 4px rgba(27,34,48,.07), 0 10px 22px rgba(27,34,48,.08); }
+  .tile .name { max-width: 92px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .tile .rm {
+    position: absolute; top: 0; right: 6px; width: 22px; height: 22px; border-radius: 11px; border: 0;
+    background: #fff; color: var(--muted); box-shadow: 0 1px 4px rgba(27,34,48,.15); cursor: pointer;
+    display: none; align-items: center; justify-content: center; padding: 0;
+  }
+  .tile:hover .rm { display: flex; }
+  .tile.add .ic { background: transparent; box-shadow: none; border: 1.5px dashed #B8C0CC; color: var(--muted); width: 62px; height: 62px; }
+  .tile.add { cursor: pointer; background: none; border: 0; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink2); }
+  .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
+  .chip { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: #fff; border: 1px solid var(--line); border-radius: 14px; font-size: 12.5px; color: var(--ink2); }
+  dialog { border: 1px solid var(--line); border-radius: 18px; padding: 22px; width: 380px; box-shadow: 0 20px 50px rgba(27,34,48,.18); color: var(--ink); }
+  dialog::backdrop { background: rgba(27,34,48,.25); }
+  dialog h2 { margin: 0 0 14px; font-size: 17px; }
+  dialog label { display: block; font-size: 12px; color: var(--muted); margin: 10px 0 5px; }
+  dialog input { width: 100%; height: 38px; border-radius: 10px; border: 1.5px solid transparent; background: #F1F4F8; padding: 0 12px; font: inherit; font-size: 14px; outline: 0; -webkit-user-select: text; user-select: text; }
+  dialog input:focus { border-color: var(--accent); background: #fff; }
+  .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
+  .btn { height: 38px; padding: 0 16px; border-radius: 12px; border: 1px solid #D7DDE6; background: #fff; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand">
+    <svg width="46" height="46" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="30" fill="#3D63DD"/><g fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"><path d="M28 48 q8 -8 16 0 t16 0 t16 0 t16 0"/><path d="M36 64 q8 -8 16 0 t16 0 t16 0" opacity=".8"/><path d="M44 80 q8 -8 16 0 t16 0" opacity=".6"/></g></svg>
+    <h1>Дымка</h1>
+  </div>
+
+  <form class="search" id="search" autocomplete="off">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B6475" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
+    <input id="q" aria-label="Поиск" placeholder="Искать в DuckDuckGo или ввести адрес">
+  </form>
+
+  <div class="grid" id="grid"></div>
+
+  <div class="stats">
+    <div class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C7F53" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span id="blocked">Сегодня заблокировано 0 трекеров</span></div>
+    <div class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3D4656" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg><span id="sleeping">Спящих вкладок нет</span></div>
+    <div class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#3D4656" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg><span id="cookies">Cookie удаляются при закрытии</span></div>
+  </div>
+</main>
+
+<dialog id="addDlg">
+  <form method="dialog" id="addForm">
+    <h2>Добавить сайт</h2>
+    <label for="addUrl">Адрес</label>
+    <input id="addUrl" placeholder="например, kad.arbitr.ru" required>
+    <label for="addTitle">Название (необязательно)</label>
+    <input id="addTitle" placeholder="Картотека">
+    <div class="row">
+      <button class="btn" value="cancel" type="button" id="addCancel">Отмена</button>
+      <button class="btn primary" value="ok" type="submit">Добавить</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+  const wv = window.chrome && window.chrome.webview;
+  const send = (m) => { if (wv) wv.postMessage(m); };
+
+  function plural(n, one, few, many) {
+    const m10 = n % 10, m100 = n % 100;
+    if (m10 === 1 && m100 !== 11) return one;
+    if (m10 >= 2 && m10 <= 4 && (m100 < 12 || m100 > 14)) return few;
+    return many;
+  }
+
+  function render(d) {
+    const grid = document.getElementById('grid');
+    grid.textContent = '';
+    for (const s of d.shortcuts) {
+      const a = document.createElement('a');
+      a.className = 'tile'; a.href = s.url; a.title = s.url;
+      const ic = document.createElement('span'); ic.className = 'ic'; ic.textContent = s.letter; ic.style.color = s.fg;
+      const nm = document.createElement('span'); nm.className = 'name'; nm.textContent = s.title;
+      const rm = document.createElement('button'); rm.className = 'rm'; rm.type = 'button'; rm.title = 'Убрать';
+      rm.setAttribute('aria-label', 'Убрать ' + s.title);
+      rm.innerHTML = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>';
+      rm.addEventListener('click', (e) => { e.preventDefault(); e.stopPropagation(); send({ type: 'remove', url: s.url }); });
+      a.append(ic, nm, rm);
+      grid.append(a);
+    }
+    const add = document.createElement('button');
+    add.className = 'tile add'; add.type = 'button';
+    add.innerHTML = '<span class="ic"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></span><span class="name">Добавить</span>';
+    add.addEventListener('click', () => { document.getElementById('addUrl').value = ''; document.getElementById('addTitle').value = ''; document.getElementById('addDlg').showModal(); });
+    grid.append(add);
+
+    const n = d.blocked;
+    document.getElementById('blocked').textContent =
+      'Сегодня ' + plural(n, 'заблокирован ', 'заблокировано ', 'заблокировано ') + n.toLocaleString('ru-RU') + ' ' + plural(n, 'трекер', 'трекера', 'трекеров');
+    const s = d.sleeping;
+    document.getElementById('sleeping').textContent = s === 0 ? 'Спящих вкладок нет'
+      : s + ' ' + plural(s, 'вкладка спит', 'вкладки спят', 'вкладок спят') + ' и не занимают память';
+    document.getElementById('cookies').textContent = d.clearOnExit ? 'Cookie удаляются при закрытии' : 'Cookie сохраняются после закрытия';
+    document.getElementById('q').placeholder = 'Искать в ' + d.engine + ' или ввести адрес';
+  }
+
+  if (wv) {
+    wv.addEventListener('message', (e) => { if (e.data && e.data.type === 'data') render(e.data); });
+    send({ type: 'init' });
+  }
+
+  document.getElementById('search').addEventListener('submit', (e) => {
+    e.preventDefault();
+    const q = document.getElementById('q').value.trim();
+    if (q) send({ type: 'go', q });
+  });
+
+  document.getElementById('addCancel').addEventListener('click', () => document.getElementById('addDlg').close());
+  document.getElementById('addForm').addEventListener('submit', () => {
+    const url = document.getElementById('addUrl').value.trim();
+    const title = document.getElementById('addTitle').value.trim();
+    if (url) send({ type: 'add', url, title });
+  });
+
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) send({ type: 'init' }); });
+</script>
+</body>
+</html>

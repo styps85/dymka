@@ -1,0 +1,173 @@
+<Window x:Class="Dymka.SettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:local="clr-namespace:Dymka"
+        Title="Настройки - Дымка" Width="640" Height="760" MinWidth="520" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+  <Window.Resources>
+    <Style x:Key="Card" TargetType="Border">
+      <Setter Property="Background" Value="White"/>
+      <Setter Property="CornerRadius" Value="16"/>
+      <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="20,16"/>
+      <Setter Property="Margin" Value="0,0,0,14"/>
+    </Style>
+    <Style x:Key="CardTitle" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="15"/>
+      <Setter Property="FontWeight" Value="Bold"/>
+      <Setter Property="Margin" Value="0,0,0,12"/>
+    </Style>
+    <Style x:Key="Hint" TargetType="TextBlock">
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="TextWrapping" Value="Wrap"/>
+      <Setter Property="Margin" Value="0,3,0,0"/>
+    </Style>
+    <Style x:Key="Chip" TargetType="RadioButton">
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Margin" Value="0,0,8,8"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="RadioButton">
+            <Border x:Name="Bd" CornerRadius="16" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
+                    Background="White" Padding="14,6">
+              <ContentPresenter TextElement.FontSize="13"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsChecked" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+              </Trigger>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+              </Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
+  </Window.Resources>
+
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
+      <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+        <Button Content="Отмена" Style="{StaticResource SecondaryButton}" MinWidth="100" IsCancel="True"/>
+        <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="8,0,0,0"
+                IsDefault="True" Click="Save_Click"/>
+      </StackPanel>
+    </Border>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,20,20,6">
+      <StackPanel>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Вид" Style="{StaticResource CardTitle}"/>
+            <UniformGrid Columns="2">
+              <RadioButton x:Name="LayoutTop" GroupName="layout" Style="{StaticResource ChoiceRadio}" Margin="0,0,6,0">
+                <StackPanel Orientation="Horizontal">
+                  <local:Glyph Data="{StaticResource IcLayoutTop}" Size="22" Foreground="{StaticResource Ink2}" Margin="0,0,10,0"/>
+                  <StackPanel>
+                    <TextBlock Text="Вкладки сверху" FontWeight="SemiBold"/>
+                    <TextBlock Text="Как в Chrome" Style="{StaticResource Hint}"/>
+                  </StackPanel>
+                </StackPanel>
+              </RadioButton>
+              <RadioButton x:Name="LayoutSide" GroupName="layout" Style="{StaticResource ChoiceRadio}" Margin="6,0,0,0">
+                <StackPanel Orientation="Horizontal">
+                  <local:Glyph Data="{StaticResource IcLayoutSide}" Size="22" Foreground="{StaticResource Ink2}" Margin="0,0,10,0"/>
+                  <StackPanel>
+                    <TextBlock Text="Вкладки сбоку" FontWeight="SemiBold"/>
+                    <TextBlock Text="Длинные названия целиком" Style="{StaticResource Hint}"/>
+                  </StackPanel>
+                </StackPanel>
+              </RadioButton>
+            </UniformGrid>
+            <TextBlock Text="Переключить вид можно и в меню «⋯» - «Вкладки сбоку / сверху»." Style="{StaticResource Hint}" Margin="0,10,0,0"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Поиск" Style="{StaticResource CardTitle}"/>
+            <WrapPanel x:Name="EnginePanel"/>
+            <TextBlock Text="DuckDuckGo и Startpage не собирают историю поиска." Style="{StaticResource Hint}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Экономия памяти" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Усыплять вкладку, если она не открывалась:" Margin="0,0,0,8"/>
+            <WrapPanel x:Name="SleepPanel"/>
+            <TextBlock Text="Спящая вкладка не занимает память и загружается заново, когда вы к ней возвращаетесь. Вкладки, где играет звук, не засыпают."
+                       Style="{StaticResource Hint}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Конфиденциальность" Style="{StaticResource CardTitle}"/>
+
+            <DockPanel Margin="0,0,0,12">
+              <CheckBox x:Name="ClearOnExit" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Удалять cookie и данные сайтов при закрытии"/>
+                <TextBlock Text="Кроме cookie сайтов из белого списка ниже." Style="{StaticResource Hint}"/>
+              </StackPanel>
+            </DockPanel>
+
+            <DockPanel Margin="0,0,0,12">
+              <CheckBox x:Name="Block3p" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Блокировать сторонние cookie"/>
+                <TextBlock Text="Изменение вступит в силу после перезапуска браузера." Style="{StaticResource Hint}"/>
+              </StackPanel>
+            </DockPanel>
+
+            <DockPanel Margin="0,0,0,4">
+              <CheckBox x:Name="AutoLists" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Обновлять списки блокировки раз в неделю"/>
+                <TextBlock x:Name="ListsInfo" Style="{StaticResource Hint}"/>
+              </StackPanel>
+            </DockPanel>
+            <Button Content="Обновить списки сейчас" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                    Margin="0,8,0,0" Click="UpdateLists_Click" x:Name="UpdateListsBtn"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Белый список cookie" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Сайты, на которых вход сохраняется после закрытия браузера. По одному в строке." Style="{StaticResource Hint}" Margin="0,-6,0,8"/>
+            <TextBox x:Name="Whitelist" Style="{StaticResource FieldBox}" AcceptsReturn="True" Height="110"
+                     TextWrapping="NoWrap" VerticalContentAlignment="Top"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Сайты без блокировки" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Если сайт работает неправильно, блокировку на нём можно выключить. По одному в строке." Style="{StaticResource Hint}" Margin="0,-6,0,8"/>
+            <TextBox x:Name="Exceptions" Style="{StaticResource FieldBox}" AcceptsReturn="True" Height="90"
+                     TextWrapping="NoWrap" VerticalContentAlignment="Top"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Разрешения сайтов" Style="{StaticResource CardTitle}"/>
+            <TextBlock x:Name="PermInfo" Style="{StaticResource Hint}" Margin="0,-6,0,8"/>
+            <Button Content="Сбросить все разрешения" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
+                    Click="ResetPermissions_Click" x:Name="ResetPermBtn"/>
+          </StackPanel>
+        </Border>
+
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

@@ -1,0 +1,89 @@
+name: Сборка Dymka.exe
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: "1"
+  DOTNET_CLI_TELEMETRY_OPTOUT: "1"
+
+jobs:
+  build:
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+
+      - name: Тесты ядра (адреса, списки блокировки, настройки)
+        run: dotnet run --project tests/Dymka.Tests -c Release
+
+      - name: Сборка - один файл Dymka.exe
+        run: >
+          dotnet publish src/Dymka/Dymka.csproj -c Release -r win-x64 --self-contained true
+          -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true -p:DebugType=none
+          -p:Version=1.0.${{ github.run_number }} -o dist/single
+
+      - name: Сборка - папка (быстрый запуск)
+        run: |
+          dotnet publish src/Dymka/Dymka.csproj -c Release -r win-x64 --self-contained true -p:PublishReadyToRun=true -p:DebugType=none -p:Version=1.0.${{ github.run_number }} -o dist/folder/Dymka
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          Compress-Archive -Path dist/folder/Dymka -DestinationPath dist/Dymka-folder.zip
+
+      - name: Самопроверка собранной программы (со снимками экрана)
+        run: |
+          $dir = Join-Path $env:RUNNER_TEMP "selftest"
+          $data = Join-Path $env:RUNNER_TEMP "dymka-data"
+          $p = Start-Process -FilePath "dist/single/Dymka.exe" -ArgumentList @("--selftest", $dir, "--data", $data) -PassThru
+          if (-not $p.WaitForExit(330000)) { $p.Kill(); Write-Host "::error::Самопроверка зависла" }
+          New-Item -ItemType Directory -Force -Path dist/selftest | Out-Null
+          if (Test-Path $dir) { Copy-Item "$dir/*" dist/selftest/ }
+          if (Test-Path "$data/log.txt") { Copy-Item "$data/log.txt" dist/selftest/log.txt }
+          if (-not (Test-Path "$dir/selftest.txt")) { Write-Host "::error::Отчёт самопроверки не создан"; exit 1 }
+          $report = Get-Content "$dir/selftest.txt" -Raw -Encoding utf8
+          Write-Host $report
+          if ($report -notmatch "РЕЗУЛЬТАТ: OK") {
+            $msg = ($report -split "`n" | Where-Object { $_ -match "ПРОВАЛ|ОШИБКА|ИСКЛЮЧЕНИЕ" }) -join "%0A"
+            Write-Host "::error title=Самопроверка::$msg"
+            exit 1
+          }
+
+      - name: Снимки и отчёт самопроверки
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: selftest-${{ github.run_number }}
+          path: dist/selftest
+          if-no-files-found: ignore
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Dymka-${{ github.run_number }}
+          path: |
+            dist/single/Dymka.exe
+            dist/Dymka-folder.zip
+
+      - name: Публикация релиза
+        env:
+          GH_TOKEN: ${{ github.token }}
+          COMMIT_MSG: ${{ github.event.head_commit.message }}
+        run: |
+          $tag = "v1.0.${{ github.run_number }}"
+          $first = ($env:COMMIT_MSG -split "`n")[0]
+          $notes = @"
+          Сборка ${{ github.run_number }} от $(Get-Date -Format 'dd.MM.yyyy HH:mm') (UTC).
+          Изменения: $first
+
+          Dymka.exe - браузер одним файлом, установка не нужна.
+          Dymka-folder.zip - то же самое в виде папки: запускается быстрее. Распакуйте и запускайте Dymka.exe.
+          "@
+          gh release create $tag dist/single/Dymka.exe dist/Dymka-folder.zip --title "Дымка 1.0.${{ github.run_number }}" --notes $notes --latest

@@ -1,0 +1,146 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace Dymka.Core;
+
+public sealed class Shortcut
+{
+    public string Title { get; set; } = "";
+    public string Url { get; set; } = "";
+}
+
+public sealed record ContainerInfo(string Id, string Name, string Color);
+
+public sealed record SearchEngine(string Id, string Name, string Template);
+
+/// <summary>Настройки браузера. Хранятся в %LOCALAPPDATA%\Dymka\settings.json.</summary>
+public sealed class AppSettings
+{
+    public static readonly ContainerInfo[] Containers =
+    {
+        new("work", "Работа", "#3D63DD"),
+        new("personal", "Личное", "#1C7F6E"),
+        new("bank", "Банк", "#C2552E"),
+    };
+
+    public static readonly SearchEngine[] Engines =
+    {
+        new("ddg", "DuckDuckGo", "https://duckduckgo.com/?q={0}"),
+        new("startpage", "Startpage", "https://www.startpage.com/do/search?query={0}"),
+        new("yandex", "Яндекс", "https://yandex.ru/search/?text={0}"),
+        new("google", "Google", "https://www.google.com/search?q={0}"),
+    };
+
+    /// <summary>"top" - вкладки сверху, "side" - вкладки сбоку.</summary>
+    public string Layout { get; set; } = "top";
+    public string SearchEngineId { get; set; } = "ddg";
+    public string LastContainer { get; set; } = "work";
+
+    /// <summary>Через сколько минут неактивная вкладка засыпает (0 - никогда).</summary>
+    public int SleepMinutes { get; set; } = 15;
+
+    public bool ClearCookiesOnExit { get; set; } = true;
+    public bool BlockThirdPartyCookies { get; set; } = true;
+    public bool AutoUpdateLists { get; set; } = true;
+    public DateTime LastListUpdate { get; set; } = DateTime.MinValue;
+
+    /// <summary>Сайты, cookie которых сохраняются после закрытия.</summary>
+    public List<string> CookieWhitelist { get; set; } = new()
+    {
+        "gosuslugi.ru", "esia.gosuslugi.ru", "nalog.gov.ru", "my.arbitr.ru",
+    };
+
+    /// <summary>Сайты, на которых блокировка трекеров выключена.</summary>
+    public List<string> TrackerExceptions { get; set; } = new();
+
+    /// <summary>Решения по разрешениям: "site.ru|camera" -> true/false.</summary>
+    public Dictionary<string, bool> SitePermissions { get; set; } = new();
+
+    public List<Shortcut> Shortcuts { get; set; } = new()
+    {
+        new() { Title = "Картотека", Url = "https://kad.arbitr.ru/" },
+        new() { Title = "Госуслуги", Url = "https://www.gosuslugi.ru/" },
+        new() { Title = "ЕФРСБ", Url = "https://fedresurs.ru/" },
+        new() { Title = "Dropbox", Url = "https://www.dropbox.com/home" },
+    };
+
+    /// <summary>Контейнеры, данные которых ещё не очищены (браузер закрылся аварийно).</summary>
+    public List<string> PendingCleanup { get; set; } = new();
+
+    public DateTime StatsDate { get; set; } = DateTime.Today;
+    public int BlockedToday { get; set; }
+
+    public double WindowLeft { get; set; } = double.NaN;
+    public double WindowTop { get; set; } = double.NaN;
+    public double WindowWidth { get; set; } = 1280;
+    public double WindowHeight { get; set; } = 820;
+    public bool WindowMaximized { get; set; }
+
+    [JsonIgnore] public string Path { get; private set; } = "";
+
+    public SearchEngine Engine => Engines.FirstOrDefault(e => e.Id == SearchEngineId) ?? Engines[0];
+
+    public static ContainerInfo ContainerById(string? id) =>
+        Containers.FirstOrDefault(c => c.Id == id) ?? Containers[0];
+
+    static readonly JsonSerializerOptions JsonOpts = new()
+    {
+        WriteIndented = true,
+        Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+        NumberHandling = JsonNumberHandling.AllowNamedFloatingPointLiterals,
+    };
+
+    public static AppSettings Load(string path)
+    {
+        AppSettings s;
+        try
+        {
+            s = File.Exists(path)
+                ? JsonSerializer.Deserialize<AppSettings>(File.ReadAllText(path), JsonOpts) ?? new AppSettings()
+                : new AppSettings();
+        }
+        catch
+        {
+            s = new AppSettings();
+        }
+        s.Path = path;
+        if (s.Layout != "top" && s.Layout != "side") s.Layout = "top";
+        if (s.StatsDate.Date != DateTime.Today) { s.StatsDate = DateTime.Today; s.BlockedToday = 0; }
+        return s;
+    }
+
+    public void Save()
+    {
+        if (string.IsNullOrEmpty(Path)) return;
+        try
+        {
+            Directory.CreateDirectory(System.IO.Path.GetDirectoryName(Path)!);
+            var tmp = Path + ".tmp";
+            File.WriteAllText(tmp, JsonSerializer.Serialize(this, JsonOpts));
+            File.Move(tmp, Path, true);
+        }
+        catch
+        {
+            // настройки не критичны: при ошибке записи браузер продолжает работу
+        }
+    }
+
+    public void CountBlocked(int n = 1)
+    {
+        if (StatsDate.Date != DateTime.Today) { StatsDate = DateTime.Today; BlockedToday = 0; }
+        BlockedToday += n;
+    }
+
+    public bool KeepsCookies(string host) => UrlTools.HostMatches(host, CookieWhitelist);
+
+    public bool IsTrackerException(string host) => UrlTools.HostMatches(host, TrackerExceptions);
+
+    public void SetListMembership(List<string> list, string host, bool member)
+    {
+        var domain = UrlTools.RegistrableDomain(host);
+        list.RemoveAll(d => UrlTools.HostMatches(host, new[] { d }));
+        if (member) list.Add(domain);
+    }
+
+    public static string PermissionKey(string host, string kind) => UrlTools.RegistrableDomain(host) + "|" + kind;
+}
