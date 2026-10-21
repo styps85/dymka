@@ -120,6 +120,36 @@ sealed class SelfTest
             Check(okImg == "true", "обычная картинка с другого сайта загрузилась (блокировка не лишняя)");
             Capture(_w, "01b-trackers");
 
+            // сторонние cookie: страница на одном сайте, во фрейме - другой сайт, который пытается записать cookie
+            File.WriteAllText(Path.Combine(testDir, "frame.html"),
+                "<!doctype html><script>document.cookie='t3=1; SameSite=None; Secure; Max-Age=600';" +
+                "parent.postMessage('frame-cookie:' + (document.cookie.indexOf('t3=1') >= 0 ? 'записан' : 'заблокирован'), '*');</script>");
+            File.WriteAllText(Path.Combine(testDir, "cookies.html"),
+                "<!doctype html><meta charset=\"utf-8\"><title>cookie</title><script>" +
+                "document.cookie='t1=1; SameSite=Lax; Secure; Max-Age=600';" +
+                "window.addEventListener('message', function(e){ document.title = 'первая сторона: ' + (document.cookie.indexOf('t1=1') >= 0 ? 'записан' : 'нет') + '; ' + e.data; });" +
+                "</script><iframe src=\"https://other.dymka-test.net/frame.html\"></iframe>");
+            startCore.SetVirtualHostNameToFolderMapping("other.dymka-test.net", testDir,
+                Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            _w.Navigate(probe, "https://trackers.dymka-test.org/cookies.html");
+            await WaitFor(() => startCore.DocumentTitle.Contains("frame-cookie"), 15);
+            Line("ИНФО cookie: " + startCore.DocumentTitle);
+
+            // горячие клавиши, когда фокус внутри страницы
+            int before = _w.Tabs.Count;
+            probe.View!.Focus();
+            await Task.Delay(500);
+            Native.PressCtrl(0x54); // Ctrl+T
+            bool keyOk = await WaitFor(() => _w.Tabs.Count == before + 1, 5);
+            Line((keyOk ? "ИНФО OK " : "ИНФО НЕТ ") + "Ctrl+T из страницы открывает вкладку");
+            if (keyOk)
+            {
+                Native.PressCtrl(0x57); // Ctrl+W
+                await WaitFor(() => _w.Tabs.Count == before, 5);
+                Line("ИНФО Ctrl+W: вкладок " + _w.Tabs.Count);
+            }
+            if (_w.ActiveTab != probe) _w.Activate(probe);
+
             var first = _w.ActiveTab!;
             _w.Navigate(first, "https://example.com/?utm_source=selftest&x=1");
             Check(await WaitFor(() => first.Url.StartsWith("https://example.com") && !first.IsLoading, 40),

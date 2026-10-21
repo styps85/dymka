@@ -68,6 +68,17 @@ static class Native
     const int SRCCOPY = 0x00CC0020;
     const int CAPTUREBLT = 0x40000000;
 
+    [DllImport("user32.dll")] static extern void keybd_event(byte vk, byte scan, int flags, UIntPtr extra);
+
+    /// <summary>Нажать сочетание Ctrl+клавиша (для самопроверки горячих клавиш).</summary>
+    public static void PressCtrl(byte vk)
+    {
+        keybd_event(0x11, 0, 0, UIntPtr.Zero);
+        keybd_event(vk, 0, 0, UIntPtr.Zero);
+        keybd_event(vk, 0, 2, UIntPtr.Zero);
+        keybd_event(0x11, 0, 2, UIntPtr.Zero);
+    }
+
     public static bool IsCtrlDown() => GetKeyState(0x11) < 0;
     public static bool IsShiftDown() => GetKeyState(0x10) < 0;
 
