@@ -122,7 +122,7 @@ sealed class SelfTest
 
             // сторонние cookie: страница на одном сайте, во фрейме - другой сайт, который пытается записать cookie
             File.WriteAllText(Path.Combine(testDir, "frame.html"),
-                "<!doctype html><script>document.cookie='t3=1; SameSite=None; Secure; Max-Age=600';" +
+                "<!doctype html><meta charset=\"utf-8\"><script>document.cookie='t3=1; SameSite=None; Secure; Max-Age=600';" +
                 "parent.postMessage('frame-cookie:' + (document.cookie.indexOf('t3=1') >= 0 ? 'записан' : 'заблокирован'), '*');</script>");
             File.WriteAllText(Path.Combine(testDir, "cookies.html"),
                 "<!doctype html><meta charset=\"utf-8\"><title>cookie</title><script>" +
@@ -133,7 +133,9 @@ sealed class SelfTest
                 Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
             _w.Navigate(probe, "https://trackers.dymka-test.org/cookies.html");
             await WaitFor(() => startCore.DocumentTitle.Contains("frame-cookie"), 15);
-            Line("ИНФО cookie: " + startCore.DocumentTitle);
+            var ct = startCore.DocumentTitle;
+            Check(ct.Contains("первая сторона: записан"), "cookie самого сайта сохраняются: " + ct);
+            Check(ct.Contains("frame-cookie:заблокирован"), "сторонние cookie (во фрейме другого сайта) заблокированы");
 
             // горячие клавиши, когда фокус внутри страницы
             int tabsBefore = _w.Tabs.Count;
@@ -141,7 +143,7 @@ sealed class SelfTest
             await Task.Delay(500);
             Native.PressCtrl(0x54); // Ctrl+T
             bool keyOk = await WaitFor(() => _w.Tabs.Count == tabsBefore + 1, 5);
-            Line((keyOk ? "ИНФО OK " : "ИНФО НЕТ ") + "Ctrl+T из страницы открывает вкладку");
+            Check(keyOk, "Ctrl+T при фокусе в странице открывает вкладку");
             if (keyOk)
             {
                 Native.PressCtrl(0x57); // Ctrl+W
