@@ -62,6 +62,17 @@ jobs:
             exit 1
           }
 
+      - name: Замер памяти (одним файлом и папкой)
+        run: |
+          foreach ($v in @(@("один файл", "dist/single/Dymka.exe"), @("папка", "dist/folder/Dymka/Dymka.exe"))) {
+            $out = Join-Path $env:RUNNER_TEMP ("mem-" + [guid]::NewGuid() + ".txt")
+            $data = Join-Path $env:RUNNER_TEMP ("memdata-" + [guid]::NewGuid())
+            $p = Start-Process -FilePath $v[1] -ArgumentList @("--memtest", $out, "--data", $data) -PassThru
+            if (-not $p.WaitForExit(90000)) { $p.Kill() }
+            $r = if (Test-Path $out) { Get-Content $out -Raw -Encoding utf8 } else { "нет результата" }
+            Write-Host "::notice title=Память - $($v[0])::$r"
+          }
+
       - name: Снимки и отчёт самопроверки
         if: always()
         uses: actions/upload-artifact@v4

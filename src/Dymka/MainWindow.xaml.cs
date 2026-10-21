@@ -171,6 +171,26 @@ public partial class MainWindow : Window
 
         if (_selfTestDir != null)
             _ = new SelfTest(this, _selfTestDir).RunAsync();
+        else if (MemTestFile != null)
+            _ = RunMemTestAsync(MemTestFile);
+    }
+
+    /// <summary>Замер памяти для автосборки: стартовая страница, пауза, запись результата, выход.</summary>
+    public string? MemTestFile { get; init; }
+
+    async Task RunMemTestAsync(string file)
+    {
+        var until = DateTime.Now.AddSeconds(40);
+        while (DateTime.Now < until && (_active?.View?.CoreWebView2 == null || _active.IsLoading)) await Task.Delay(250);
+        await Task.Delay(6000);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        await Task.Delay(1500);
+        UpdateMemory();
+        File.WriteAllText(file, $"{MemoryBytes / 1048576} МБ ({MemoryDetails})");
+        _cleanupDone = true;
+        Close();
     }
 
     void WriteStartPage()

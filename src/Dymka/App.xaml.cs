@@ -34,12 +34,13 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
-        string? selfTest = null, dataDir = null, url = null;
+        string? selfTest = null, dataDir = null, url = null, memTest = null;
         var args = e.Args;
         for (int i = 0; i < args.Length; i++)
         {
             if (args[i] == "--selftest" && i + 1 < args.Length) selfTest = args[++i];
             else if (args[i] == "--data" && i + 1 < args.Length) dataDir = args[++i];
+            else if (args[i] == "--memtest" && i + 1 < args.Length) memTest = args[++i];
             else if (!args[i].StartsWith("--")) url = args[i];
         }
 
@@ -53,7 +54,7 @@ public partial class App : Application
         var settings = AppSettings.Load(Path.Combine(dataDir, "settings.json"));
         if (url != null && File.Exists(url)) url = new Uri(Path.GetFullPath(url)).AbsoluteUri;
 
-        var w = new MainWindow(settings, dataDir, selfTest, url);
+        var w = new MainWindow(settings, dataDir, selfTest, url) { MemTestFile = memTest };
         MainWindow = w;
         w.Show();
     }
