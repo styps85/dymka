@@ -11,6 +11,7 @@ public partial class ExtensionsWindow : Window
     readonly AppSettings _s;
     readonly string _dir;
     List<FoundExtension> _found = new();
+    bool _scanned;
 
     public bool Changed { get; private set; }
 
@@ -24,6 +25,7 @@ public partial class ExtensionsWindow : Window
             var local = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
             var roaming = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
             _found = await Task.Run(() => ExtensionScanner.ScanInstalledBrowsers(local, roaming));
+            _scanned = true;
             Render();
         };
         Render();
@@ -61,7 +63,8 @@ public partial class ExtensionsWindow : Window
         {
             FoundList.Children.Add(new TextBlock
             {
-                Text = "Ищу расширения в Яндекс Браузере, Chrome, Edge, Opera…", Foreground = (Brush)FindResource("Muted"), FontSize = 12.5,
+                Text = _scanned ? "В других браузерах на этом компьютере расширений не найдено." : "Ищу расширения в Яндекс Браузере, Chrome, Edge, Opera…",
+                Foreground = (Brush)FindResource("Muted"), FontSize = 12.5,
             });
             return;
         }
@@ -91,7 +94,6 @@ public partial class ExtensionsWindow : Window
                 }
             };
             string meta = $"{ext.Source} · версия {ext.Version}" + (ext.UsesNativeMessaging ? " · работает с программой на компьютере" : "");
-            InstalledList.Tag = null;
             FoundList.Children.Add(Row(LoadIcon(ext.IconPath), ext.Name, meta, ext.Description, btn, null, ext.ForSignature));
         }
     }

@@ -239,6 +239,19 @@ sealed class SelfTest
             await Task.Delay(1500);
             Check(_w.IsVisible && Shared.Windows.Count == 1, "после закрытия второго окна первое продолжает работать");
 
+            // перевод видео: встроенное расширение VOT на YouTube
+            _w.Settings.VideoTranslation = true;
+            await _w.ResyncExtensionsAsync();
+            var yt = await _w.NewTabAsync("https://www.youtube.com/watch?v=jNQXAC9IVRw", activate: true);
+            await WaitFor(() => yt.Url.Contains("youtube.com") && !yt.IsLoading, 40);
+            var ytCore = yt.View?.CoreWebView2;
+            string vot = ytCore == null ? "" : await PollScript(ytCore,
+                "!!document.querySelector('[class*=\"vot\"],[id*=\"vot\"]')", v => v == "true", 25);
+            Check(vot == "true", "перевод видео: на странице YouTube появилась кнопка перевода");
+            await Task.Delay(1500);
+            Capture(_w, "17-video-translation");
+            _w.Settings.VideoTranslation = false;
+
             // окно расширений
             var ew = new ExtensionsWindow(_w.Settings, Path.Combine(_dir, "ext-copies")) { Owner = _w, Topmost = true };
             ew.Show();

@@ -10,6 +10,7 @@ public partial class SettingsWindow : Window
     bool _resetPermissions;
 
     public bool UpdateListsRequested { get; private set; }
+    public bool VideoTranslationChanged { get; private set; }
 
     static readonly (int minutes, string text)[] SleepChoices =
     {
@@ -46,6 +47,7 @@ public partial class SettingsWindow : Window
                 Content = text, Tag = id, GroupName = "smartscreen", Style = chip, IsChecked = _s.SmartScreenMode == id,
             });
         CheckUpdatesBox.IsChecked = _s.CheckUpdates;
+        VideoTranslationBox.IsChecked = _s.VideoTranslation;
         VersionInfo.Text = $"Установлена версия {App.VersionText}. Новая версия скачивается и устанавливается по вашему согласию.";
 
         ClearOnExit.IsChecked = _s.ClearCookiesOnExit;
@@ -83,6 +85,8 @@ public partial class SettingsWindow : Window
         foreach (RadioButton r in SmartScreenPanel.Children)
             if (r.IsChecked == true) _s.SmartScreenMode = (string)r.Tag;
         _s.CheckUpdates = CheckUpdatesBox.IsChecked == true;
+        VideoTranslationChanged = _s.VideoTranslation != (VideoTranslationBox.IsChecked == true);
+        _s.VideoTranslation = VideoTranslationBox.IsChecked == true;
         _s.ClearCookiesOnExit = ClearOnExit.IsChecked == true;
         _s.BlockThirdPartyCookies = Block3p.IsChecked == true;
         _s.AutoUpdateLists = AutoLists.IsChecked == true;

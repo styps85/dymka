@@ -63,6 +63,10 @@ public sealed class AppSettings
 
     public bool CheckUpdates { get; set; } = true;
 
+    /// <summary>Перевод видео (встроенное расширение voice-over-translation, сервис Яндекса). По умолчанию выключен.</summary>
+    public bool VideoTranslation { get; set; }
+    public string BuiltinVotFolder { get; set; } = "";
+
     // --- печать: запоминаем последний выбор
     public string PrintPrinter { get; set; } = "";
     public bool PrintLandscape { get; set; }

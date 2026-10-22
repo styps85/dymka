@@ -1355,6 +1355,11 @@ public partial class MainWindow : Window
             foreach (var t in _tabs)
                 try { if (t.View?.CoreWebView2 != null) t.View.CoreWebView2.Settings.IsReputationCheckingRequired = _settings.UseSmartScreen(t.Container); } catch { }
             if (w.UpdateListsRequested) _ = UpdateListsAsync();
+            if (w.VideoTranslationChanged)
+            {
+                _ = ResyncExtensionsAsync();
+                ShowToast(_settings.VideoTranslation ? "Перевод видео включён. Перезагрузите страницу с видео (F5)" : "Перевод видео выключен");
+            }
         }
     }
 

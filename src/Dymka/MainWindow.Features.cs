@@ -380,7 +380,7 @@ public partial class MainWindow
                 var entry = wanted.FirstOrDefault(w => w.Id == ext.Id || w.Name == ext.Name);
                 if (entry == null)
                 {
-                    if (ext.Name.StartsWith("Dymka ")) continue;   // служебные расширения самопроверки
+                    if (ext.Name.StartsWith("Dymka ") || IsVot(ext)) continue;   // самопроверка и встроенный перевод видео
                     await ext.RemoveAsync();
                 }
                 else if (ext.IsEnabled != entry.Enabled)
@@ -388,6 +388,7 @@ public partial class MainWindow
                     await ext.EnableAsync(entry.Enabled);
                 }
             }
+            await EnsureVotAsync(core.Profile, installed);
             foreach (var entry in wanted)
             {
                 if (installed.Any(x => x.Id == entry.Id || x.Name == entry.Name)) continue;
@@ -407,6 +408,56 @@ public partial class MainWindow
         catch (Exception ex)
         {
             App.Log("Расширения: " + ex.Message);
+        }
+    }
+
+    static bool IsVot(CoreWebView2BrowserExtension e) => e.Name.Contains("Voice Over Translation", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Встроенный перевод видео: распаковывает расширение VOT и ставит его в профиль (или убирает, если выключено).</summary>
+    async Task EnsureVotAsync(CoreWebView2Profile profile, IReadOnlyList<CoreWebView2BrowserExtension> installed)
+    {
+        var vot = installed.FirstOrDefault(IsVot);
+        if (!_settings.VideoTranslation)
+        {
+            if (vot != null) await vot.RemoveAsync();
+            return;
+        }
+        var folder = ExtractVot();
+        if (folder == null) return;
+        if (vot != null && _settings.BuiltinVotFolder == folder)
+        {
+            if (!vot.IsEnabled) await vot.EnableAsync(true);
+            return;
+        }
+        if (vot != null) await vot.RemoveAsync();
+        await profile.AddBrowserExtensionAsync(folder);
+        _settings.BuiltinVotFolder = folder;
+        _settings.Save();
+    }
+
+    string? ExtractVot()
+    {
+        try
+        {
+            using var s = typeof(MainWindow).Assembly.GetManifestResourceStream("Dymka.vot.zip");
+            if (s == null) return null;
+            var ms = new MemoryStream();
+            s.CopyTo(ms);
+            var hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(ms.ToArray()))[..10].ToLowerInvariant();
+            var folder = Path.Combine(_dataDir, "builtin", "vot-" + hash);
+            if (!File.Exists(Path.Combine(folder, "manifest.json")))
+            {
+                if (Directory.Exists(folder)) Directory.Delete(folder, true);
+                ms.Position = 0;
+                using var zip = new System.IO.Compression.ZipArchive(ms, System.IO.Compression.ZipArchiveMode.Read);
+                zip.ExtractToDirectory(folder);
+            }
+            return folder;
+        }
+        catch (Exception ex)
+        {
+            App.Log("Перевод видео: " + ex.Message);
+            return null;
         }
     }
 

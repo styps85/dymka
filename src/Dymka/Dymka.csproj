@@ -37,6 +37,7 @@
     <Resource Include="Assets\dymka.ico" />
     <Resource Include="Assets\dymka-256.png" />
     <EmbeddedResource Include="Web\start.html" LogicalName="Dymka.Web.start.html" />
+    <EmbeddedResource Include="Bundled\vot-extension.zip" LogicalName="Dymka.vot.zip" Condition="Exists('Bundled\vot-extension.zip')" />
   </ItemGroup>
 
 </Project>

@@ -26,6 +26,13 @@ jobs:
       - name: Тесты ядра (адреса, списки блокировки, настройки)
         run: dotnet run --project tests/Dymka.Tests -c Release
 
+      - name: Перевод видео - свежая версия расширения voice-over-translation
+        continue-on-error: true
+        run: |
+          $tmp = Join-Path $env:RUNNER_TEMP "vot.zip"
+          Invoke-WebRequest -Uri "https://github.com/ilyhalight/voice-over-translation/releases/latest/download/vot-extension-chrome.zip" -OutFile $tmp
+          if ((Get-Item $tmp).Length -gt 100000) { Copy-Item $tmp src/Dymka/Bundled/vot-extension.zip -Force }
+
       - name: Сборка - один файл Dymka.exe
         run: |
           Write-Host "::remove-matcher owner=csc::"

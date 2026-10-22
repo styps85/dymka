@@ -167,6 +167,20 @@
 
         <Border Style="{StaticResource Card}">
           <StackPanel>
+            <TextBlock Text="Перевод видео" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="VideoTranslationBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Закадровый перевод и субтитры на русском"/>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="На YouTube, VK Видео, Rutube, Vimeo и других сайтах на видео появится кнопка «Перевести». Перевод делает сервис Яндекса (открытый проект voice-over-translation): адрес видео отправляется на его серверы."/>
+              </StackPanel>
+            </DockPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
             <TextBlock Text="Обновления" Style="{StaticResource CardTitle}"/>
             <DockPanel>
               <CheckBox x:Name="CheckUpdatesBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
