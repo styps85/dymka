@@ -138,10 +138,11 @@ public partial class MainWindow
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         w.WindowStartupLocation = WindowStartupLocation.Manual;
         w.WindowState = WindowState.Normal;
-        w.Left = b.Left + 36;
-        w.Top = b.Top + 36;
-        w.Width = b.Width;
-        w.Height = b.Height;
+        var area = SystemParameters.WorkArea;
+        w.Width = Math.Min(b.Width, area.Width);
+        w.Height = Math.Min(b.Height, area.Height);
+        w.Left = Math.Max(area.Left, Math.Min(b.Left + 36, area.Right - w.Width));
+        w.Top = Math.Max(area.Top, Math.Min(b.Top + 36, area.Bottom - w.Height));
         w.Show();
         return w;
     }

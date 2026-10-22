@@ -233,8 +233,13 @@ sealed class SelfTest
             // второе окно
             var w2 = _w.OpenWindow("https://example.com/", "work");
             Check(await WaitFor(() => w2.ActiveTab?.View?.CoreWebView2 != null && w2.ActiveTab.IsLoading == false, 30), "открылось второе окно");
+            _w.Topmost = false;
+            w2.Topmost = true;
+            w2.Activate();
             await Task.Delay(800);
             Capture(w2, "15-second-window");
+            w2.Topmost = false;
+            _w.Topmost = true;
             w2.Close();
             await Task.Delay(1500);
             Check(_w.IsVisible && Shared.Windows.Count == 1, "после закрытия второго окна первое продолжает работать");
