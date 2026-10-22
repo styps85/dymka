@@ -200,9 +200,15 @@ sealed class SelfTest
             _w.OpenAddressMenu();
             await Task.Delay(700);
             Capture(_w, "12-address-menu");
-            _w.ShowQrForTest();
-            await Task.Delay(500);
+            Native.ClickCenter(_w.QrButtonForTest);           // настоящий щелчок мышью, как у пользователя
+            Check(await WaitFor(() => _w.QrShownForTest, 4), "QR-код появляется по щелчку мышью, меню не закрывается");
+            await Task.Delay(400);
             Capture(_w, "12b-address-qr");
+            Native.ClickCenter(_w.CopyButtonForTest);
+            await Task.Delay(600);
+            string clip = "";
+            try { clip = Clipboard.GetText(); } catch { }
+            Check(clip == a.Url && !_w.AddressMenuOpen, "«Скопировать адрес» по щелчку мышью: адрес в буфере обмена");
             _w.ClosePopups();
 
             // закрепление

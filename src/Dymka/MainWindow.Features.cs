@@ -404,6 +404,10 @@ public partial class MainWindow
     }
 
     public void ShowQrForTest() => AmQr_Click(this, new RoutedEventArgs());
+    public FrameworkElement QrButtonForTest => AmQrBtn;
+    public FrameworkElement CopyButtonForTest => AmCopyBtn;
+    public bool QrShownForTest => AmQrBox.Visibility == Visibility.Visible && AddressMenu.IsOpen;
+    public bool AddressMenuOpen => AddressMenu.IsOpen;
 
     void AmPin_Click(object sender, RoutedEventArgs e)
     {

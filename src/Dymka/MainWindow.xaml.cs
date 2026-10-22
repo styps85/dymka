@@ -135,7 +135,9 @@ public partial class MainWindow : Window
         };
         PreviewMouseDown += (_, _) =>
         {
-            if (AddressMenu.IsOpen && !AddressBorder.IsMouseOver) AddressMenu.IsOpen = false;
+            // щелчки внутри самой панели (кнопки «Скопировать», «QR-код» и т.д.) панель не закрывают
+            bool insideMenu = AddressMenu.Child is UIElement menu && menu.IsMouseOver;
+            if (AddressMenu.IsOpen && !insideMenu && !AddressBorder.IsMouseOver) AddressMenu.IsOpen = false;
         };
 
         RestoreWindowBounds();

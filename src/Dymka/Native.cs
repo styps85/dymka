@@ -79,6 +79,20 @@ static class Native
         keybd_event(0x11, 0, 2, UIntPtr.Zero);
     }
 
+    [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
+    [DllImport("user32.dll")] static extern void mouse_event(int flags, int dx, int dy, int data, UIntPtr extra);
+
+    /// <summary>Настоящий щелчок мышью по середине элемента (для самопроверки).</summary>
+    public static void ClickCenter(FrameworkElement el)
+    {
+        var p = el.PointToScreen(new Point(el.ActualWidth / 2, el.ActualHeight / 2));
+        SetCursorPos((int)p.X, (int)p.Y);
+        Thread.Sleep(80);
+        mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero); // левая кнопка вниз
+        Thread.Sleep(60);
+        mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero); // вверх
+    }
+
     public static bool IsCtrlDown() => GetKeyState(0x11) < 0;
     public static bool IsShiftDown() => GetKeyState(0x10) < 0;
 

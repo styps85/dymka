@@ -620,7 +620,7 @@
               <TextBlock x:Name="AmHost" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
             </StackPanel>
             <Border Height="1" Background="{StaticResource Line}" Margin="8,0,8,4"/>
-            <Button Style="{StaticResource MenuRow}" Click="AmCopy_Click">
+            <Button x:Name="AmCopyBtn" Style="{StaticResource MenuRow}" Click="AmCopy_Click">
               <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+C" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
                 <local:Glyph Data="{StaticResource IcCopy}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Скопировать адрес" VerticalAlignment="Center"/></DockPanel>
@@ -630,7 +630,7 @@
                 <local:Glyph Data="{StaticResource IcText}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Скопировать название и адрес" VerticalAlignment="Center"/></DockPanel>
             </Button>
-            <Button Style="{StaticResource MenuRow}" Click="AmQr_Click">
+            <Button x:Name="AmQrBtn" Style="{StaticResource MenuRow}" Click="AmQr_Click">
               <DockPanel>
                 <local:Glyph Data="{StaticResource IcQr}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="QR-код - открыть на телефоне" VerticalAlignment="Center"/></DockPanel>
