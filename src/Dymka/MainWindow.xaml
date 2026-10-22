@@ -73,6 +73,11 @@
           <Setter TargetName="TitleTb" Property="FontWeight" Value="SemiBold"/>
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
         </DataTrigger>
+        <DataTrigger Binding="{Binding IsPinned}" Value="True">
+          <Setter TargetName="TitleTb" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="CloseBtn" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="Root" Property="Padding" Value="12,0,0,0"/>
+        </DataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
 
@@ -87,6 +92,8 @@
                   Click="TabClose_Click" Tag="{Binding}" Visibility="Hidden" ToolTip="Закрыть вкладку (Ctrl+W)">
             <local:Glyph Data="{StaticResource IcClose}" Size="13" StrokeWidth="2.4"/>
           </Button>
+          <local:Glyph x:Name="PinGl" DockPanel.Dock="Right" Data="{StaticResource IcPin}" Size="14" Margin="0,0,5,0"
+                       Foreground="{StaticResource Muted}" Visibility="Collapsed" VerticalAlignment="Center"/>
           <Grid DockPanel.Dock="Left" Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center">
             <Image x:Name="Fav" Source="{Binding Favicon}" Width="16" Height="16" Visibility="Collapsed"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
@@ -130,6 +137,10 @@
           <Setter TargetName="Root" Property="TextElement.Foreground" Value="{StaticResource Ink}"/>
           <Setter TargetName="TitleTb" Property="FontWeight" Value="SemiBold"/>
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsPinned}" Value="True">
+          <Setter TargetName="CloseBtn" Property="Visibility" Value="Collapsed"/>
+          <Setter TargetName="PinGl" Property="Visibility" Value="Visible"/>
         </DataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -270,6 +281,8 @@
               <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
             </ScrollViewer.Resources>
             <StackPanel>
+              <TextBlock x:Name="PinnedHeader" Text="ЗАКРЕПЛЕНЫ" Style="{StaticResource SectionLabel}" Visibility="Collapsed"/>
+              <ItemsControl x:Name="SidePinned" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
               <TextBlock Text="ОТКРЫТЫ" Style="{StaticResource SectionLabel}"/>
               <ItemsControl x:Name="SideAwake" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
               <StackPanel x:Name="SleepHeader" Orientation="Horizontal" Margin="10,14,10,4" Visibility="Collapsed">
@@ -388,7 +401,22 @@
       </Border>
 
       <!-- ===== Содержимое вкладок ===== -->
-      <Grid x:Name="ContentHost" Grid.Row="2" Grid.Column="1" Background="{StaticResource Ground}"/>
+      <Grid x:Name="ContentHost" Grid.Row="2" Grid.Column="1" Background="{StaticResource Ground}">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition x:Name="LeftCol" Width="*" MinWidth="200"/>
+          <ColumnDefinition x:Name="SplitCol" Width="0"/>
+          <ColumnDefinition x:Name="RightCol" Width="0"/>
+        </Grid.ColumnDefinitions>
+        <Grid.RowDefinitions>
+          <RowDefinition x:Name="MarkRow" Height="0"/>
+          <RowDefinition Height="*"/>
+        </Grid.RowDefinitions>
+        <Border x:Name="LeftMark" Grid.Row="0" Grid.Column="0" Background="{StaticResource Accent}"/>
+        <Border x:Name="RightMark" Grid.Row="0" Grid.Column="2" Background="{StaticResource Accent}"/>
+        <GridSplitter x:Name="Splitter" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="6" HorizontalAlignment="Stretch"
+                      Background="#DDE2EA" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Visibility="Collapsed"
+                      ToolTip="Перетащите, чтобы изменить ширину половин" Focusable="False"/>
+      </Grid>
 
       <!-- ===== Кнопки окна ===== -->
       <StackPanel x:Name="WindowButtons" Grid.Row="0" Grid.Column="1" Orientation="Horizontal"
@@ -483,6 +511,11 @@
                 <local:Glyph Data="{StaticResource IcPlus}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Новая вкладка" VerticalAlignment="Center"/></DockPanel>
             </Button>
+            <Button Style="{StaticResource MenuRow}" Click="NewWindow_Click">
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+N" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Новое окно" VerticalAlignment="Center"/></DockPanel>
+            </Button>
             <Button Style="{StaticResource MenuRow}" Click="ReopenClosed_Click" x:Name="ReopenItem">
               <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+T" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
                 <local:Glyph Data="{StaticResource IcUndo}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
@@ -515,6 +548,11 @@
                 <TextBlock Text="Инструменты разработчика" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Border Height="1" Background="{StaticResource Line}" Margin="8,5"/>
+            <Button Style="{StaticResource MenuRow}" Click="Extensions_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcPuzzle}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Расширения" VerticalAlignment="Center"/></DockPanel>
+            </Button>
             <Button Style="{StaticResource MenuRow}" Click="ClearAllNow_Click">
               <DockPanel>
                 <local:Glyph Data="{StaticResource IcTrash}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
@@ -549,6 +587,87 @@
             <TextBlock Text="Сайты в разных контейнерах не видят cookie и данные друг друга."
                        TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" Margin="10,6,10,8"/>
           </StackPanel>
+        </Border>
+      </Popup>
+
+      <!-- ===== Действия с адресом ===== -->
+      <Popup x:Name="AddressMenu" PlacementTarget="{Binding ElementName=AddressBorder}" Placement="Bottom"
+             StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-14" VerticalOffset="0">
+        <Border Style="{StaticResource PopupCard}" Width="400" Padding="6">
+          <StackPanel>
+            <StackPanel Margin="10,8,10,8">
+              <TextBlock x:Name="AmTitle" FontWeight="SemiBold" FontSize="13.5" TextTrimming="CharacterEllipsis"/>
+              <TextBlock x:Name="AmHost" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+            </StackPanel>
+            <Border Height="1" Background="{StaticResource Line}" Margin="8,0,8,4"/>
+            <Button Style="{StaticResource MenuRow}" Click="AmCopy_Click">
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+C" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcCopy}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Скопировать адрес" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Button Style="{StaticResource MenuRow}" Click="AmCopyTitle_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcText}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Скопировать название и адрес" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Button Style="{StaticResource MenuRow}" Click="AmQr_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcQr}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="QR-код - открыть на телефоне" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Border x:Name="AmQrBox" Visibility="Collapsed" Margin="10,4,10,8" Background="{StaticResource Field}" CornerRadius="12" Padding="12">
+              <DockPanel>
+                <Border Background="White" CornerRadius="8" Padding="6" DockPanel.Dock="Left">
+                  <Image x:Name="AmQrImage" Width="132" Height="132" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
+                </Border>
+                <TextBlock Text="Наведите камеру телефона на код - страница откроется на телефоне." TextWrapping="Wrap"
+                           FontSize="12.5" Foreground="{StaticResource Ink2}" Margin="14,0,0,0" VerticalAlignment="Center"/>
+              </DockPanel>
+            </Border>
+            <Button Style="{StaticResource MenuRow}" Click="AmPin_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcPin}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock x:Name="AmPinText" Text="Закрепить вкладку" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Button x:Name="AmShortcutBtn" Style="{StaticResource MenuRow}" Click="AmShortcut_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcHomeAdd}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock x:Name="AmShortcutText" Text="Добавить на стартовую страницу" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Border Height="1" Background="{StaticResource Line}" Margin="8,4"/>
+            <DockPanel Margin="10,6,10,6">
+              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcSwap}" Size="16" Foreground="{StaticResource Ink2}"
+                           Margin="0,0,12,0" VerticalAlignment="Center"/>
+              <TextBlock DockPanel.Dock="Left" Text="Перенести в" VerticalAlignment="Center" FontSize="13.5" Margin="0,0,10,0"/>
+              <WrapPanel x:Name="AmContainers" VerticalAlignment="Center"/>
+            </DockPanel>
+            <Button Style="{StaticResource MenuRow}" Click="AmNewWindow_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Открыть в новом окне" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Button x:Name="AmSplitEndBtn" Style="{StaticResource MenuRow}" Click="AmSplitEnd_Click" Visibility="Collapsed">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcSplit}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Закрыть раздельный просмотр" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <StackPanel x:Name="AmSplitPanel">
+              <DockPanel Margin="10,6,10,4">
+                <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcSplit}" Size="16" Foreground="{StaticResource Ink2}"
+                             Margin="0,0,12,0" VerticalAlignment="Center"/>
+                <TextBlock Text="Открыть рядом (две страницы в окне)" VerticalAlignment="Center" FontSize="13.5"/>
+              </DockPanel>
+              <WrapPanel x:Name="AmSplitChoices" Margin="38,2,10,8"/>
+            </StackPanel>
+          </StackPanel>
+        </Border>
+      </Popup>
+
+      <!-- ===== Короткое уведомление ===== -->
+      <Popup x:Name="Toast" PlacementTarget="{Binding ElementName=AddressBorder}" Placement="Bottom" StaysOpen="True"
+             AllowsTransparency="True" PopupAnimation="Fade" IsHitTestVisible="False">
+        <Border Background="#1B2230" CornerRadius="10" Padding="14,8" Margin="10,8,10,14">
+          <TextBlock x:Name="ToastText" Foreground="White" FontSize="13"/>
         </Border>
       </Popup>
     </Grid>

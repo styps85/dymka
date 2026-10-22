@@ -11,21 +11,32 @@ public sealed class ShrinkTabPanel : Panel
     /// <summary>Место справа, которое нужно оставить под кнопку «+».</summary>
     public double Reserve { get; set; } = 40;
 
+    public double PinnedWidth { get; set; } = 42;
+
     double _tabWidth;
+
+    static bool IsPinned(UIElement c) => c is FrameworkElement fe && fe.DataContext is BrowserTab { IsPinned: true };
 
     protected override Size MeasureOverride(Size availableSize)
     {
         int n = InternalChildren.Count;
         if (n == 0) return new Size(0, 0);
-        double avail = double.IsInfinity(availableSize.Width) ? MaxTabWidth * n : Math.Max(0, availableSize.Width - Reserve);
-        _tabWidth = Math.Max(MinTabWidth, Math.Min(MaxTabWidth, avail / n));
+        int pinned = InternalChildren.Cast<UIElement>().Count(IsPinned);
+        int normal = n - pinned;
+        double pinnedTotal = pinned * PinnedWidth;
+        double avail = double.IsInfinity(availableSize.Width)
+            ? MaxTabWidth * normal + pinnedTotal
+            : Math.Max(0, availableSize.Width - Reserve);
+        _tabWidth = normal == 0 ? 0 : Math.Max(MinTabWidth, Math.Min(MaxTabWidth, (avail - pinnedTotal) / normal));
         double h = 0;
         foreach (UIElement c in InternalChildren)
         {
-            c.Measure(new Size(_tabWidth, availableSize.Height));
+            c.Measure(new Size(IsPinned(c) ? PinnedWidth : _tabWidth, availableSize.Height));
             h = Math.Max(h, c.DesiredSize.Height);
         }
-        return new Size(Math.Min(_tabWidth * n, double.IsInfinity(availableSize.Width) ? _tabWidth * n : Math.Max(0, availableSize.Width - Reserve)), h);
+        double total = pinnedTotal + _tabWidth * normal;
+        if (!double.IsInfinity(availableSize.Width)) total = Math.Min(total, Math.Max(0, availableSize.Width - Reserve));
+        return new Size(total, h);
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -33,8 +44,9 @@ public sealed class ShrinkTabPanel : Panel
         double x = 0;
         foreach (UIElement c in InternalChildren)
         {
-            c.Arrange(new Rect(x, 0, _tabWidth, finalSize.Height));
-            x += _tabWidth;
+            double w = IsPinned(c) ? PinnedWidth : _tabWidth;
+            c.Arrange(new Rect(x, 0, w, finalSize.Height));
+            x += w;
         }
         return finalSize;
     }

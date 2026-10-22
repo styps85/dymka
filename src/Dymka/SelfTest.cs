@@ -116,6 +116,143 @@ sealed class SelfTest
         await Task.Delay(300);
     }
 
+
+    const string TestExtensionKey = "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2sadAl7NNCgUS6J1CQf/mmni+aLShg87x051VgUYZONkefgr6SiApnzJREQzQsCtmmBEFUvOs5F9LLsAjL/UZAi7K/g6cn+xWMKdA3ebBPKdyCL/e+3Fw1RoBOxtlo6kaaLJ3N0XS8EIarHYdIXbZBBJgC+Vk324bt0/1HbGhhnqevlCaHU964IRaSALP9Nmm4J9MuwmS7oYOhH/hIBRL52nQHkCJ0M5QjZPASimYHmI73rJlRoQ6whXrT3B7c9FENxD9OcIaZkgrQm478Ffs69/GpS4xibxWF+wLZW4cqR8zdXE1UF7wVyKi/K3QMlLsIdXt4LIS+N1g3IZYJFe9QIDAQAB";
+    const string TestExtensionId = "pkgnmdncaobbfaedogeekgjgakeoclfe";
+
+    async Task TestExtensionsAsync(string testDir, BrowserTab probe, Microsoft.Web.WebView2.Core.CoreWebView2 core)
+    {
+        try
+        {
+            var ext = Path.Combine(_dir, "ext-nmtest");
+            var host = Path.Combine(_dir, "nmhost");
+            Directory.CreateDirectory(ext);
+            Directory.CreateDirectory(host);
+            File.WriteAllText(Path.Combine(ext, "manifest.json"),
+                "{\"manifest_version\":3,\"name\":\"Dymka NM test\",\"version\":\"1.0\",\"key\":\"" + TestExtensionKey + "\"," +
+                "\"permissions\":[\"nativeMessaging\"],\"background\":{\"service_worker\":\"bg.js\"}," +
+                "\"content_scripts\":[{\"matches\":[\"https://trackers.dymka-test.org/*\"],\"js\":[\"cs.js\"],\"run_at\":\"document_idle\"}]}");
+            File.WriteAllText(Path.Combine(ext, "bg.js"),
+                "chrome.runtime.onMessage.addListener(function(m,s,send){" +
+                "chrome.runtime.sendNativeMessage('com.dymka.nmtest',{ping:'dymka'},function(r){" +
+                "var err=chrome.runtime.lastError?chrome.runtime.lastError.message:null;send({ok:!!r,r:r||null,err:err});});return true;});");
+            File.WriteAllText(Path.Combine(ext, "cs.js"),
+                "document.documentElement.setAttribute('data-ext','loaded');" +
+                "chrome.runtime.sendMessage({go:1},function(r){document.documentElement.setAttribute('data-nm'," +
+                "JSON.stringify(r||{none:chrome.runtime.lastError?chrome.runtime.lastError.message:'нет ответа'}));});");
+
+            File.WriteAllText(Path.Combine(host, "host.ps1"),
+                "$i=[Console]::OpenStandardInput();$o=[Console]::OpenStandardOutput();" +
+                "$lb=New-Object byte[] 4;[void]$i.Read($lb,0,4);$len=[BitConverter]::ToInt32($lb,0);" +
+                "$b=New-Object byte[] $len;$r=0;while($r -lt $len){$r+=$i.Read($b,$r,$len-$r)};" +
+                "$m=[Text.Encoding]::UTF8.GetString($b);$resp=[Text.Encoding]::UTF8.GetBytes('{\"pong\":1,\"got\":'+$m+'}');" +
+                "$o.Write([BitConverter]::GetBytes($resp.Length),0,4);$o.Write($resp,0,$resp.Length);$o.Flush()");
+            File.WriteAllText(Path.Combine(host, "host.bat"),
+                "@echo off\r\npowershell -NoProfile -ExecutionPolicy Bypass -File \"%~dp0host.ps1\"\r\n");
+            var hostJson = Path.Combine(host, "com.dymka.nmtest.json");
+            File.WriteAllText(hostJson,
+                "{\"name\":\"com.dymka.nmtest\",\"description\":\"Dymka test\",\"path\":\"host.bat\",\"type\":\"stdio\"," +
+                "\"allowed_origins\":[\"chrome-extension://" + TestExtensionId + "/\"]}");
+            foreach (var root in new[] { @"Software\Microsoft\Edge", @"Software\Microsoft\Edge WebView", @"Software\Google\Chrome", @"Software\Chromium" })
+            {
+                using var k = Microsoft.Win32.Registry.CurrentUser.CreateSubKey(root + @"\NativeMessagingHosts\com.dymka.nmtest");
+                k.SetValue("", hostJson);
+            }
+
+            var added = await core.Profile.AddBrowserExtensionAsync(ext);
+            Check(added.Id == TestExtensionId, $"расширение установлено в «Дымку» (id {added.Id})");
+
+            File.WriteAllText(Path.Combine(testDir, "nm.html"), "<!doctype html><meta charset=\"utf-8\"><title>nm</title><h1>Проверка расширения</h1>");
+            _w.Navigate(probe, "https://trackers.dymka-test.org/nm.html");
+            await WaitFor(() => probe.Url.Contains("nm.html") && !probe.IsLoading, 20);
+            string extState = await PollScript(core, "document.documentElement.getAttribute('data-ext')", v => v.Contains("loaded"), 12);
+            Check(extState.Contains("loaded"), "расширение работает на странице (content script)");
+            string nm = await PollScript(core, "document.documentElement.getAttribute('data-nm')", v => v != "null" && v.Length > 4, 20);
+            Line("ИНФО связь расширения с программой на компьютере (native messaging): " + nm);
+            Check(nm.Contains("pong"), "native messaging работает - плагины подписи смогут связаться со своей программой");
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке расширений: " + ex);
+            _failed++;
+        }
+    }
+
+    static async Task<string> PollScript(Microsoft.Web.WebView2.Core.CoreWebView2 core, string script, Func<string, bool> done, int seconds)
+    {
+        var until = DateTime.Now.AddSeconds(seconds);
+        string v = "";
+        while (DateTime.Now < until)
+        {
+            try { v = await core.ExecuteScriptAsync(script); if (done(v)) return v; } catch { }
+            await Task.Delay(400);
+        }
+        return v;
+    }
+
+    async Task TestTabFeaturesAsync()
+    {
+        try
+        {
+            var a = _w.ActiveTab!;
+            // меню адресной строки и QR-код
+            _w.FocusAddress();
+            _w.OpenAddressMenu();
+            await Task.Delay(700);
+            Capture(_w, "12-address-menu");
+            _w.ShowQrForTest();
+            await Task.Delay(500);
+            Capture(_w, "12b-address-qr");
+            _w.ClosePopups();
+
+            // закрепление
+            _w.SetPinned(a, true);
+            Check(_w.Settings.Pinned.Count == 1, "вкладка закреплена и сохранена для следующего запуска");
+            await Task.Delay(500);
+            Capture(_w, "13-pinned");
+
+            // раздельный просмотр
+            var b = await _w.NewTabAsync("https://example.com/", activate: false);
+            await WaitFor(() => b.View?.CoreWebView2 != null && !b.IsLoading && b.Url.Contains("example.com"), 30);
+            _w.StartSplit(a, b);
+            await Task.Delay(1500);
+            Check(_w.IsSplit && a.View?.IsVisible == true && b.View?.IsVisible == true, "раздельный просмотр: обе страницы видны");
+            Capture(_w, "14-split");
+            _w.EndSplit();
+            await Task.Delay(400);
+            Check(!_w.IsSplit, "раздельный просмотр закрыт");
+
+            // перенос в другой контейнер
+            var url = b.Url;
+            await _w.MoveToContainerAsync(b, "personal");
+            var moved = _w.ActiveTab!;
+            Check(moved.Container == "personal" && moved.Url == url, "вкладка перенесена в контейнер «Личное»");
+            await Task.Delay(800);
+            _w.SetPinned(a, false);
+
+            // второе окно
+            var w2 = _w.OpenWindow("https://example.com/", "work");
+            Check(await WaitFor(() => w2.ActiveTab?.View?.CoreWebView2 != null && w2.ActiveTab.IsLoading == false, 30), "открылось второе окно");
+            await Task.Delay(800);
+            Capture(w2, "15-second-window");
+            w2.Close();
+            await Task.Delay(1500);
+            Check(_w.IsVisible && Shared.Windows.Count == 1, "после закрытия второго окна первое продолжает работать");
+
+            // окно расширений
+            var ew = new ExtensionsWindow(_w.Settings, Path.Combine(_dir, "ext-copies")) { Owner = _w, Topmost = true };
+            ew.Show();
+            await Task.Delay(2500);
+            Capture(ew, "16-extensions");
+            ew.Close();
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке вкладок: " + ex);
+            _failed++;
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
@@ -184,6 +321,9 @@ sealed class SelfTest
             var ct = startCore.DocumentTitle;
             Check(ct.Contains("первая сторона: записан"), "cookie самого сайта сохраняются: " + ct);
             Check(ct.Contains("frame-cookie:заблокирован"), "сторонние cookie (во фрейме другого сайта) заблокированы");
+
+            // расширения: тестовое расширение + тестовая «программа на компьютере» (как у плагинов подписи)
+            await TestExtensionsAsync(testDir, probe, startCore);
 
             // окно печати: документ на 3 страницы, «все, кроме последней», 2 страницы на листе
             File.WriteAllText(Path.Combine(testDir, "long.html"),
@@ -262,6 +402,8 @@ sealed class SelfTest
                 "спящая вкладка проснулась при открытии");
             await Task.Delay(1500);
             Capture(_w, "06-side-woken");
+
+            await TestTabFeaturesAsync();
 
             var sw = _w.OpenSettingsForTest();
             sw.Topmost = true;

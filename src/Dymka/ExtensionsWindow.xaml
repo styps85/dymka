@@ -1,0 +1,44 @@
+<Window x:Class="Dymka.ExtensionsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Расширения - Дымка" Width="720" Height="760" MinWidth="560" MinHeight="480"
+        WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
+        Background="{StaticResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+  <DockPanel>
+    <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
+      <DockPanel>
+        <Button DockPanel.Dock="Right" Content="Готово" Style="{StaticResource PrimaryButton}" MinWidth="120" IsDefault="True"
+                IsCancel="True" Click="Done_Click"/>
+        <TextBlock Text="Изменения применяются к новым страницам. Открытые страницы перезагрузите (F5)."
+                   Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center" TextWrapping="Wrap" Margin="0,0,16,0"/>
+      </DockPanel>
+    </Border>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,18,20,8">
+      <StackPanel>
+        <Border Background="White" CornerRadius="16" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="20,16" Margin="0,0,0,14">
+          <StackPanel>
+            <TextBlock Text="В «Дымке»" FontSize="15" FontWeight="Bold" Margin="0,0,0,4"/>
+            <TextBlock x:Name="InstalledHint" FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"/>
+            <StackPanel x:Name="InstalledList"/>
+          </StackPanel>
+        </Border>
+
+        <Border Background="White" CornerRadius="16" BorderBrush="{StaticResource Line}" BorderThickness="1" Padding="20,16" Margin="0,0,0,14">
+          <StackPanel>
+            <TextBlock Text="Найдены в других браузерах" FontSize="15" FontWeight="Bold" Margin="0,0,0,4"/>
+            <TextBlock FontSize="12" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,0,0,8"
+                       Text="Расширения для электронной подписи показаны первыми. Добавленное расширение копируется в «Дымку» и работает во всех контейнерах."/>
+            <StackPanel x:Name="FoundList"/>
+          </StackPanel>
+        </Border>
+
+        <Border Background="#FFF8E6" CornerRadius="14" Padding="16,12" Margin="0,0,0,14">
+          <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Ink2}"
+                     Text="Значки и всплывающие окна расширений в «Дымке» не показываются: работают расширения, которые действуют на страницах сами - так устроены плагины электронной подписи. Для подписи на компьютере должна быть установлена и сама программа (КриптоПро ЭЦП Browser plug-in, плагин Госуслуг, Контур.Плагин, Рутокен Плагин)."/>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+  </DockPanel>
+</Window>

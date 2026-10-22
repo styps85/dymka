@@ -9,6 +9,22 @@ public sealed class Shortcut
     public string Url { get; set; } = "";
 }
 
+public sealed class PinnedSite
+{
+    public string Container { get; set; } = "work";
+    public string Url { get; set; } = "";
+    public string Title { get; set; } = "";
+}
+
+public sealed class ExtensionEntry
+{
+    public string Id { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string Version { get; set; } = "";
+    public string Source { get; set; } = "";
+    public bool Enabled { get; set; } = true;
+}
+
 public sealed record ContainerInfo(string Id, string Name, string Color);
 
 public sealed record SearchEngine(string Id, string Name, string Template);
@@ -80,6 +96,9 @@ public sealed class AppSettings
         new() { Title = "ЕФРСБ", Url = "https://fedresurs.ru/" },
         new() { Title = "Dropbox", Url = "https://www.dropbox.com/home" },
     };
+
+    public List<PinnedSite> Pinned { get; set; } = new();
+    public List<ExtensionEntry> Extensions { get; set; } = new();
 
     /// <summary>Контейнеры, данные которых ещё не очищены (браузер закрылся аварийно).</summary>
     public List<string> PendingCleanup { get; set; } = new();
@@ -153,6 +172,13 @@ public sealed class AppSettings
 
     public bool UseSmartScreen(string container) =>
         SmartScreenMode == "all" || (SmartScreenMode == "bank" && container == "bank");
+
+    public bool IsShortcut(string url)
+    {
+        string Key(string u) => UrlTools.NormalizeDomain(u) + (Uri.TryCreate(u, UriKind.Absolute, out var x) ? x.AbsolutePath.TrimEnd('/') : "");
+        var k = Key(url);
+        return Shortcuts.Any(s => Key(s.Url) == k);
+    }
 
     public bool KeepsCookies(string host) => UrlTools.HostMatches(host, CookieWhitelist);
 

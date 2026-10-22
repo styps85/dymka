@@ -59,17 +59,18 @@ public partial class MainWindow : Window
     readonly string? _startupUrl;
 
     CoreWebView2Environment? _env;
-    volatile Blocklist _blocklist = new();
+    static Blocklist _blocklist => Shared.Blocklist;
 
     readonly ObservableCollection<BrowserTab> _tabs = new();
-    readonly ListCollectionView _topView, _awakeView, _sleepView;
+    readonly ListCollectionView _topView, _awakeView, _sleepView, _pinnedView;
     readonly List<ContainerVM> _containers;
     readonly Stack<(string container, string url)> _closed = new();
-    readonly HashSet<string> _usedContainers = new();
+    static HashSet<string> _usedContainers => Shared.UsedContainers;
 
     BrowserTab? _active;
     string _container;
     bool _cleanupDone;
+    bool _closingForGood;
     bool _fullscreen;
     Rect _restoreBounds;
     WindowState _restoreState;
@@ -93,6 +94,10 @@ public partial class MainWindow : Window
         }catch(e){}})();
         """;
 
+    /// <summary>В раздельном просмотре щелчок по странице делает её активной.</summary>
+    const string FocusScript =
+        "(function(){try{if(window.top!==window)return;window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage({__dymka:'focus'});}catch(e){}},true);}catch(e){}})();";
+
     const string GpcScript =
         "try{Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:function(){return true},configurable:true});}catch(e){}";
 
@@ -105,12 +110,16 @@ public partial class MainWindow : Window
         _selfTestDir = selfTestDir;
         _startupUrl = startupUrl;
         _container = AppSettings.ContainerById(settings.LastContainer).Id;
+        Shared.Windows.Add(this);
+        Closed += (_, _) => Shared.Windows.Remove(this);
 
         InitializeComponent();
 
         _topView = new ListCollectionView(_tabs) { Filter = o => ((BrowserTab)o).Container == _container };
-        _awakeView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && !t.IsSleeping };
-        _sleepView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && t.IsSleeping };
+        _awakeView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && !t.IsSleeping && !t.IsPinned };
+        _sleepView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && t.IsSleeping && !t.IsPinned };
+        _pinnedView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && t.IsPinned };
+        SidePinned.ItemsSource = _pinnedView;
         TopTabs.ItemsSource = _topView;
         SideAwake.ItemsSource = _awakeView;
         SideSleeping.ItemsSource = _sleepView;
@@ -119,7 +128,15 @@ public partial class MainWindow : Window
         ContainerSeg.ItemsSource = _containers;
         ContainerList.ItemsSource = _containers;
 
-        Address.TextChanged += (_, _) => UpdatePlaceholder();
+        Address.TextChanged += (_, _) =>
+        {
+            UpdatePlaceholder();
+            if (AddressMenu.IsOpen && Address.Text != _addressAtMenuOpen) AddressMenu.IsOpen = false;
+        };
+        PreviewMouseDown += (_, _) =>
+        {
+            if (AddressMenu.IsOpen && !AddressBorder.IsMouseOver) AddressMenu.IsOpen = false;
+        };
 
         RestoreWindowBounds();
         ApplyLayout();
@@ -143,7 +160,8 @@ public partial class MainWindow : Window
         {
             Directory.CreateDirectory(_uiDir);
             WriteStartPage();
-            _env = await CreateEnvironmentAsync();
+            Shared.EnvTask ??= CreateEnvironmentAsync();
+            _env = await Shared.EnvTask;
         }
         catch (WebView2RuntimeNotFoundException)
         {
@@ -164,27 +182,35 @@ public partial class MainWindow : Window
             return;
         }
 
-        _ = Task.Run(() => Blocklist.Build(_listsDir)).ContinueWith(t =>
+        bool first = !Shared.StartupDone;
+        Shared.StartupDone = true;
+        if (first)
         {
-            if (t.Status == TaskStatus.RanToCompletion) _blocklist = t.Result;
-        }, TaskScheduler.Default);
+            Shared.BlocklistLoading = true;
+            _ = Task.Run(() => Blocklist.Build(_listsDir)).ContinueWith(t =>
+            {
+                if (t.Status == TaskStatus.RanToCompletion) Shared.Blocklist = t.Result;
+                Shared.BlocklistLoading = false;
+            }, TaskScheduler.Default);
 
-        if (_settings.PendingCleanup.Count > 0)
-        {
-            try { await CleanupContainersAsync(_settings.PendingCleanup.ToList()); }
-            catch (Exception ex) { App.Log("Очистка после прошлого запуска: " + ex.Message); }
+            if (_settings.PendingCleanup.Count > 0)
+            {
+                try { await CleanupContainersAsync(_settings.PendingCleanup.ToList()); }
+                catch (Exception ex) { App.Log("Очистка после прошлого запуска: " + ex.Message); }
+            }
+            RestorePinned();
         }
 
-        await NewTabAsync(_startupUrl, activate: true);
+        await NewTabAsync(_startupUrl, activate: true, container: InitialContainer);
 
         _sleepTimer.Start();
         _memTimer.Start();
         UpdateMemory();
 
-        if (_settings.AutoUpdateLists && _selfTestDir == null && DateTime.Now - _settings.LastListUpdate > TimeSpan.FromDays(7))
+        if (first && _settings.AutoUpdateLists && _selfTestDir == null && DateTime.Now - _settings.LastListUpdate > TimeSpan.FromDays(7))
             _ = UpdateListsAsync();
 
-        if (_settings.CheckUpdates && _selfTestDir == null && MemTestFile == null)
+        if (first && _settings.CheckUpdates && _selfTestDir == null && MemTestFile == null)
             _ = CheckUpdatesAsync(silent: true);
 
         if (_selfTestDir != null)
@@ -192,6 +218,9 @@ public partial class MainWindow : Window
         else if (MemTestFile != null)
             _ = RunMemTestAsync(MemTestFile);
     }
+
+    /// <summary>Контейнер первой вкладки нового окна (null - последний выбранный).</summary>
+    public string? InitialContainer { get; init; }
 
     /// <summary>Замер памяти для автосборки: стартовая страница, пауза, запись результата, выход.</summary>
     public string? MemTestFile { get; init; }
@@ -238,6 +267,7 @@ public partial class MainWindow : Window
             _settings.BlockThirdPartyCookies ? "--test-third-party-cookie-phaseout" : "");
 
         var options = new CoreWebView2EnvironmentOptions(args.Trim(), "ru");
+        try { options.AreBrowserExtensionsEnabled = true; } catch { }
         return await CoreWebView2Environment.CreateAsync(null, udf, options);
     }
 
@@ -285,8 +315,9 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(url)) tab.Url = url;
 
         int idx = _active != null ? _tabs.IndexOf(_active) : -1;
-        if (idx >= 0 && idx < _tabs.Count - 1) _tabs.Insert(idx + 1, tab); else _tabs.Add(tab);
-        MarkContainerUsed(tab.Container);
+        int afterPinned = _tabs.Count(t => t.IsPinned);
+        int pos = Math.Max(idx + 1, afterPinned);
+        if (idx >= 0 && pos < _tabs.Count) _tabs.Insert(pos, tab); else _tabs.Add(tab);
 
         if (activate) Activate(tab);
         else RefreshViews();
@@ -315,11 +346,15 @@ public partial class MainWindow : Window
         {
             var view = new WebView2
             {
-                Visibility = tab == _active ? Visibility.Visible : Visibility.Hidden,
+                Visibility = IsShown(tab) ? Visibility.Visible : Visibility.Hidden,
                 DefaultBackgroundColor = System.Drawing.Color.White,
             };
+            Grid.SetRow(view, 1);
+            Grid.SetColumn(view, tab == _splitRight ? 2 : 0);
+            view.GotFocus += (_, _) => { if (InSplit(tab) && tab != _active) Activate(tab); };
             tab.View = view;
             ContentHost.Children.Add(view);
+            MarkContainerUsed(tab.Container);
             var opts = _env!.CreateCoreWebView2ControllerOptions();
             opts.ProfileName = tab.Container;
             await view.EnsureCoreWebView2Async(_env, opts);
@@ -330,12 +365,17 @@ public partial class MainWindow : Window
                 return;
             }
             ConfigureCore(tab, view.CoreWebView2);
+            await EnsureExtensionsAsync(tab.Container, view.CoreWebView2);
             if (navigate && !string.IsNullOrEmpty(url))
                 NavigateCore(view.CoreWebView2, url);
             if (tab == _active)
             {
                 view.Visibility = Visibility.Visible;
                 if (!tab.IsStart) view.Focus();
+            }
+            else if (InSplit(tab))
+            {
+                view.Visibility = Visibility.Visible;
             }
             else
             {
@@ -390,12 +430,14 @@ public partial class MainWindow : Window
         core.AddWebResourceRequestedFilter("*", CoreWebView2WebResourceContext.All);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(GpcScript);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(PrintScript);
+        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(FocusScript);
 
         core.WebResourceRequested += (_, e) => OnWebResourceRequested(tab, e);
         core.NavigationStarting += (_, e) => OnNavigationStarting(tab, core, e);
         core.NavigationCompleted += (_, e) =>
         {
             tab.IsLoading = false;
+            if (tab.IsPinned) SavePinned();
             tab.CanGoBack = core.CanGoBack;
             tab.CanGoForward = core.CanGoForward;
         };
@@ -453,12 +495,13 @@ public partial class MainWindow : Window
     public void Activate(BrowserTab tab)
     {
         if (_active == tab && tab.View != null) return;
+        if (_splitLeft != null && !InSplit(tab)) EndSplit();
         var old = _active;
         if (old != null && old != tab)
         {
             old.IsActive = false;
             old.LastActive = DateTime.Now;
-            if (old.View != null)
+            if (old.View != null && !InSplit(old))
             {
                 old.View.Visibility = Visibility.Hidden;
                 TrySetMemoryLevel(old.View.CoreWebView2, low: true);
@@ -492,6 +535,7 @@ public partial class MainWindow : Window
 
         RefreshViews();
         UpdateToolbar();
+        UpdateSplitMarks();
     }
 
     static void TrySetMemoryLevel(CoreWebView2? core, bool low)
@@ -504,10 +548,11 @@ public partial class MainWindow : Window
         catch { }
     }
 
-    public void CloseTab(BrowserTab tab)
+    public void CloseTab(BrowserTab tab, bool remember = true)
     {
         if (!_tabs.Contains(tab)) return;
-        if (!tab.IsStart && !string.IsNullOrEmpty(tab.Url)) _closed.Push((tab.Container, tab.Url));
+        if (InSplit(tab)) EndSplit();
+        if (remember && !tab.IsStart && !string.IsNullOrEmpty(tab.Url)) _closed.Push((tab.Container, tab.Url));
 
         var sameContainer = _tabs.Where(t => t.Container == tab.Container).ToList();
         int pos = sameContainer.IndexOf(tab);
@@ -524,6 +569,7 @@ public partial class MainWindow : Window
             else
                 _ = NewTabAsync(null, activate: true, container: tab.Container);
         }
+        if (tab.IsPinned) SavePinned();
         RefreshViews();
     }
 
@@ -538,7 +584,7 @@ public partial class MainWindow : Window
 
     public void SleepTab(BrowserTab tab)
     {
-        if (tab == _active || tab.View == null) return;
+        if (tab == _active || tab.View == null || InSplit(tab)) return;
         DisposeView(tab);
         tab.IsSleeping = true;
         tab.IsLoading = false;
@@ -550,7 +596,7 @@ public partial class MainWindow : Window
         if (_settings.SleepMinutes <= 0) return;
         var limit = TimeSpan.FromMinutes(_settings.SleepMinutes);
         foreach (var t in _tabs.ToList())
-            if (t != _active && t.View != null && !t.IsPlayingAudio && DateTime.Now - t.LastActive > limit)
+            if (t != _active && t.View != null && !t.IsPlayingAudio && !t.IsPinned && DateTime.Now - t.LastActive > limit)
                 SleepTab(t);
 
         if (_unsavedBlocked > 0)
@@ -570,7 +616,9 @@ public partial class MainWindow : Window
         _topView.Refresh();
         _awakeView.Refresh();
         _sleepView.Refresh();
+        _pinnedView.Refresh();
         SleepHeader.Visibility = _sleepView.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        PinnedHeader.Visibility = _pinnedView.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         foreach (var c in _containers)
             c.Count = _tabs.Count(t => t.Container == c.Id);
     }
@@ -795,9 +843,11 @@ public partial class MainWindow : Window
         {
             using var doc = JsonDocument.Parse(e.WebMessageAsJson);
             var root = doc.RootElement;
-            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("__dymka", out var dm) && dm.GetString() == "print")
+            if (root.ValueKind == JsonValueKind.Object && root.TryGetProperty("__dymka", out var dm))
             {
-                if (tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
+                var kind = dm.GetString();
+                if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
+                else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
                 return;
             }
             if (!UrlTools.IsStartPage(e.Source)) return;
@@ -937,6 +987,7 @@ public partial class MainWindow : Window
 
     void Address_LostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
+        AddressMenu.IsOpen = false;
         AddressBorder.BorderBrush = Brushes.Transparent;
         AddressBorder.Background = (Brush)FindResource("Field");
         UpdateAddress();
@@ -948,6 +999,7 @@ public partial class MainWindow : Window
         {
             Address.Focus();
             e.Handled = true;
+            OpenAddressMenu();
         }
     }
 
@@ -1180,6 +1232,7 @@ public partial class MainWindow : Window
 
     internal void ClosePopups()
     {
+        AddressMenu.IsOpen = false;
         MainMenu.IsOpen = false;
         PrivacyPopup.IsOpen = false;
         ContainerMenu.IsOpen = false;
@@ -1441,7 +1494,7 @@ public partial class MainWindow : Window
                 _settings.LastListUpdate = DateTime.Now;
                 _settings.Save();
                 var fresh = await Task.Run(() => Blocklist.Build(_listsDir));
-                _blocklist = fresh;
+                Shared.Blocklist = fresh;
             }
         }
         catch (Exception ex)
@@ -1510,6 +1563,15 @@ public partial class MainWindow : Window
     async void OnClosing(object? sender, CancelEventArgs e)
     {
         SaveWindowBounds();
+        bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
+        if (othersOpen)
+        {
+            // данные сайтов чистит последнее закрываемое окно
+            _closingForGood = true;
+            _settings.Save();
+            foreach (var t in _tabs.ToList()) DisposeView(t);
+            return;
+        }
         if (_cleanupDone || !_settings.ClearCookiesOnExit || _usedContainers.Count == 0 || _env == null)
         {
             _settings.Save();
@@ -1661,6 +1723,7 @@ public partial class MainWindow : Window
         else if (alt && key == Key.Right) Forward_Click(this, new RoutedEventArgs());
         else if (ctrl && key == Key.J) Downloads_Click(this, new RoutedEventArgs());
         else if (ctrl && !shift && key == Key.P) OpenPrintDialog();
+        else if (ctrl && !shift && key == Key.N) OpenWindow(null, _container);
         else if (key == Key.Escape && _active?.IsLoading == true && !Address.IsKeyboardFocused)
         {
             try { _active.View?.CoreWebView2?.Stop(); } catch { }

@@ -107,5 +107,40 @@ Eq(PageRanges.Grid(4, false), (2, 2, false), "4 на листе");
 Eq(new AppSettings().UseSmartScreen("bank"), true, "SmartScreen в «Банке» по умолчанию");
 Eq(new AppSettings().UseSmartScreen("work"), false, "SmartScreen в «Работе» выключен по умолчанию");
 
+// --- поиск расширений в других браузерах
+var la = Path.Combine(Path.GetTempPath(), "dymka-la-" + Guid.NewGuid());
+var ra = Path.Combine(Path.GetTempPath(), "dymka-ra-" + Guid.NewGuid());
+var extDir = Path.Combine(la, "Yandex", "YandexBrowser", "User Data", "Default", "Extensions", "iifchhfnnmpdbibifmljnfjhpififfog");
+foreach (var ver in new[] { "1.2.8_0", "1.2.13_0" })
+{
+    var vd = Path.Combine(extDir, ver);
+    Directory.CreateDirectory(Path.Combine(vd, "_locales", "ru"));
+    Directory.CreateDirectory(Path.Combine(vd, "_metadata"));
+    File.WriteAllText(Path.Combine(vd, "manifest.json"),
+        "{ \"manifest_version\": 3, \"name\": \"__MSG_extName__\", \"default_locale\": \"en\", \"version\": \"" + ver.Replace("_0", "") +
+        "\", \"permissions\": [\"nativeMessaging\"], \"description\": \"CAdES\" }");
+    File.WriteAllText(Path.Combine(vd, "_locales", "ru", "messages.json"), "{ \"extName\": { \"message\": \"КриптоПро ЭЦП\" } }");
+    File.WriteAllText(Path.Combine(vd, "_metadata", "verified_contents.json"), "{}");
+}
+var themeDir = Path.Combine(la, "Google", "Chrome", "User Data", "Profile 1", "Extensions", "themeid", "1.0");
+Directory.CreateDirectory(themeDir);
+File.WriteAllText(Path.Combine(themeDir, "manifest.json"), "{ \"name\": \"Тема\", \"version\": \"1\", \"theme\": {} }");
+var found = ExtensionScanner.ScanInstalledBrowsers(la, ra);
+Eq(found.Count, 1, "найдено одно расширение (тема пропущена)");
+Eq(found.FirstOrDefault()?.Name, "КриптоПро ЭЦП", "название из _locales");
+Eq(found.FirstOrDefault()?.Version, "1.2.13", "берётся последняя версия");
+Eq(found.FirstOrDefault()?.ForSignature, true, "распознано как плагин подписи");
+Eq(found.FirstOrDefault()?.UsesNativeMessaging, true, "использует связь с программой на компьютере");
+Eq(found.FirstOrDefault()?.Source, "Яндекс Браузер", "источник - Яндекс Браузер");
+var copied = ExtensionScanner.CopyTo(found[0], Path.Combine(la, "dymka-ext"));
+Eq(File.Exists(Path.Combine(copied, "manifest.json")), true, "расширение скопировано");
+Eq(Directory.Exists(Path.Combine(copied, "_metadata")), false, "служебная папка _metadata не копируется");
+Eq(ExtensionScanner.CompareVersions("1.10.0", "1.9.9") > 0, true, "сравнение версий");
+Directory.Delete(la, true);
+
+var st = new AppSettings();
+Eq(st.IsShortcut("https://kad.arbitr.ru"), true, "картотека уже на стартовой");
+Eq(st.IsShortcut("https://example.com/"), false, "другой сайт не на стартовой");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;

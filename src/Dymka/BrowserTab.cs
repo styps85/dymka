@@ -66,6 +66,9 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public Brush InitialBg => BrushCache.Get(InitialColors.bg);
     public Brush InitialFg => BrushCache.Get(InitialColors.fg);
 
+    bool _isPinned;
+    public bool IsPinned { get => _isPinned; set => Set(ref _isPinned, value); }
+
     bool _isActive;
     public bool IsActive { get => _isActive; set => Set(ref _isActive, value); }
 
