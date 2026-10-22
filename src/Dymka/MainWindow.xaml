@@ -300,6 +300,9 @@
           </StackPanel>
 
           <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+            <Button Style="{StaticResource IconButton}" Click="Print_Click" ToolTip="Печать (Ctrl+P)" Margin="0,0,2,0">
+              <local:Glyph Data="{StaticResource IcPrint}" Size="18"/>
+            </Button>
             <Button Style="{StaticResource IconButton}" Click="Downloads_Click" ToolTip="Загрузки (Ctrl+J)">
               <local:Glyph Data="{StaticResource IcDownload}"/>
             </Button>

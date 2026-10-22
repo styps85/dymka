@@ -361,6 +361,8 @@ public partial class MainWindow : Window
         s.IsBuiltInErrorPageEnabled = true;
         s.AreBrowserAcceleratorKeysEnabled = true;
         try { s.IsReputationCheckingRequired = _settings.UseSmartScreen(tab.Container); } catch { }
+        // кнопку печати встроенного просмотрщика PDF не перехватить - прячем её; печать PDF - через окно «Дымки»
+        try { s.HiddenPdfToolbarItems = CoreWebView2PdfToolbarItems.Print; } catch { }
         try
         {
             // выглядеть как обычный Chrome - самый распространённый браузер, без лишней приметы «Edg/…»
