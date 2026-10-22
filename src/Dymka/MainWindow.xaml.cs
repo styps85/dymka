@@ -115,7 +115,7 @@ public partial class MainWindow : Window
 
         InitializeComponent();
 
-        _topView = new ListCollectionView(_tabs) { Filter = o => ((BrowserTab)o).Container == _container };
+        _topView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && !t.IsPinned };
         _awakeView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && !t.IsSleeping && !t.IsPinned };
         _sleepView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && t.IsSleeping && !t.IsPinned };
         _pinnedView = new ListCollectionView(_tabs) { Filter = o => o is BrowserTab t && t.Container == _container && t.IsPinned };
@@ -451,7 +451,7 @@ public partial class MainWindow : Window
             tab.Title = UrlTools.IsStartPage(core.Source) ? "Новая вкладка" : core.DocumentTitle;
         core.FaviconChanged += async (_, _) => await LoadFaviconAsync(tab, core);
         core.NewWindowRequested += (_, e) => OnNewWindowRequested(tab, e);
-        core.ContextMenuRequested += (_, e) => ReplacePrintMenuItem(e);
+        core.ContextMenuRequested += (_, e) => CustomizeContextMenu(tab, e);
         core.PermissionRequested += (_, e) => OnPermissionRequested(e);
         core.WebMessageReceived += (_, e) => OnWebMessage(tab, core, e);
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
@@ -619,6 +619,7 @@ public partial class MainWindow : Window
         _pinnedView.Refresh();
         SleepHeader.Visibility = _sleepView.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         PinnedHeader.Visibility = _pinnedView.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        UpdatePinnedUi();
         foreach (var c in _containers)
             c.Count = _tabs.Count(t => t.Container == c.Id);
     }
@@ -854,8 +855,12 @@ public partial class MainWindow : Window
             var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
             switch (type)
             {
+                case "container":
+                    var cid = root.GetProperty("id").GetString();
+                    if (cid != null) Dispatcher.BeginInvoke(new Action(() => _ = MoveStartTabAsync(tab, cid)));
+                    break;
                 case "init":
-                    SendStartData(core);
+                    SendStartData(tab, core);
                     break;
                 case "go":
                     var target = UrlTools.ToNavigable(root.GetProperty("q").GetString(), _settings.Engine.Template);
@@ -871,16 +876,16 @@ public partial class MainWindow : Window
                             title = UrlTools.HostOf(url);
                             if (title.StartsWith("www.")) title = title[4..];
                         }
-                        _settings.Shortcuts.Add(new Shortcut { Title = title!.Trim(), Url = url });
+                        _settings.ShortcutsFor(tab.Container).Add(new Shortcut { Title = title!.Trim(), Url = url });
                         _settings.Save();
                     }
-                    SendStartData(core);
+                    SendStartData(tab, core);
                     break;
                 case "remove":
                     var ru = root.GetProperty("url").GetString();
-                    _settings.Shortcuts.RemoveAll(s => s.Url == ru);
+                    _settings.ShortcutsFor(tab.Container).RemoveAll(s => s.Url == ru);
                     _settings.Save();
-                    SendStartData(core);
+                    SendStartData(tab, core);
                     break;
             }
         }
@@ -890,12 +895,16 @@ public partial class MainWindow : Window
         }
     }
 
-    void SendStartData(CoreWebView2 core)
+    void SendStartData(BrowserTab owner, CoreWebView2 core)
     {
+        var info = AppSettings.ContainerById(owner.Container);
         var data = new
         {
             type = "data",
-            shortcuts = _settings.Shortcuts.Select(s =>
+            container = info.Id,
+            containerName = info.Name,
+            containers = AppSettings.Containers.Select(c => new { id = c.Id, name = c.Name, color = c.Color }),
+            shortcuts = _settings.ShortcutsFor(owner.Container).Select(s =>
             {
                 var tab = new BrowserTab("x") { Url = s.Url, Title = s.Title };
                 return new
@@ -1282,7 +1291,10 @@ public partial class MainWindow : Window
     DateTime _lastPrintRequest;
 
     /// <summary>Пункт «Печать» в контекстном меню страницы открывает окно печати «Дымки».</summary>
-    void ReplacePrintMenuItem(CoreWebView2ContextMenuRequestedEventArgs e)
+    void ReplacePrintMenuItem(CoreWebView2ContextMenuRequestedEventArgs e) => CustomizeContextMenu(null, e);
+
+    /// <summary>Свои пункты контекстного меню: печать через окно «Дымки», ссылка - в новой вкладке, в новом окне, рядом.</summary>
+    void CustomizeContextMenu(BrowserTab? source, CoreWebView2ContextMenuRequestedEventArgs e)
     {
         try
         {
@@ -1296,6 +1308,32 @@ public partial class MainWindow : Window
                 items.Insert(i, custom);
                 break;
             }
+
+            var target = e.ContextMenuTarget;
+            if (source == null || !target.HasLinkUri) return;
+            var link = target.LinkUri;
+            if (!link.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !link.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return;
+
+            int pos = 0;
+            for (int i = 0; i < items.Count; i++)
+            {
+                var name = items[i].Name;
+                if (name == "openLinkInNewWindow" || name == "openLinkInNewTab")
+                {
+                    pos = i;
+                    items.RemoveAt(i);
+                    i--;
+                }
+            }
+            CoreWebView2ContextMenuItem Item(string label, Action act)
+            {
+                var it = _env!.CreateContextMenuItem(label, null, CoreWebView2ContextMenuItemKind.Command);
+                it.CustomItemSelected += (_, _) => Dispatcher.BeginInvoke(act);
+                return it;
+            }
+            items.Insert(pos, Item("Открыть ссылку рядом", () => _ = OpenLinkBesideAsync(source, link)));
+            items.Insert(pos, Item("Открыть ссылку в новом окне", () => OpenWindow(link, source.Container)));
+            items.Insert(pos, Item("Открыть ссылку в новой вкладке", () => _ = NewTabAsync(link, activate: false, container: source.Container)));
         }
         catch (Exception ex)
         {

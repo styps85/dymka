@@ -96,6 +96,7 @@ public partial class MainWindow
         int pinnedOthers = _tabs.Count(t => t.IsPinned && t != tab);
         int to = Math.Min(pinnedOthers, _tabs.Count - 1);
         if (from != to) _tabs.Move(from, to);
+        if (pin) _pinnedExpanded = true;
         SavePinned();
         RefreshViews();
     }
@@ -130,6 +131,61 @@ public partial class MainWindow
         RefreshViews();
     }
 
+    bool _pinnedExpanded;
+
+    void UpdatePinnedUi()
+    {
+        int count = _pinnedView.Count;
+        SidePinned.Visibility = _pinnedExpanded ? Visibility.Visible : Visibility.Collapsed;
+        PinnedChevron.Data = (Geometry)FindResource(_pinnedExpanded ? "IcChevronDown" : "IcChevronRight");
+        PinnedHeaderText.Text = _pinnedExpanded ? "ЗАКРЕПЛЕНЫ" : $"ЗАКРЕПЛЕНЫ ({count})";
+        TopPinBtn.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        TopPinBtn.ToolTip = $"Закреплённые вкладки ({count}) - открыть в боковой панели";
+        TopPinBtn.Background = _active?.IsPinned == true ? (Brush)FindResource("AccentSoft") : Brushes.Transparent;
+    }
+
+    void PinnedHeader_Click(object sender, RoutedEventArgs e)
+    {
+        _pinnedExpanded = !_pinnedExpanded;
+        UpdatePinnedUi();
+    }
+
+    /// <summary>Булавка при виде «вкладки сверху»: переход к виду сбоку с раскрытым списком закреплённых.</summary>
+    void TopPin_Click(object sender, RoutedEventArgs e)
+    {
+        _pinnedExpanded = true;
+        SetLayout("side");
+        UpdatePinnedUi();
+    }
+
+    void Unpin_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is BrowserTab tab)
+        {
+            SetPinned(tab, false);
+            ShowToast("Вкладка откреплена");
+        }
+        e.Handled = true;
+    }
+
+    void Logo_Click(object sender, RoutedEventArgs e)
+    {
+        ClosePopups();
+        SetLayout(_settings.Layout == "side" ? "top" : "side");
+    }
+
+    public bool PinnedExpanded => _pinnedExpanded;
+
+    async Task OpenLinkBesideAsync(BrowserTab source, string link)
+    {
+        if (!_tabs.Contains(source)) return;
+        if (_active != source) Activate(source);
+        var right = await NewTabAsync(link, activate: false, container: source.Container);
+        StartSplit(source, right);
+    }
+
+    public Task OpenLinkBesideForTest(BrowserTab source, string link) => OpenLinkBesideAsync(source, link);
+
     // ===================================================================== окна и контейнеры
 
     public MainWindow OpenWindow(string? url, string? container)
@@ -151,6 +207,26 @@ public partial class MainWindow
     {
         ClosePopups();
         OpenWindow(null, _container);
+    }
+
+    /// <summary>Переключение контейнера на стартовой странице: пустая вкладка переезжает в выбранный контейнер.</summary>
+    public async Task MoveStartTabAsync(BrowserTab tab, string container)
+    {
+        container = AppSettings.ContainerById(container).Id;
+        if (tab.Container == container || !_tabs.Contains(tab)) return;
+        if (!tab.IsStart)
+        {
+            SwitchContainer(container);
+            return;
+        }
+        var nt = new BrowserTab(container);
+        nt.PropertyChanged += OnTabPropertyChanged;
+        _tabs.Insert(_tabs.IndexOf(tab) + 1, nt);
+        bool wasActive = tab == _active;
+        if (wasActive) Activate(nt);
+        CloseTab(tab, remember: false);
+        await EnsureViewAsync(nt, UrlTools.StartUrl, navigate: true);
+        if (wasActive && nt == _active) Address.Focus();
     }
 
     public async Task MoveToContainerAsync(BrowserTab tab, string container)
@@ -198,7 +274,7 @@ public partial class MainWindow
         AmTitle.Text = t.Title;
         AmHost.Text = Uri.UnescapeDataString(t.Url);
         AmPinText.Text = t.IsPinned ? "Открепить вкладку" : "Закрепить вкладку";
-        bool shortcut = _settings.IsShortcut(t.Url);
+        bool shortcut = _settings.IsShortcut(t.Url, t.Container);
         AmShortcutText.Text = shortcut ? "Уже на стартовой странице" : "Добавить на стартовую страницу";
         AmShortcutBtn.IsEnabled = !shortcut;
         AmQrBox.Visibility = Visibility.Collapsed;
@@ -345,9 +421,9 @@ public partial class MainWindow
         if (t == null) return;
         var title = string.IsNullOrWhiteSpace(t.Title) ? UrlTools.NormalizeDomain(t.Url) : t.Title.Trim();
         if (title.Length > 28) title = title[..27] + "…";
-        _settings.Shortcuts.Add(new Shortcut { Title = title, Url = t.Url });
+        _settings.ShortcutsFor(t.Container).Add(new Shortcut { Title = title, Url = t.Url });
         _settings.Save();
-        ShowToast("Сайт добавлен на стартовую страницу");
+        ShowToast("Сайт добавлен на стартовую страницу контейнера «" + AppSettings.ContainerById(t.Container).Name + "»");
     }
 
     void AmNewWindow_Click(object sender, RoutedEventArgs e)

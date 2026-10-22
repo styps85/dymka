@@ -93,13 +93,30 @@ public sealed class AppSettings
     /// <summary>Решения по разрешениям: "site.ru|camera" -> true/false.</summary>
     public Dictionary<string, bool> SitePermissions { get; set; } = new();
 
-    public List<Shortcut> Shortcuts { get; set; } = new()
+    /// <summary>Старый общий набор плиток (до версии с контейнерами) - переносится в «Работу».</summary>
+    public List<Shortcut>? Shortcuts { get; set; }
+
+    /// <summary>Плитки стартовой страницы - у каждого контейнера свои.</summary>
+    public Dictionary<string, List<Shortcut>> ShortcutsByContainer { get; set; } = new();
+
+    static List<Shortcut> DefaultWorkShortcuts() => new()
     {
         new() { Title = "Картотека", Url = "https://kad.arbitr.ru/" },
         new() { Title = "Госуслуги", Url = "https://www.gosuslugi.ru/" },
         new() { Title = "ЕФРСБ", Url = "https://fedresurs.ru/" },
         new() { Title = "Dropbox", Url = "https://www.dropbox.com/home" },
     };
+
+    public List<Shortcut> ShortcutsFor(string container)
+    {
+        container = ContainerById(container).Id;
+        if (!ShortcutsByContainer.TryGetValue(container, out var list))
+        {
+            list = new List<Shortcut>();
+            ShortcutsByContainer[container] = list;
+        }
+        return list;
+    }
 
     public List<PinnedSite> Pinned { get; set; } = new();
     public List<ExtensionEntry> Extensions { get; set; } = new();
@@ -147,6 +164,14 @@ public sealed class AppSettings
         }
         s.Path = path;
         if (s.Layout != "top" && s.Layout != "side") s.Layout = "top";
+        if (s.ShortcutsByContainer.Count == 0)
+        {
+            // первый запуск или переход со старой версии: прежние плитки - в «Работу», остальные контейнеры пустые
+            s.ShortcutsByContainer["work"] = s.Shortcuts ?? DefaultWorkShortcuts();
+            s.ShortcutsByContainer["personal"] = new List<Shortcut>();
+            s.ShortcutsByContainer["bank"] = new List<Shortcut>();
+        }
+        s.Shortcuts = null;
         if (s.SmartScreenMode is not ("off" or "bank" or "all")) s.SmartScreenMode = "bank";
         if (s.PrintPagesPerSheet is not (1 or 2 or 4 or 6 or 9 or 16)) s.PrintPagesPerSheet = 1;
         s.PrintScale = Math.Clamp(s.PrintScale, 10, 200);
@@ -179,11 +204,11 @@ public sealed class AppSettings
     public bool UseSmartScreen(string container) =>
         SmartScreenMode == "all" || (SmartScreenMode == "bank" && container == "bank");
 
-    public bool IsShortcut(string url)
+    public bool IsShortcut(string url, string container)
     {
         string Key(string u) => UrlTools.NormalizeDomain(u) + (Uri.TryCreate(u, UriKind.Absolute, out var x) ? x.AbsolutePath.TrimEnd('/') : "");
         var k = Key(url);
-        return Shortcuts.Any(s => Key(s.Url) == k);
+        return ShortcutsFor(container).Any(s => Key(s.Url) == k);
     }
 
     public bool KeepsCookies(string host) => UrlTools.HostMatches(host, CookieWhitelist);

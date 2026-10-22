@@ -208,8 +208,13 @@ sealed class SelfTest
             // закрепление
             _w.SetPinned(a, true);
             Check(_w.Settings.Pinned.Count == 1, "вкладка закреплена и сохранена для следующего запуска");
+            Check(_w.PinnedExpanded, "при закреплении список закреплённых раскрылся");
             await Task.Delay(500);
             Capture(_w, "13-pinned");
+            _w.SetLayout("top");
+            await Task.Delay(700);
+            Capture(_w, "13b-top-pin");
+            _w.SetLayout("side");
 
             // раздельный просмотр
             var b = await _w.NewTabAsync("https://example.com/", activate: false);
@@ -221,6 +226,15 @@ sealed class SelfTest
             _w.EndSplit();
             await Task.Delay(400);
             Check(!_w.IsSplit, "раздельный просмотр закрыт");
+
+            // ссылка «рядом» (как из меню правой кнопки)
+            _w.EndSplit();
+            _w.Activate(a);
+            await _w.OpenLinkBesideForTest(a, "https://example.com/?beside=1");
+            await Task.Delay(1500);
+            Check(_w.IsSplit && _w.ActiveTab?.Url.Contains("example.com") == true, "ссылка открыта рядом в правой половине");
+            _w.EndSplit();
+            _w.Activate(b);
 
             // перенос в другой контейнер
             var url = b.Url;
@@ -263,6 +277,20 @@ sealed class SelfTest
             Capture(_w, "17-video-translation");
             _w.Settings.VideoTranslation = false;
 
+            // контейнеры на стартовой странице: у каждого свои плитки
+            var st = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => st.View?.CoreWebView2 != null && !st.IsLoading, 30);
+            await Task.Delay(1200);
+            Capture(_w, "18-start-work");
+            await st.View!.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-container=\"personal\"]').click()");
+            Check(await WaitFor(() => _w.ActiveTab?.Container == "personal" && _w.ActiveTab.IsStart && _w.ActiveTab.View?.CoreWebView2 != null && !_w.ActiveTab.IsLoading, 20),
+                "переключение контейнера на стартовой странице: вкладка перешла в «Личное»");
+            var pcore = _w.ActiveTab!.View!.CoreWebView2;
+            var emptyShown = await PollScript(pcore, "!document.getElementById('empty').hidden", v => v == "true", 10);
+            Check(emptyShown == "true", "у «Личного» свой (пока пустой) набор плиток");
+            await Task.Delay(800);
+            Capture(_w, "18b-start-personal");
+
             // окно расширений
             var ew = new ExtensionsWindow(_w.Settings, Path.Combine(_dir, "ext-copies")) { Owner = _w, Topmost = true };
             ew.Show();
@@ -300,7 +328,7 @@ sealed class SelfTest
 
             var startCore = _w.ActiveTab!.View!.CoreWebView2;
             var tiles = await startCore.ExecuteScriptAsync("document.querySelectorAll('.tile:not(.add)').length");
-            Check(tiles == _w.Settings.Shortcuts.Count.ToString(), $"стартовая страница получила плитки сайтов ({tiles})");
+            Check(tiles == _w.Settings.ShortcutsFor(_w.ActiveTab!.Container).Count.ToString(), $"стартовая страница получила плитки сайтов ({tiles})");
 
             // страница с трекерами: счётчики Google, Яндекса, Mail.ru и пиксель Facebook должны быть заблокированы
             var testDir = Path.Combine(_dir, "web");

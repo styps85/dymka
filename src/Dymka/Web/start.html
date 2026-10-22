@@ -31,6 +31,13 @@
     -webkit-user-select: text; user-select: text;
   }
   form.search input::placeholder { color: #7A8394; }
+  .seg { display: inline-grid; grid-auto-flow: column; gap: 4px; padding: 4px; background: #E3E8EF; border-radius: 12px; margin-top: -14px; }
+  .seg button { border: 0; background: transparent; border-radius: 9px; height: 32px; padding: 0 16px; font: inherit; font-size: 13px;
+    font-weight: 500; color: var(--ink2); display: flex; align-items: center; gap: 7px; cursor: pointer; }
+  .seg button:hover { background: rgba(255,255,255,.55); }
+  .seg button.on { background: #fff; color: var(--ink); font-weight: 600; box-shadow: 0 1px 2px rgba(27,34,48,.08); }
+  .seg .dot { width: 8px; height: 8px; border-radius: 4px; }
+  .empty { width: 100%; max-width: 640px; text-align: center; color: var(--muted); font-size: 13px; margin-top: -14px; }
   .grid { width: 100%; max-width: 640px; display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 18px 12px; }
   .tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-decoration: none; color: var(--ink2); font-size: 12px; font-weight: 500; border-radius: 16px; padding: 6px 4px; }
   .tile .ic {
@@ -84,7 +91,9 @@
     <input id="q" aria-label="Поиск" placeholder="Искать в DuckDuckGo или ввести адрес">
   </form>
 
+  <div class="seg" id="seg" role="tablist" aria-label="Контейнер"></div>
   <div class="grid" id="grid"></div>
+  <div class="empty" id="empty" hidden></div>
 
   <div class="stats">
     <div class="chip"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#1C7F53" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6z"/><path d="M9 12l2 2 4-4"/></svg><span id="blocked">Сегодня заблокировано 0 трекеров</span></div>
@@ -119,6 +128,24 @@
   }
 
   function render(d) {
+    const seg = document.getElementById('seg');
+    seg.textContent = '';
+    for (const c of (d.containers || [])) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.setAttribute('role', 'tab');
+      b.dataset.container = c.id;
+      b.setAttribute('aria-selected', c.id === d.container ? 'true' : 'false');
+      if (c.id === d.container) b.className = 'on';
+      const dot = document.createElement('span'); dot.className = 'dot'; dot.style.background = c.color;
+      const nm = document.createElement('span'); nm.textContent = c.name;
+      b.append(dot, nm);
+      b.addEventListener('click', () => { if (c.id !== d.container) send({ type: 'container', id: c.id }); });
+      seg.append(b);
+    }
+    const empty = document.getElementById('empty');
+    empty.hidden = d.shortcuts.length > 0;
+    empty.textContent = 'В контейнере «' + d.containerName + '» пока нет сайтов. Нажмите «Добавить» или выберите «Добавить на стартовую страницу» в меню адресной строки.';
     const grid = document.getElementById('grid');
     grid.textContent = '';
     for (const s of d.shortcuts) {

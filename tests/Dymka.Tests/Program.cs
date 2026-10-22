@@ -138,9 +138,16 @@ Eq(Directory.Exists(Path.Combine(copied, "_metadata")), false, "служебна
 Eq(ExtensionScanner.CompareVersions("1.10.0", "1.9.9") > 0, true, "сравнение версий");
 Directory.Delete(la, true);
 
-var st = new AppSettings();
-Eq(st.IsShortcut("https://kad.arbitr.ru"), true, "картотека уже на стартовой");
-Eq(st.IsShortcut("https://example.com/"), false, "другой сайт не на стартовой");
+var tmp2 = Path.Combine(Path.GetTempPath(), "dymka-test-" + Guid.NewGuid() + ".json");
+File.WriteAllText(tmp2, "{ \"Shortcuts\": [ { \"Title\": \"Картотека\", \"Url\": \"https://kad.arbitr.ru/\" }, { \"Title\": \"Почта\", \"Url\": \"https://mail.yandex.ru/\" } ] }");
+var st = AppSettings.Load(tmp2);
+Eq(st.ShortcutsFor("work").Count, 2, "старые плитки перенесены в «Работу»");
+Eq(st.ShortcutsFor("personal").Count, 0, "«Личное» начинается пустым");
+Eq(st.IsShortcut("https://kad.arbitr.ru", "work"), true, "картотека уже на стартовой «Работы»");
+Eq(st.IsShortcut("https://kad.arbitr.ru", "bank"), false, "в «Банке» картотеки нет");
+Eq(st.Shortcuts, null, "старый общий список больше не хранится");
+File.Delete(tmp2);
+Eq(AppSettings.Load(Path.Combine(Path.GetTempPath(), "nonexistent-" + Guid.NewGuid() + ".json")).ShortcutsFor("work").Count, 4, "первый запуск: 4 плитки в «Работе»");
 
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;

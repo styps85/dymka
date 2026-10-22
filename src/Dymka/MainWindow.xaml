@@ -92,8 +92,10 @@
                   Click="TabClose_Click" Tag="{Binding}" Visibility="Hidden" ToolTip="Закрыть вкладку (Ctrl+W)">
             <local:Glyph Data="{StaticResource IcClose}" Size="13" StrokeWidth="2.4"/>
           </Button>
-          <local:Glyph x:Name="PinGl" DockPanel.Dock="Right" Data="{StaticResource IcPin}" Size="14" Margin="0,0,5,0"
-                       Foreground="{StaticResource Muted}" Visibility="Collapsed" VerticalAlignment="Center"/>
+          <Button x:Name="PinBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="Unpin_Click" Tag="{Binding}"
+                  Visibility="Collapsed" ToolTip="Открепить">
+            <local:Glyph Data="{StaticResource IcPin}" Size="14"/>
+          </Button>
           <Grid DockPanel.Dock="Left" Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center">
             <Image x:Name="Fav" Source="{Binding Favicon}" Width="16" Height="16" Visibility="Collapsed"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
@@ -140,7 +142,7 @@
         </DataTrigger>
         <DataTrigger Binding="{Binding IsPinned}" Value="True">
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Collapsed"/>
-          <Setter TargetName="PinGl" Property="Visibility" Value="Visible"/>
+          <Setter TargetName="PinBtn" Property="Visibility" Value="Visible"/>
         </DataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -211,8 +213,15 @@
       <!-- ===== Полоса вкладок сверху ===== -->
       <Grid x:Name="TopStrip" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Strip}">
         <DockPanel Margin="12,0,150,0" LastChildFill="False">
-          <ContentControl DockPanel.Dock="Left" Content=" " ContentTemplate="{StaticResource AppMark}" Width="22" Height="22"
-                          Margin="0,0,10,0" VerticalAlignment="Center" Focusable="False"/>
+          <Button DockPanel.Dock="Left" Style="{StaticResource PlainButton}" Click="Logo_Click" Margin="0,0,8,0"
+                  VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Cursor="Hand"
+                  ToolTip="Вкладки сбоку (щелчок по значку переключает вид)">
+            <ContentControl Content=" " ContentTemplate="{StaticResource AppMark}" Width="22" Height="22" Focusable="False"/>
+          </Button>
+          <Button x:Name="TopPinBtn" DockPanel.Dock="Left" Style="{StaticResource IconButton}" Width="32" Height="32"
+                  Margin="0,0,4,4" VerticalAlignment="Bottom" Click="TopPin_Click" Visibility="Collapsed">
+            <local:Glyph Data="{StaticResource IcPin}" Size="17"/>
+          </Button>
           <ItemsControl x:Name="TopTabs" DockPanel.Dock="Left" ItemTemplate="{StaticResource TopTabTemplate}"
                         VerticalAlignment="Bottom" Focusable="False" ClipToBounds="True">
             <ItemsControl.ItemsPanel>
@@ -233,11 +242,14 @@
               Visibility="Collapsed">
         <DockPanel Margin="12,10,12,12">
           <StackPanel DockPanel.Dock="Top">
-            <StackPanel Orientation="Horizontal" Height="34" Margin="6,0,0,0">
-              <ContentControl Content=" " ContentTemplate="{StaticResource AppMark}" Width="22" Height="22" VerticalAlignment="Center"
-                              Focusable="False"/>
-              <TextBlock Text="Дымка" FontSize="15" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
-            </StackPanel>
+            <Button Style="{StaticResource PlainButton}" Click="Logo_Click" HorizontalAlignment="Left" Cursor="Hand"
+                    WindowChrome.IsHitTestVisibleInChrome="True" ToolTip="Вкладки сверху (щелчок по значку переключает вид)">
+              <StackPanel Orientation="Horizontal" Height="34" Margin="6,0,0,0">
+                <ContentControl Content=" " ContentTemplate="{StaticResource AppMark}" Width="22" Height="22" VerticalAlignment="Center"
+                                Focusable="False"/>
+                <TextBlock Text="Дымка" FontSize="15" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
+              </StackPanel>
+            </Button>
             <Border Background="#E3E8EF" CornerRadius="12" Padding="4" Margin="0,8,0,0">
               <ItemsControl x:Name="ContainerSeg" ItemTemplate="{StaticResource ContainerSegTemplate}" Focusable="False">
                 <ItemsControl.ItemsPanel>
@@ -281,7 +293,15 @@
               <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
             </ScrollViewer.Resources>
             <StackPanel>
-              <TextBlock x:Name="PinnedHeader" Text="ЗАКРЕПЛЕНЫ" Style="{StaticResource SectionLabel}" Visibility="Collapsed"/>
+              <Button x:Name="PinnedHeader" Style="{StaticResource PlainButton}" Click="PinnedHeader_Click" Visibility="Collapsed"
+                      HorizontalAlignment="Left" Cursor="Hand" Margin="10,12,10,4" ToolTip="Свернуть или развернуть">
+                <StackPanel Orientation="Horizontal">
+                  <TextBlock x:Name="PinnedHeaderText" Text="ЗАКРЕПЛЕНЫ" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Muted}"
+                             VerticalAlignment="Center"/>
+                  <local:Glyph x:Name="PinnedChevron" Data="{StaticResource IcChevronRight}" Size="13" StrokeWidth="2.6"
+                               Foreground="{StaticResource Muted}" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
               <ItemsControl x:Name="SidePinned" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
               <TextBlock Text="ОТКРЫТЫ" Style="{StaticResource SectionLabel}"/>
               <ItemsControl x:Name="SideAwake" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
