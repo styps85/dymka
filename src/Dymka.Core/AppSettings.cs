@@ -103,6 +103,8 @@ public sealed class AppSettings
 
     public List<PinnedSite> Pinned { get; set; } = new();
     public List<ExtensionEntry> Extensions { get; set; } = new();
+    /// <summary>Расширения, которые поставила сама «Дымка» (удалять можно только их, а не встроенные компоненты движка).</summary>
+    public List<string> ManagedExtensionIds { get; set; } = new();
 
     /// <summary>Контейнеры, данные которых ещё не очищены (браузер закрылся аварийно).</summary>
     public List<string> PendingCleanup { get; set; } = new();

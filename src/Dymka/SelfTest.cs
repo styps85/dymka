@@ -250,6 +250,7 @@ sealed class SelfTest
                 var exts = await ytCore.Profile.GetBrowserExtensionsAsync();
                 Line("расширения профиля: " + string.Join("; ", exts.Select(x => $"{x.Name} ({(x.IsEnabled ? "вкл" : "выкл")})")));
                 Check(exts.Any(x => x.Name.Contains("Voice Over Translation") && x.IsEnabled), "перевод видео: расширение установлено и включено");
+                Check(exts.Any(x => x.Name.Contains("PDF")), "встроенный просмотр PDF движка на месте");
                 string vot = await PollScript(ytCore, "!!document.querySelector('[class*=\"vot\"],[id*=\"vot\"]')", v => v == "true", 25);
                 Line("ИНФО кнопка перевода на YouTube: " + (vot == "true" ? "есть" : "нет (на сервере сборки YouTube требует вход - видео не загружается)"));
             }

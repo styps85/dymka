@@ -390,8 +390,11 @@ public partial class MainWindow
                 var entry = wanted.FirstOrDefault(w => w.Id == ext.Id || w.Name == ext.Name);
                 if (entry == null)
                 {
-                    if (ext.Name.StartsWith("Dymka ") || IsVot(ext)) continue;   // самопроверка и встроенный перевод видео
+                    // удаляем только то, что ставила «Дымка»; встроенные компоненты движка (просмотр PDF и др.) не трогаем
+                    if (!_settings.ManagedExtensionIds.Contains(ext.Id) || IsVot(ext)) continue;
                     await ext.RemoveAsync();
+                    _settings.ManagedExtensionIds.Remove(ext.Id);
+                    _settings.Save();
                 }
                 else if (ext.IsEnabled != entry.Enabled)
                 {
@@ -413,6 +416,7 @@ public partial class MainWindow
             try
             {
                 var added = await core.Profile.AddBrowserExtensionAsync(folder);
+                if (!_settings.ManagedExtensionIds.Contains(added.Id)) { _settings.ManagedExtensionIds.Add(added.Id); _settings.Save(); }
                 if (!entry.Enabled) await added.EnableAsync(false);
             }
             catch (Exception ex)
