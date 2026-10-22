@@ -372,11 +372,20 @@ public partial class MainWindow
     async Task EnsureExtensionsAsync(string container, CoreWebView2 core)
     {
         if (!Shared.ExtensionsSynced.Add(container)) return;
+        IReadOnlyList<CoreWebView2BrowserExtension> installed;
         try
         {
-            var installed = await core.Profile.GetBrowserExtensionsAsync();
-            var wanted = _settings.Extensions;
-            foreach (var ext in installed)
+            installed = await core.Profile.GetBrowserExtensionsAsync();
+        }
+        catch (Exception ex)
+        {
+            App.Log($"Расширения [{container}]: список не получен: {ex.GetType().Name} {ex.Message}");
+            return;
+        }
+        var wanted = _settings.Extensions;
+        foreach (var ext in installed)
+        {
+            try
             {
                 var entry = wanted.FirstOrDefault(w => w.Id == ext.Id || w.Name == ext.Name);
                 if (entry == null)
@@ -389,26 +398,27 @@ public partial class MainWindow
                     await ext.EnableAsync(entry.Enabled);
                 }
             }
-            await EnsureVotAsync(core.Profile, installed);
-            foreach (var entry in wanted)
+            catch (Exception ex)
             {
-                if (installed.Any(x => x.Id == entry.Id || x.Name == entry.Name)) continue;
-                var folder = Path.Combine(ExtensionsDir, entry.Id);
-                if (!File.Exists(Path.Combine(folder, "manifest.json"))) continue;
-                try
-                {
-                    var added = await core.Profile.AddBrowserExtensionAsync(folder);
-                    if (!entry.Enabled) await added.EnableAsync(false);
-                }
-                catch (Exception ex)
-                {
-                    App.Log($"Расширение {entry.Name}: {ex.Message}");
-                }
+                App.Log($"Расширение «{ext.Name}» [{container}]: {ex.Message}");
             }
         }
-        catch (Exception ex)
+        try { await EnsureVotAsync(core.Profile, installed); }
+        catch (Exception ex) { App.Log($"Перевод видео [{container}]: {ex.GetType().Name} 0x{ex.HResult:X8} {ex.Message}"); }
+        foreach (var entry in wanted)
         {
-            App.Log("Расширения: " + ex.Message);
+            if (installed.Any(x => x.Id == entry.Id || x.Name == entry.Name)) continue;
+            var folder = Path.Combine(ExtensionsDir, entry.Id);
+            if (!File.Exists(Path.Combine(folder, "manifest.json"))) continue;
+            try
+            {
+                var added = await core.Profile.AddBrowserExtensionAsync(folder);
+                if (!entry.Enabled) await added.EnableAsync(false);
+            }
+            catch (Exception ex)
+            {
+                App.Log($"Расширение {entry.Name} [{container}]: 0x{ex.HResult:X8} {ex.Message}");
+            }
         }
     }
 

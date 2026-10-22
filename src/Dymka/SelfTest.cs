@@ -239,15 +239,20 @@ sealed class SelfTest
             await Task.Delay(1500);
             Check(_w.IsVisible && Shared.Windows.Count == 1, "после закрытия второго окна первое продолжает работать");
 
-            // перевод видео: встроенное расширение VOT на YouTube
+            // перевод видео: встроенное расширение VOT
             _w.Settings.VideoTranslation = true;
             await _w.ResyncExtensionsAsync();
             var yt = await _w.NewTabAsync("https://www.youtube.com/watch?v=jNQXAC9IVRw", activate: true);
             await WaitFor(() => yt.Url.Contains("youtube.com") && !yt.IsLoading, 40);
             var ytCore = yt.View?.CoreWebView2;
-            string vot = ytCore == null ? "" : await PollScript(ytCore,
-                "!!document.querySelector('[class*=\"vot\"],[id*=\"vot\"]')", v => v == "true", 25);
-            Check(vot == "true", "перевод видео: на странице YouTube появилась кнопка перевода");
+            if (ytCore != null)
+            {
+                var exts = await ytCore.Profile.GetBrowserExtensionsAsync();
+                Line("расширения профиля: " + string.Join("; ", exts.Select(x => $"{x.Name} ({(x.IsEnabled ? "вкл" : "выкл")})")));
+                Check(exts.Any(x => x.Name.Contains("Voice Over Translation") && x.IsEnabled), "перевод видео: расширение установлено и включено");
+                string vot = await PollScript(ytCore, "!!document.querySelector('[class*=\"vot\"],[id*=\"vot\"]')", v => v == "true", 25);
+                Line("ИНФО кнопка перевода на YouTube: " + (vot == "true" ? "есть" : "нет (на сервере сборки YouTube требует вход - видео не загружается)"));
+            }
             await Task.Delay(1500);
             Capture(_w, "17-video-translation");
             _w.Settings.VideoTranslation = false;
