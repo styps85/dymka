@@ -71,14 +71,14 @@ public partial class CleanupWindow : Window
             },
             IsEnabled = list.Count > 0,
         };
-        var row = new DockPanel();
+        stack.Children.Add(header);
         if (g == CleanupGroup.Old)
         {
             // срок «давно» можно поменять прямо здесь
-            var chips = new StackPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+            var chips = new StackPanel { Orientation = Orientation.Horizontal, Margin = new Thickness(30, 8, 0, 0) };
             chips.Children.Add(new TextBlock
             {
-                Text = "больше", FontSize = 12, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 0, 8, 0),
+                Text = "не открывались больше", FontSize = 12, Foreground = (Brush)FindResource("Muted"), Margin = new Thickness(0, 0, 8, 0),
                 VerticalAlignment = VerticalAlignment.Center,
             });
             foreach (var d in DayChoices)
@@ -96,11 +96,8 @@ public partial class CleanupWindow : Window
                 };
                 chips.Children.Add(rb);
             }
-            DockPanel.SetDock(chips, Dock.Right);
-            row.Children.Add(chips);
+            stack.Children.Add(chips);
         }
-        row.Children.Add(header);
-        stack.Children.Add(row);
 
         var boxes = new List<CheckBox>();
         foreach (var item in list)
