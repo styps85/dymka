@@ -116,6 +116,16 @@ static class Native
         mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero); // вверх
     }
 
+    /// <summary>Настоящий щелчок мышью в точке экрана (в физических пикселях).</summary>
+    public static void ClickAt(Point screen)
+    {
+        SetCursorPos((int)screen.X, (int)screen.Y);
+        Thread.Sleep(80);
+        mouse_event(0x0002, 0, 0, 0, UIntPtr.Zero);
+        Thread.Sleep(60);
+        mouse_event(0x0004, 0, 0, 0, UIntPtr.Zero);
+    }
+
     public static bool IsCtrlDown() => GetKeyState(0x11) < 0;
     public static bool IsShiftDown() => GetKeyState(0x10) < 0;
 

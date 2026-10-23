@@ -477,6 +477,8 @@ public partial class MainWindow : Window
         core.ContextMenuRequested += (_, e) => CustomizeContextMenu(tab, e);
         core.PermissionRequested += (_, e) => OnPermissionRequested(e);
         core.WebMessageReceived += (_, e) => OnWebMessage(tab, core, e);
+        try { core.FrameCreated += (_, fe) => HookFrame(tab, fe.Frame); }
+        catch (Exception ex) { App.Log("Фреймы: " + ex.Message); }
         try { core.ServerCertificateErrorDetected += (_, e) => OnServerCertificateError(tab, e); }
         catch (Exception ex) { App.Log("Проверка сертификатов недоступна: " + ex.Message); }
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
@@ -890,7 +892,8 @@ public partial class MainWindow : Window
                 var kind = dm.GetString();
                 if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
                 else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
-                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit") OnFormMessage(tab, core, kind, root);
+                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit")
+                    OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = core.ExecuteScriptAsync }, kind, root);
                 else if (kind == "tr" && tab.TranslateState != TranslateState.None)
                 {
                     // текст отдаётся переводчику только после того, как перевод страницы включили вы

@@ -392,6 +392,35 @@ if (File.Exists(rootFile))
 }
 else Console.WriteLine("(встроенных сертификатов ещё нет: " + rootFile + ")");
 
+// --- банковские карты
+Eq(CardTools.Luhn("4111111111111111"), true, "номер карты: контрольная сумма верна");
+Eq(CardTools.Luhn("4111111111111112"), false, "опечатка в номере карты ловится");
+Eq(CardTools.Brand("2202200012345678"), "Мир", "карта «Мир»");
+Eq(CardTools.Brand("4111111111111111"), "Visa", "Visa");
+Eq(CardTools.Brand("5500000000000004"), "Mastercard", "Mastercard");
+Eq(CardTools.Format("2202200012345678"), "2202 2000 1234 5678", "номер группами по 4");
+Eq(CardTools.TryParseExp("05/28", out var em, out var ey) && em == 5 && ey == 2028, true, "срок «05/28»");
+Eq(CardTools.TryParseExp("13/28", out _, out _), false, "13-й месяц - ошибка");
+var bc = new BankCard { Title = "Сбер", Number = "2202200012345678", Holder = "Ivan Ivanov", ExpMonth = 5, ExpYear = 2028 };
+Eq(bc.Summary, "Мир •••• 5678 · до 05/28", "карта в подсказке: только последние цифры");
+Eq(K("Номер карты", "tel"), FieldKind.CardNumber, "«Номер карты» (type=tel) - номер карты, не телефон");
+Eq(K("", ac: "cc-number"), FieldKind.CardNumber, "autocomplete=cc-number");
+Eq(K("Срок действия", ph: "ММ/ГГ"), FieldKind.CardExp, "срок действия");
+Eq(K("Имя владельца карты"), FieldKind.CardHolder, "владелец карты");
+Eq(K("CVC/CVV"), FieldKind.CardCvc, "CVC");
+Eq(K("Номер паспорта"), FieldKind.PassportNumber, "номер паспорта по-прежнему паспорт");
+var pay = new[] { F(0, "Номер карты", "tel"), F(1, "Срок действия", ph: "ММ/ГГ"), F(2, "Имя владельца карты"), F(3, "CVC") };
+var pf = FormFill.BuildBankCard(bc, pay).ToDictionary(x => x.Index, x => x.Value);
+Eq(pf[0] + "|" + pf[1] + "|" + pf[2], "2202200012345678|05/28|IVAN IVANOV", "оплата: номер, срок, владелец");
+Eq(pf.ContainsKey(3), false, "код CVC не подставляется никогда");
+Eq(FormFill.CvcIndex(pay), 3, "после подстановки курсор - в поле CVC");
+var pay2 = new[] { F(0, "Месяц", "select", name: "exp-month"), F(1, "Год", "select", name: "exp-year"), F(2, "", "text", name: "cc-exp", ph: "ММ/ГГГГ") };
+var pf2 = FormFill.BuildBankCard(bc, pay2).ToDictionary(x => x.Index, x => x.Value);
+Eq(pf2[0] + "|" + pf2[1] + "|" + pf2[2], "05|2028|05/2028", "месяц и год отдельно, срок с годом из 4 цифр");
+Eq(FormFill.Build(new Card { LastName = "Иванов" }, pay).Count, 0, "карточка человека не заполняет поля оплаты");
+
+Eq(FormFill.Classify(new FieldInfo(0, "password", "cvc", "", "", "CVC", "")), FieldKind.CardCvc, "CVC в виде поля пароля - это CVC");
+Eq(FormFill.Classify(new FieldInfo(0, "password", "password", "", "", "Пароль", "")), FieldKind.None, "обычный пароль - не поле анкеты");
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
 

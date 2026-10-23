@@ -1,9 +1,11 @@
 (function () {
   // Пароли и автозаполнение «Дымки». Страница только сообщает браузеру, что вы встали в поле входа или анкеты,
   // и что форма входа отправлена. Подставляет данные браузер - и только когда вы выбрали их в подсказке.
-  if (window.top !== window || window.__dymkaForms) return;
+  // работает и во встроенных окнах (фреймах): формы оплаты банков часто открываются именно в них
+  if (window.__dymkaForms) return;
   if (location.hostname === 'dymka.start') return;   // своя стартовая страница: в поле поиска подсказки карточек не нужны
-  function post(m) { try { window.chrome.webview.postMessage(m); } catch (e) { } }
+  var inFrame = window.top !== window;
+  function post(m) { m.inFrame = inFrame; try { window.chrome.webview.postMessage(m); } catch (e) { } }
   var SKIP = { hidden: 1, submit: 1, button: 1, reset: 1, image: 1, file: 1, checkbox: 1, radio: 1, range: 1, color: 1, search: 1 };
   var filling = false, lastFocus = null, lastFields = [], lastSent = '', lastSentAt = 0;
 
@@ -49,21 +51,27 @@
     return /(^|[^a-z])(q|query|search|searchtext)([^a-z]|$)|поиск|искать|найти/.test(s);
   }
 
+  // поле кода CVC часто сделано как поле пароля - это не пароль для входа
+  function isCvc(el) {
+    var s = ((el.name || '') + ' ' + (el.id || '') + ' ' + (el.getAttribute('autocomplete') || '') + ' ' + (el.getAttribute('placeholder') || '') + ' ' + labelOf(el)).toLowerCase();
+    return /cvc|cvv|cvn|csc|код\s*(безопасности|проверки)|security\s*code/.test(s) || (el.maxLength >= 3 && el.maxLength <= 4 && /^\d*$/.test(el.value || ''));
+  }
+
   function fieldsOf(scope) {
-    return [].slice.call((scope || document).querySelectorAll('input,textarea')).filter(function (el) {
-      var t = typeOf(el);
-      return !SKIP[t] && t !== 'password' && !el.disabled && !el.readOnly && visible(el);
+    return [].slice.call((scope || document).querySelectorAll('input,textarea,select')).filter(function (el) {
+      var t = el.tagName === 'SELECT' ? 'select' : typeOf(el);
+      return !SKIP[t] && (t !== 'password' || isCvc(el)) && !el.disabled && !el.readOnly && visible(el);
     });
   }
   function describe(list) {
     lastFields = list;
     return list.map(function (el, i) {
-      return { i: i, type: typeOf(el), name: el.name || '', id: el.id || '', ac: el.getAttribute('autocomplete') || '',
-        label: labelOf(el), ph: el.getAttribute('placeholder') || '' };
+      return { i: i, type: el.tagName === 'SELECT' ? 'select' : typeOf(el), name: el.name || '', id: el.id || '', ac: el.getAttribute('autocomplete') || '',
+        label: labelOf(el), ph: el.getAttribute('placeholder') || '', ml: el.maxLength > 0 ? el.maxLength : 0 };
     });
   }
   function pwFields(scope) {
-    return [].slice.call((scope || document).querySelectorAll('input[type=password]')).filter(function (e) { return visible(e) && !e.disabled; });
+    return [].slice.call((scope || document).querySelectorAll('input[type=password]')).filter(function (e) { return visible(e) && !e.disabled && !isCvc(e); });
   }
   function userFor(pw) {
     var scope = pw.form || document;
@@ -80,7 +88,23 @@
   }
   function rectOf(el) { var r = el.getBoundingClientRect(); return { x: r.left, y: r.bottom, w: r.width, top: r.top }; }
 
+  function setSelect(el, v) {
+    var n = parseInt(v, 10), idx = -1;
+    for (var k = 0; k < el.options.length; k++) {
+      var o = el.options[k], ov = (o.value || '').trim(), ot = (o.text || '').trim();
+      if (ov === v || ot === v) { idx = k; break; }
+      if (!isNaN(n) && (parseInt(ov, 10) === n || parseInt(ot, 10) === n || parseInt(ov, 10) === n % 100 || parseInt(ot, 10) === n % 100)) { if (idx < 0) idx = k; }
+    }
+    if (idx < 0) return false;
+    el.selectedIndex = idx;
+    el.dispatchEvent(new Event('input', { bubbles: true }));
+    el.dispatchEvent(new Event('change', { bubbles: true }));
+    el.setAttribute('data-dymka-filled', '1');
+    return true;
+  }
+
   function setVal(el, v) {
+    if (el.tagName === 'SELECT') return setSelect(el, v);
     var proto = el.tagName === 'TEXTAREA' ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
     var setter = Object.getOwnPropertyDescriptor(proto, 'value').set;
     try { el.focus(); } catch (e) { }
@@ -93,11 +117,11 @@
   document.addEventListener('focusin', function (e) {
     if (filling) return;
     var el = e.target;
-    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+    if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
     lastFocus = el;
     var t = typeOf(el);
     var pws = pwFields(el.form || document);
-    if (t === 'password' || (pws.length > 0 && userFor(pws[0]) === el)) {
+    if ((t === 'password' && !isCvc(el)) || (pws.length > 0 && userFor(pws[0]) === el)) {
       post({ __dymka: 'pw-focus', rect: rectOf(el) });
       return;
     }
@@ -158,7 +182,7 @@
       } finally { filling = false; }
       return 'ok';
     },
-    fill: function (pairs) {
+    fill: function (pairs, focusIndex) {
       var n = 0;
       filling = true;
       try {
@@ -166,7 +190,8 @@
           var el = lastFields[x.i];
           if (el && (!el.value || el.getAttribute('data-dymka-filled') || el === lastFocus)) { setVal(el, x.v); n++; }
         });
-        if (lastFocus) try { lastFocus.focus(); } catch (e) { }
+        var target = typeof focusIndex === 'number' && focusIndex >= 0 ? lastFields[focusIndex] : lastFocus;
+        if (target) try { target.focus(); } catch (e) { }
       } finally { filling = false; }
       return n;
     }

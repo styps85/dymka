@@ -64,6 +64,15 @@ public partial class MainWindow
 
     // ===================================================================== подсказка у поля
 
+    /// <summary>Документ, приславший сообщение: сама страница или встроенное окно (фрейм) - например, форма оплаты банка.</summary>
+    public sealed class FormTarget
+    {
+        public required string Source { get; init; }
+        public required Func<string, Task<string>> Exec { get; init; }
+        public bool InFrame { get; init; }
+        public string Host => UrlTools.HostOf(Source);
+    }
+
     readonly DispatcherTimer _fillBlurTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     bool _fillBlurHooked;
     List<FieldInfo>? _fillFields;
@@ -72,18 +81,44 @@ public partial class MainWindow
 
     readonly List<FillRow> _fillRows = new();
 
-    void OnFormMessage(BrowserTab tab, CoreWebView2 core, string kind, JsonElement root)
+    static List<FieldInfo> ParseFields(JsonElement root) =>
+        root.GetProperty("fields").EnumerateArray().Select(f => new FieldInfo(
+            f.GetProperty("i").GetInt32(), Str(f, "type"), Str(f, "name"), Str(f, "id"), Str(f, "ac"), Str(f, "label"), Str(f, "ph"))
+        {
+            MaxLength = f.TryGetProperty("ml", out var ml) && ml.ValueKind == JsonValueKind.Number ? ml.GetInt32() : 0,
+        }).ToList();
+
+    void HookFrame(BrowserTab tab, CoreWebView2Frame frame)
+    {
+        try
+        {
+            frame.WebMessageReceived += (_, e) =>
+            {
+                try
+                {
+                    using var doc = JsonDocument.Parse(e.WebMessageAsJson);
+                    var root = doc.RootElement;
+                    if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("__dymka", out var k)) return;
+                    var kind = k.GetString();
+                    if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit")
+                        OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = frame.ExecuteScriptAsync, InFrame = true }, kind, root);
+                }
+                catch (Exception ex) { App.Log("Сообщение из фрейма: " + ex.Message); }
+            };
+        }
+        catch (Exception ex) { App.Log("Фрейм: " + ex.Message); }
+    }
+
+    void OnFormMessage(BrowserTab tab, FormTarget target, string kind, JsonElement root)
     {
         if (tab != _active) return;
         switch (kind)
         {
             case "pw-focus":
-                ShowPasswordHints(tab, core, root.GetProperty("rect").Clone());
+                ShowPasswordHints(tab, target, root.GetProperty("rect").Clone());
                 break;
             case "card-focus":
-                var fields = root.GetProperty("fields").EnumerateArray().Select(f => new FieldInfo(
-                    f.GetProperty("i").GetInt32(), Str(f, "type"), Str(f, "name"), Str(f, "id"), Str(f, "ac"), Str(f, "label"), Str(f, "ph"))).ToList();
-                ShowCardHints(tab, core, root.GetProperty("rect").Clone(), root.GetProperty("focus").GetInt32(), fields);
+                ShowCardHints(tab, target, root.GetProperty("rect").Clone(), root.GetProperty("focus").GetInt32(), ParseFields(root));
                 break;
             case "form-blur":
                 if (!_fillBlurHooked)
@@ -100,7 +135,7 @@ public partial class MainWindow
                 _fillBlurTimer.Start();
                 break;
             case "pw-submit":
-                OnPasswordSubmitted(tab, core, Str(root, "user"), Str(root, "pass"));
+                OnPasswordSubmitted(tab, target, Str(root, "user"), Str(root, "pass"));
                 break;
         }
     }
@@ -108,11 +143,11 @@ public partial class MainWindow
     static string Str(JsonElement e, string name) =>
         e.TryGetProperty(name, out var v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "" : "";
 
-    void ShowPasswordHints(BrowserTab tab, CoreWebView2 core, JsonElement rect)
+    void ShowPasswordHints(BrowserTab tab, FormTarget target, JsonElement rect)
     {
         var v = TheVault;
         if (!v.Exists) return;
-        var host = UrlTools.HostOf(core.Source);
+        var host = target.Host;
         if (host.Length == 0) return;
         _fillRows.Clear();
         if (v.HasMasterPassword && !v.IsUnlocked)
@@ -120,7 +155,7 @@ public partial class MainWindow
             _fillRows.Add(new FillRow("Пароли закрыты главным паролем", "Нажмите, чтобы открыть", () =>
             {
                 FillPopup.IsOpen = false;
-                if (EnsureVaultOpen()) ShowPasswordHints(tab, core, rect);
+                if (EnsureVaultOpen()) ShowPasswordHints(tab, target, rect);
             }));
         }
         else
@@ -131,22 +166,33 @@ public partial class MainWindow
             {
                 var entry = e;
                 _fillRows.Add(new FillRow(entry.Username.Length > 0 ? entry.Username : "(без логина)",
-                    "••••••••" + (entry.Host != host ? "  ·  " + entry.Host : ""), () => FillLogin(tab, core, entry)));
+                    "••••••••" + (entry.Host != host ? "  ·  " + entry.Host : ""), () => FillLogin(target, entry)));
             }
         }
         _fillRows.Add(new FillRow("Управление паролями…", "", () => OpenVaultWindow("passwords"), Muted: true));
-        OpenFillPopup(tab, rect);
+        OpenFillPopup(tab, rect, target.InFrame);
     }
 
-    void ShowCardHints(BrowserTab tab, CoreWebView2 core, JsonElement rect, int focus, List<FieldInfo> fields, bool forced = false)
+    void ShowCardHints(BrowserTab tab, FormTarget target, JsonElement rect, int focus, List<FieldInfo> fields, bool forced = false)
     {
         var v = TheVault;
         if ((!_settings.OfferAutofill && !forced) || !v.Exists) return;
         var kinds = FormFill.ClassifyAll(fields);
+        // поле оплаты - подсказка с банковскими картами
+        if (focus >= 0 && focus < kinds.Length && FormFill.IsBankCardField(kinds[focus]))
+        {
+            ShowBankCardHints(tab, target, rect, fields, forced);
+            return;
+        }
         if (!forced && (focus < 0 || focus >= kinds.Length || kinds[focus] == FieldKind.None)) { FillPopup.IsOpen = false; return; }
         if (forced && !kinds.Any(k => k != FieldKind.None))
         {
-            ShowToast("В этой форме не нашлось знакомых полей (ФИО, ИНН, паспорт, адрес…)", seconds: 4);
+            ShowToast("В этой форме не нашлось знакомых полей (ФИО, ИНН, паспорт, адрес, карта…)", seconds: 4);
+            return;
+        }
+        if (forced && !kinds.Any(k => k != FieldKind.None && !FormFill.IsBankCardField(k)))
+        {
+            ShowBankCardHints(tab, target, rect, fields, forced);
             return;
         }
         _fillFields = fields;
@@ -156,7 +202,7 @@ public partial class MainWindow
             _fillRows.Add(new FillRow("Карточки закрыты главным паролем", "Нажмите, чтобы открыть", () =>
             {
                 FillPopup.IsOpen = false;
-                if (EnsureVaultOpen()) ShowCardHints(tab, core, rect, focus, fields, forced);
+                if (EnsureVaultOpen()) ShowCardHints(tab, target, rect, focus, fields, forced);
             }));
         }
         else
@@ -179,17 +225,48 @@ public partial class MainWindow
                     for (int i = 0; i < card.Addresses.Count; i++)
                     {
                         int idx = i;
-                        chips.Add((card.Addresses[i].Label, () => FillCard(tab, core, card, idx)));
+                        chips.Add((card.Addresses[i].Label, () => FillCard(target, card, idx)));
                     }
                 }
-                _fillRows.Add(new FillRow(card.Title, sub, () => FillCard(tab, core, card, null), chips));
+                _fillRows.Add(new FillRow(card.Title, sub, () => FillCard(target, card, null), chips));
             }
         }
         _fillRows.Add(new FillRow("Управление карточками…", "", () => OpenVaultWindow("cards"), Muted: true));
-        OpenFillPopup(tab, rect);
+        OpenFillPopup(tab, rect, target.InFrame);
     }
 
-    void OpenFillPopup(BrowserTab tab, JsonElement rect)
+    void ShowBankCardHints(BrowserTab tab, FormTarget target, JsonElement rect, List<FieldInfo> fields, bool forced)
+    {
+        var v = TheVault;
+        _fillFields = fields;
+        _fillRows.Clear();
+        if (v.HasMasterPassword && !v.IsUnlocked)
+        {
+            _fillRows.Add(new FillRow("Банковские карты закрыты главным паролем", "Нажмите, чтобы открыть", () =>
+            {
+                FillPopup.IsOpen = false;
+                if (EnsureVaultOpen()) ShowBankCardHints(tab, target, rect, fields, forced);
+            }));
+        }
+        else
+        {
+            var cards = v.Data!.BankCards;
+            if (cards.Count == 0)
+            {
+                if (forced) ShowToast("Банковских карт пока нет: добавьте их в «⋯» - «Пароли и автозаполнение» - «Банковские карты»", seconds: 5);
+                return;
+            }
+            foreach (var c in cards)
+            {
+                var card = c;
+                _fillRows.Add(new FillRow(card.Title, card.Summary, () => FillBankCard(target, card)));
+            }
+        }
+        _fillRows.Add(new FillRow("Управление банковскими картами…", "", () => OpenVaultWindow("bankcards"), Muted: true));
+        OpenFillPopup(tab, rect, target.InFrame);
+    }
+
+    void OpenFillPopup(BrowserTab tab, JsonElement rect, bool inFrame)
     {
         _fillBlurTimer.Stop();
         var panel = new StackPanel();
@@ -228,37 +305,60 @@ public partial class MainWindow
             }
         }
         FillPanel.Child = panel;
-        double zoom = 1;
-        try { zoom = tab.View?.ZoomFactor ?? 1; } catch { }
         FillPopup.PlacementTarget = tab.View;
         FillPopup.Placement = PlacementMode.Relative;
-        FillPopup.HorizontalOffset = rect.GetProperty("x").GetDouble() * zoom - 14;
-        FillPopup.VerticalOffset = rect.GetProperty("y").GetDouble() * zoom - 2;
+        if (inFrame && tab.View != null)
+        {
+            // во фрейме координаты поля - внутри фрейма; ставим подсказку у указателя мыши
+            var pt = System.Windows.Input.Mouse.GetPosition(tab.View);
+            bool inside = pt.X >= 0 && pt.Y >= 0 && pt.X <= tab.View.ActualWidth && pt.Y <= tab.View.ActualHeight;
+            FillPopup.HorizontalOffset = inside ? pt.X - 30 : 40;
+            FillPopup.VerticalOffset = inside ? pt.Y + 16 : 40;
+        }
+        else
+        {
+            double zoom = 1;
+            try { zoom = tab.View?.ZoomFactor ?? 1; } catch { }
+            FillPopup.HorizontalOffset = rect.GetProperty("x").GetDouble() * zoom - 14;
+            FillPopup.VerticalOffset = rect.GetProperty("y").GetDouble() * zoom - 2;
+        }
         FillPopup.IsOpen = false;
         FillPopup.IsOpen = true;
     }
 
-    void FillLogin(BrowserTab tab, CoreWebView2 core, PasswordEntry entry)
+    void FillLogin(FormTarget target, PasswordEntry entry)
     {
         try
         {
-            var host = UrlTools.HostOf(core.Source);
+            var host = target.Host;
             // пароль подставляется только на тот сайт, для которого сохранён
             if (!host.Equals(entry.Host, StringComparison.OrdinalIgnoreCase) && UrlTools.RegistrableDomain(host) != UrlTools.RegistrableDomain(entry.Host)) return;
-            _ = core.ExecuteScriptAsync($"window.__dymkaForms && window.__dymkaForms.fillLogin({JsonSerializer.Serialize(entry.Username)},{JsonSerializer.Serialize(entry.Password)})");
+            _ = target.Exec($"window.__dymkaForms && window.__dymkaForms.fillLogin({JsonSerializer.Serialize(entry.Username)},{JsonSerializer.Serialize(entry.Password)})");
             entry.LastUsed = DateTime.Now;
             TheVault.Save();
         }
         catch (Exception ex) { App.Log("Подстановка пароля: " + ex.Message); }
     }
 
-    void FillCard(BrowserTab tab, CoreWebView2 core, Card card, int? address)
+    void FillCard(FormTarget target, Card card, int? address)
     {
         if (_fillFields == null) return;
         var pairs = FormFill.Build(card, _fillFields, address).Select(x => new { i = x.Index, v = x.Value }).ToList();
         if (pairs.Count == 0) return;
-        try { _ = core.ExecuteScriptAsync($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)})"); }
+        try { _ = target.Exec($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)})"); }
         catch (Exception ex) { App.Log("Автозаполнение: " + ex.Message); }
+    }
+
+    void FillBankCard(FormTarget target, BankCard card)
+    {
+        if (_fillFields == null) return;
+        var pairs = FormFill.BuildBankCard(card, _fillFields).Select(x => new { i = x.Index, v = x.Value }).ToList();
+        if (pairs.Count == 0) return;
+        int cvc = FormFill.CvcIndex(_fillFields);
+        try { _ = target.Exec($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)},{cvc})"); }
+        catch (Exception ex) { App.Log("Банковская карта: " + ex.Message); }
+        App.Log($"Банковская карта •••• {card.Last4} подставлена на {target.Host}" + (target.InFrame ? " (форма оплаты во фрейме)" : ""));
+        ShowToast(cvc >= 0 ? "Введите код CVC с обратной стороны карты - он не хранится" : "Данные карты подставлены. Код CVC не хранится", seconds: 4);
     }
 
     /// <summary>«Заполнить карточкой» из меню правой кнопки - даже если поле не распознано.</summary>
@@ -271,9 +371,8 @@ public partial class MainWindow
             if (string.IsNullOrEmpty(json)) return;
             using var doc = JsonDocument.Parse(json);
             var root = doc.RootElement;
-            var fields = root.GetProperty("fields").EnumerateArray().Select(f => new FieldInfo(
-                f.GetProperty("i").GetInt32(), Str(f, "type"), Str(f, "name"), Str(f, "id"), Str(f, "ac"), Str(f, "label"), Str(f, "ph"))).ToList();
-            ShowCardHints(tab, core, root.GetProperty("rect").Clone(), root.GetProperty("focus").GetInt32(), fields, forced: true);
+            var target = new FormTarget { Source = core.Source, Exec = core.ExecuteScriptAsync };
+            ShowCardHints(tab, target, root.GetProperty("rect").Clone(), root.GetProperty("focus").GetInt32(), ParseFields(root), forced: true);
         }
         catch (Exception ex) { App.Log("Заполнить карточкой: " + ex.Message); }
     }
@@ -286,10 +385,10 @@ public partial class MainWindow
 
     (BrowserTab tab, string url, string pass)? _pendingSave;
 
-    void OnPasswordSubmitted(BrowserTab tab, CoreWebView2 core, string user, string pass)
+    void OnPasswordSubmitted(BrowserTab tab, FormTarget target, string user, string pass)
     {
         if (!_settings.OfferSavePasswords || pass.Length == 0) return;
-        var url = core.Source;
+        var url = target.Source;
         var host = UrlTools.HostOf(url).ToLowerInvariant();
         if (host.Length == 0 || host == UrlTools.StartHost) return;
         var v = TheVault;

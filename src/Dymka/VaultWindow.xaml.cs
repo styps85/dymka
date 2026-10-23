@@ -38,7 +38,8 @@ public partial class VaultWindow : Window
         RefreshPasswords();
         RefreshCards();
         RefreshSecurity();
-        (page == "cards" ? TabCards : page == "security" ? TabSecurity : TabPasswords).IsChecked = true;
+        RefreshBank();
+        (page == "cards" ? TabCards : page == "bankcards" ? TabBank : page == "security" ? TabSecurity : TabPasswords).IsChecked = true;
     }
 
     VaultData Data => _vault.Data ?? throw new InvalidOperationException("Хранилище закрыто");
@@ -48,11 +49,12 @@ public partial class VaultWindow : Window
         if (PagePasswords == null) return;
         PagePasswords.Visibility = TabPasswords.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         PageCards.Visibility = TabCards.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
+        PageBank.Visibility = TabBank.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
         PageSecurity.Visibility = TabSecurity.IsChecked == true ? Visibility.Visible : Visibility.Collapsed;
     }
 
     public void ShowPageForTest(string page) =>
-        (page == "cards" ? TabCards : page == "security" ? TabSecurity : TabPasswords).IsChecked = true;
+        (page == "cards" ? TabCards : page == "bankcards" ? TabBank : page == "security" ? TabSecurity : TabPasswords).IsChecked = true;
 
     // ===================================================================== пароли
 
@@ -404,6 +406,125 @@ public partial class VaultWindow : Window
         foreach (var (get, _, box) in _cardFields) box.Text = get(c);
         _addrPanel!.Children.Clear();
         foreach (var a in c.Addresses) AddAddressRow(a);
+    }
+
+    // ===================================================================== банковские карты
+
+    BankCard? _bc;
+
+    void RefreshBank(BankCard? select = null)
+    {
+        BcList.ItemsSource = null;
+        BcList.ItemsSource = Data.BankCards.ToList();
+        BcEmpty.Visibility = Data.BankCards.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (select != null) BcList.SelectedItem = select;
+        else if (_bc == null || !Data.BankCards.Contains(_bc)) ShowBank(null);
+    }
+
+    void BcList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (BcList.SelectedItem is BankCard c && c != _bc) ShowBank(c);
+    }
+
+    void ShowBank(BankCard? c)
+    {
+        _bc = c;
+        BcEditor.Visibility = c == null ? Visibility.Collapsed : Visibility.Visible;
+        BcNone.Visibility = c == null ? Visibility.Visible : Visibility.Collapsed;
+        if (c == null) return;
+        BcTitle.Text = c.Title;
+        BcNumber.Text = CardTools.Format(c.Number);
+        BcHolder.Text = c.Holder;
+        BcExp.Text = c.ExpText;
+        BcNote.Text = c.Note;
+        UpdateNumberInfo();
+    }
+
+    void UpdateNumberInfo()
+    {
+        var d = CardTools.Digits(BcNumber.Text);
+        BcNumberInfo.Text = d.Length == 0 ? ""
+            : !CardTools.Luhn(d) ? "Проверьте номер: похоже, в нём опечатка"
+            : CardTools.Brand(d) is { Length: > 0 } b ? "Платёжная система: " + b : "";
+        BcNumberInfo.Foreground = d.Length > 0 && !CardTools.Luhn(d) ? new SolidColorBrush(Color.FromRgb(0xC2, 0x35, 0x2E)) : (Brush)FindResource("Muted");
+    }
+
+    void BcNumber_LostFocus(object sender, RoutedEventArgs e)
+    {
+        var d = CardTools.Digits(BcNumber.Text);
+        if (d.Length > 0) BcNumber.Text = CardTools.Format(d);
+        UpdateNumberInfo();
+    }
+
+    void BcNew_Click(object sender, RoutedEventArgs e)
+    {
+        var c = new BankCard { Title = "Карта" };
+        BcList.SelectedItem = null;
+        ShowBank(c);
+        BcTitle.Focus();
+        BcTitle.SelectAll();
+    }
+
+    /// <summary>Сохранить карту из редактора. false - есть ошибка, о которой сказано.</summary>
+    public bool SaveBankFromEditor(bool askOnTypo = true)
+    {
+        if (_bc == null) return false;
+        var d = CardTools.Digits(BcNumber.Text);
+        if (d.Length < 12 || d.Length > 19)
+        {
+            Dialogs.Show(this, "Номер карты", "Номер карты - от 12 до 19 цифр.", new[] { "Хорошо" });
+            return false;
+        }
+        if (!CardTools.Luhn(d) && askOnTypo)
+        {
+            var (i, _) = Dialogs.Show(this, "Похоже на опечатку", "Контрольная сумма номера не сходится - обычно это значит, что в номере ошибка.", new[] { "Исправить", "Сохранить как есть" });
+            if (i == 0) return false;
+        }
+        int m = 0, y = 0;
+        if (BcExp.Text.Trim().Length > 0 && !CardTools.TryParseExp(BcExp.Text, out m, out y))
+        {
+            Dialogs.Show(this, "Срок действия", "Укажите срок как на карте, например 05/28.", new[] { "Хорошо" });
+            return false;
+        }
+        _bc.Title = string.IsNullOrWhiteSpace(BcTitle.Text) ? (CardTools.Brand(d) + " •••• " + d[^4..]).Trim() : BcTitle.Text.Trim();
+        _bc.Number = d;
+        _bc.Holder = BcHolder.Text.Trim().ToUpperInvariant();
+        _bc.ExpMonth = m;
+        _bc.ExpYear = y;
+        _bc.Note = BcNote.Text.Trim();
+        if (!Data.BankCards.Contains(_bc)) Data.BankCards.Add(_bc);
+        _vault.Save();
+        RefreshBank(_bc);
+        return true;
+    }
+
+    void BcSave_Click(object sender, RoutedEventArgs e)
+    {
+        if (SaveBankFromEditor()) _main.ShowToast("Карта сохранена");
+    }
+
+    void BcCopy_Click(object sender, RoutedEventArgs e) => Copy(CardTools.Digits(BcNumber.Text), "Номер карты скопирован");
+
+    void BcDelete_Click(object sender, RoutedEventArgs e)
+    {
+        if (_bc == null) return;
+        if (!Data.BankCards.Contains(_bc)) { ShowBank(null); return; }
+        var (i, _) = Dialogs.Show(this, "Удалить карту?", $"Карта «{_bc.Title}» ({_bc.Masked}) будет удалена.", new[] { "Удалить", "Отмена" }, defaultIndex: 1);
+        if (i != 0) return;
+        Data.BankCards.Remove(_bc);
+        _vault.Save();
+        _bc = null;
+        RefreshBank();
+    }
+
+    /// <summary>Для самопроверки: заполнить редактор карты.</summary>
+    public void FillBankEditorForTest(string title, string number, string holder, string exp)
+    {
+        BcNew_Click(this, new RoutedEventArgs());
+        BcTitle.Text = title;
+        BcNumber.Text = number;
+        BcHolder.Text = holder;
+        BcExp.Text = exp;
     }
 
     // ===================================================================== защита

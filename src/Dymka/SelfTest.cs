@@ -812,6 +812,92 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Банковские карты: вкладка в окне, подстановка на странице оплаты и в форме оплаты во фрейме; CVC не подставляется.</summary>
+    async Task TestBankCardsAsync()
+    {
+        try
+        {
+            _w.OpenVaultWindow("bankcards");
+            var vw = _w.VaultWindowForTest;
+            if (vw != null)
+            {
+                vw.Topmost = true;
+                vw.FillBankEditorForTest("Сбер зарплатная", "2202 2000 1234 5672", "ivan ivanov", "05/28");
+                Check(vw.SaveBankFromEditor(askOnTypo: false), "банковская карта сохранена");
+                await Task.Delay(700);
+                Capture(vw, "38-vault-bank");
+                vw.Close();
+            }
+            var bc = Shared.Vault.Data?.BankCards.FirstOrDefault();
+            Check(bc != null && bc.Number == "2202200012345672" && bc.ExpYear == 2028 && bc.Holder == "IVAN IVANOV", "данные карты: номер, срок, владелец (CVC не хранится)");
+            var vaultFile = File.ReadAllText(Path.Combine(_w.DataDir, "vault.dat"));
+            Check(!vaultFile.Contains("2202200012345672") && !vaultFile.Contains("5672"), "номер карты в файле зашифрован");
+
+            string Field(string id, string label, string type = "text", string extra = "") => $"<label for=\"{id}\">{label}</label><input id=\"{id}\" type=\"{type}\" {extra}>";
+            var payFields = Field("num", "Номер карты", "tel") + Field("exp", "Срок действия", "text", "placeholder=\"ММ/ГГ\"") +
+                            Field("holder", "Имя владельца карты") + Field("cvc", "CVC", "password", "maxlength=\"3\"");
+            File.WriteAllText(Path.Combine(_testDir, "pay.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Оплата</title><style>body{font:15px Segoe UI;margin:30px}label{display:block;margin-top:10px}input{width:300px;padding:6px}</style>" +
+                "<h2>Оплата заказа</h2><form>" + payFields + "</form></html>");
+            File.WriteAllText(Path.Combine(_testDir, "payframe.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><style>body{font:14px Segoe UI;margin:0;padding:12px 20px}label{display:block;margin-top:6px}input{width:300px;padding:6px;height:22px}</style><form>" + payFields +
+                "</form><script>document.addEventListener('input',function(){parent.postMessage('pay:'+document.getElementById('num').value+'|'+document.getElementById('exp').value+'|'+document.getElementById('holder').value+'|'+document.getElementById('cvc').value,'*');},true);</script></html>");
+            File.WriteAllText(Path.Combine(_testDir, "payhost.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Магазин</title><style>body{margin:0;font:15px Segoe UI}iframe{position:absolute;left:40px;top:60px;width:440px;height:330px;border:1px solid #ccc}</style>" +
+                "<h3 style=\"margin:20px 40px\">Магазин: форма оплаты банка во фрейме</h3><iframe src=\"https://other.dymka-test.net/payframe.html\"></iframe>" +
+                "<script>window.addEventListener('message',function(e){if(typeof e.data==='string'&&e.data.indexOf('pay:')===0)document.title=e.data;});</script></html>");
+
+            var pt = await _w.NewTabAsync(null, activate: true, container: "personal");
+            await WaitFor(() => pt.Core != null && !pt.IsLoading, 20);
+            var core = pt.Core!;
+            core.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", _testDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            core.SetVirtualHostNameToFolderMapping("other.dymka-test.net", _testDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            _w.Navigate(pt, "https://trackers.dymka-test.org/pay.html");
+            await WaitFor(() => pt.Url.Contains("pay.html") && !pt.IsLoading, 20);
+            await Task.Delay(600);
+            pt.View!.Focus();
+            await Task.Delay(300);
+            await core.ExecuteScriptAsync("document.getElementById('num').focus()");
+            Check(await WaitFor(() => _w.FillRowsForTest.Contains("Сбер зарплатная"), 6), "в поле «Номер карты» - подсказка с банковской картой");
+            await Task.Delay(400);
+            Capture(_w, "39-fill-bankcard");
+            if (_w.FillRowsForTest.Count > 0) _w.ClickFillRowForTest(0);
+            string got = await PollScript(core, "['num','exp','holder','cvc'].map(function(i){return document.getElementById(i).value}).join('|')+'|'+document.activeElement.id", s => s.Contains("2202"), 5);
+            Check(got == "\"2202200012345672|05/28|IVAN IVANOV||cvc\"", "оплата: номер, срок и владелец подставлены, CVC пустой и курсор в нём: " + got);
+            await Task.Delay(300);
+            Capture(_w, "40-bankcard-filled");
+
+            // форма оплаты банка во встроенном окне (фрейме) другого сайта
+            _w.Navigate(pt, "https://trackers.dymka-test.org/payhost.html");
+            await WaitFor(() => pt.Url.Contains("payhost.html") && !pt.IsLoading, 20);
+            await Task.Delay(1500);
+            double zoom = 1;
+            try { zoom = pt.View.ZoomFactor; } catch { }
+            // поле номера во фрейме: фрейм с (41,61), поле - примерно (20+150, 12+20+17) внутри
+            var screenPt = pt.View.PointToScreen(new Point((41 + 170) * zoom, (61 + 52) * zoom));
+            Native.ClickAt(screenPt);
+            bool frameHint = await WaitFor(() => _w.FillRowsForTest.Contains("Сбер зарплатная"), 6);
+            Check(frameHint, "форма оплаты во фрейме: подсказка с картой");
+            await Task.Delay(300);
+            Capture(_w, "41-fill-bankcard-frame");
+            if (frameHint)
+            {
+                _w.ClickFillRowForTest(0);
+                await WaitFor(() => core.DocumentTitle.StartsWith("pay:2202"), 6);
+                await Task.Delay(500);
+                Line("ИНФО форма во фрейме: " + core.DocumentTitle);
+                Check(core.DocumentTitle.StartsWith("pay:2202200012345672|05/28|IVAN IVANOV|"), "форма оплаты во фрейме заполнена (CVC - нет)");
+                Check(core.DocumentTitle.EndsWith("|"), "CVC во фрейме не подставлен");
+            }
+            _w.ClosePopups();
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке банковских карт: " + ex);
+            _failed++;
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
@@ -966,6 +1052,7 @@ sealed class SelfTest
             await TestTabFeaturesAsync();
             await TestTranslationAsync();
             await TestPasswordsAsync();
+            await TestBankCardsAsync();
             await TestSuggestionsAsync();
             await TestRussianCaAsync();
             await TestSessionAndRecoveryAsync();

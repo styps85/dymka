@@ -8,10 +8,15 @@ public enum FieldKind
     None, LastName, FirstName, MiddleName, FullName, BirthDate, Inn, Snils,
     PassportSeries, PassportNumber, PassportSeriesNumber, PassportIssuedBy, PassportIssueDate, PassportCode,
     Phone, Email, Address, Postcode, RegNumber, Sro,
+    CardNumber, CardHolder, CardExp, CardExpMonth, CardExpYear, CardCvc,
 }
 
 /// <summary>Описание поля формы, которое присылает страница: тип, name, id, autocomplete, подпись, подсказка.</summary>
-public sealed record FieldInfo(int Index, string Type, string Name, string Id, string Autocomplete, string Label, string Placeholder);
+public sealed record FieldInfo(int Index, string Type, string Name, string Id, string Autocomplete, string Label, string Placeholder)
+{
+    /// <summary>Ограничение длины поля (maxlength), 0 - нет.</summary>
+    public int MaxLength { get; init; }
+}
 
 public sealed record FillValue(int Index, string Value);
 
@@ -25,6 +30,13 @@ public static class FormFill
     {
         // поля поиска не анкета: подсказку карточек в них не показываем
         (FieldKind.None, R(@"поиск|искать|найти|search|query")),
+        // поля банковской карты
+        (FieldKind.CardCvc, R(@"cvc|cvv|cvn|\bcsc\b|cc-?csc|код\s*(безопасности|проверки|с\s*обратной)|трехзначн|трёхзначн|security\s*code|card\s*code")),
+        (FieldKind.CardNumber, R(@"номер\s*(банковской\s*)?карт|card\s*number|cardnumber|cc-?number|cc-?num|\bpan\b|card_?num|credit\s*card")),
+        (FieldKind.CardHolder, R(@"владел\w*\s*карт|держател\w*|имя\s*(на|владельца)\s*карт|имя\s*и\s*фамилия\s*на\s*карт|cardholder|card\s*holder|name\s*on\s*card|cc-?name|holder")),
+        (FieldKind.CardExpMonth, R(@"exp\w*\s*month|cc-?exp-?month|месяц\s*(окончания|действия)|^мм$|^mm$")),
+        (FieldKind.CardExpYear, R(@"exp\w*\s*year|cc-?exp-?year|год\s*(окончания|действия)|^гг(гг)?$|^yy(yy)?$")),
+        (FieldKind.CardExp, R(@"срок\s*действ|действительна\s*до|дата\s*окончания|expir|exp\s*date|cc-?exp|valid\s*(thru|until|to)|мм\s*/\s*гг|mm\s*/\s*yy")),
         (FieldKind.Email, R(@"e-?mail|электронн\w*\s*почт|эл\.?\s*почт|\bпочта\b(?!\w)")),
         (FieldKind.Snils, R(@"снилс|snils")),
         (FieldKind.Inn, R(@"(^|[^а-яa-z])инн([^а-яa-z]|$)|(^|[^a-z])inn([^a-z]|$)")),
@@ -50,16 +62,25 @@ public static class FormFill
     public static FieldKind Classify(FieldInfo f)
     {
         var type = (f.Type ?? "").ToLowerInvariant();
+        // поле кода CVC бывает сделано как поле пароля
+        if (type == "password")
+            return Rules[1].re.IsMatch(((f.Label ?? "") + " " + f.Placeholder + " " + f.Name + " " + f.Id + " " + f.Autocomplete).ToLowerInvariant()) || f.MaxLength is 3 or 4
+                ? FieldKind.CardCvc : FieldKind.None;
         if (type is "password" or "hidden" or "checkbox" or "radio" or "submit" or "button" or "file" or "image" or "reset" or "range" or "color")
             return FieldKind.None;
         if (type == "search") return FieldKind.None;
         if (type == "email") return FieldKind.Email;
-        if (type == "tel") return FieldKind.Phone;
 
         // autocomplete - самый надёжный признак, если сайт его указал
         var ac = (f.Autocomplete ?? "").ToLowerInvariant();
         var acKind = ac switch
         {
+            _ when ac.Contains("cc-number") => FieldKind.CardNumber,
+            _ when ac.Contains("cc-name") => FieldKind.CardHolder,
+            _ when ac.Contains("cc-exp-month") => FieldKind.CardExpMonth,
+            _ when ac.Contains("cc-exp-year") => FieldKind.CardExpYear,
+            _ when ac.Contains("cc-exp") => FieldKind.CardExp,
+            _ when ac.Contains("cc-csc") => FieldKind.CardCvc,
             _ when ac.Contains("family-name") => FieldKind.LastName,
             _ when ac.Contains("given-name") => FieldKind.FirstName,
             _ when ac.Contains("additional-name") => FieldKind.MiddleName,
@@ -84,6 +105,7 @@ public static class FormFill
             foreach (var (kind, re) in Rules)
                 if (re.IsMatch(t) || re.IsMatch(raw)) return kind;
         }
+        if (type == "tel") return FieldKind.Phone;   // номер карты тоже бывает type=tel - поэтому проверяется после подписей
         return FieldKind.None;
     }
 
@@ -175,6 +197,44 @@ public static class FormFill
             if (!string.IsNullOrWhiteSpace(v)) result.Add(new FillValue(f.Index, v.Trim()));
         }
         return result;
+    }
+
+    public static bool IsBankCardField(FieldKind k) => k is FieldKind.CardNumber or FieldKind.CardHolder or FieldKind.CardExp
+        or FieldKind.CardExpMonth or FieldKind.CardExpYear or FieldKind.CardCvc;
+
+    static bool Wants4(FieldInfo f) =>
+        Regex.IsMatch(((f.Placeholder ?? "") + " " + (f.Label ?? "")).ToLowerInvariant(), "гггг|yyyy");
+
+    /// <summary>Значения для полей оплаты из банковской карты. Код CVC не подставляется никогда.</summary>
+    public static List<FillValue> BuildBankCard(BankCard card, IReadOnlyList<FieldInfo> fields)
+    {
+        var result = new List<FillValue>();
+        var kinds = ClassifyAll(fields);
+        for (int n = 0; n < fields.Count; n++)
+        {
+            var f = fields[n];
+            string v = kinds[n] switch
+            {
+                FieldKind.CardNumber => card.Number,
+                FieldKind.CardHolder => card.Holder.ToUpperInvariant(),
+                FieldKind.CardExp when card.ExpMonth > 0 => string.Equals(f.Type, "month", StringComparison.OrdinalIgnoreCase)
+                    ? $"{card.ExpYear:0000}-{card.ExpMonth:00}"
+                    : Wants4(f) || f.MaxLength == 7 ? $"{card.ExpMonth:00}/{card.ExpYear:0000}" : $"{card.ExpMonth:00}/{card.ExpYear % 100:00}",
+                FieldKind.CardExpMonth when card.ExpMonth > 0 => $"{card.ExpMonth:00}",
+                FieldKind.CardExpYear when card.ExpYear > 0 => f.Type == "select" || Wants4(f) || f.MaxLength == 4 ? $"{card.ExpYear:0000}" : $"{card.ExpYear % 100:00}",
+                _ => "",
+            };
+            if (v.Length > 0) result.Add(new FillValue(f.Index, v));
+        }
+        return result;
+    }
+
+    /// <summary>Поле кода CVC (после подстановки карты курсор ставится туда).</summary>
+    public static int CvcIndex(IReadOnlyList<FieldInfo> fields)
+    {
+        var kinds = ClassifyAll(fields);
+        for (int n = 0; n < fields.Count; n++) if (kinds[n] == FieldKind.CardCvc) return fields[n].Index;
+        return -1;
     }
 
     public static string KindName(FieldKind k) => k switch

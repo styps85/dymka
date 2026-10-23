@@ -79,6 +79,7 @@
         <StackPanel Orientation="Horizontal">
           <RadioButton x:Name="TabPasswords" Style="{StaticResource Tab}" GroupName="vt" Content="Пароли" Checked="Tab_Checked"/>
           <RadioButton x:Name="TabCards" Style="{StaticResource Tab}" GroupName="vt" Content="Карточки" Checked="Tab_Checked"/>
+          <RadioButton x:Name="TabBank" Style="{StaticResource Tab}" GroupName="vt" Content="Банковские карты" Checked="Tab_Checked"/>
           <RadioButton x:Name="TabSecurity" Style="{StaticResource Tab}" GroupName="vt" Content="Защита" Checked="Tab_Checked"/>
         </StackPanel>
       </Border>
@@ -206,6 +207,75 @@
         </Border>
       </Grid>
 
+      <!-- ===== Банковские карты ===== -->
+      <Grid x:Name="PageBank" Visibility="Collapsed">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="280"/>
+          <ColumnDefinition Width="14"/>
+          <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+        <Border Style="{StaticResource Card}" Padding="10">
+          <DockPanel>
+            <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
+              <Button Content="Добавить карту" Style="{StaticResource SecondaryButton}" Click="BcNew_Click"/>
+            </StackPanel>
+            <TextBlock x:Name="BcEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="6,4"
+                       Text="Карт пока нет. Добавьте карту - и на странице оплаты появится подсказка: номер, срок и имя владельца подставятся сами, останется ввести код CVC."/>
+            <ListBox x:Name="BcList" BorderThickness="0" Background="Transparent" ItemContainerStyle="{StaticResource ListItem}"
+                     SelectionChanged="BcList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <StackPanel>
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                  </StackPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </DockPanel>
+        </Border>
+        <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22,18">
+          <Grid>
+            <TextBlock x:Name="BcNone" Text="Выберите или добавьте карту" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <StackPanel x:Name="BcEditor" Visibility="Collapsed">
+              <TextBlock Text="Название (например: Сбер зарплатная)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+              <TextBox x:Name="BcTitle" Style="{StaticResource FieldBox}"/>
+              <TextBlock Text="Номер карты" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <DockPanel>
+                <Button DockPanel.Dock="Right" Content="Скопировать" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="BcCopy_Click"/>
+                <TextBox x:Name="BcNumber" Style="{StaticResource FieldBox}" LostFocus="BcNumber_LostFocus"/>
+              </DockPanel>
+              <TextBlock x:Name="BcNumberInfo" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+              <Grid Margin="0,12,0,0">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="14"/>
+                  <ColumnDefinition Width="130"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="Имя владельца (латиницей, как на карте)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBox x:Name="BcHolder" Style="{StaticResource FieldBox}" CharacterCasing="Upper"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="Срок (ММ/ГГ)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBox x:Name="BcExp" Style="{StaticResource FieldBox}" MaxLength="7"/>
+                </StackPanel>
+              </Grid>
+              <TextBlock Text="Примечание" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <TextBox x:Name="BcNote" Style="{StaticResource FieldBox}"/>
+              <Border Background="{StaticResource Field}" CornerRadius="12" Padding="14,10" Margin="0,14,0,0">
+                <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Ink2}"
+                           Text="Код CVC/CVV с обратной стороны карты не хранится - его вводите сами при каждой оплате. Так требуют правила платёжных систем, и так безопаснее: без кода по данным карты не заплатить в большинстве магазинов."/>
+              </Border>
+              <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
+                <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" MinWidth="120" Click="BcSave_Click"/>
+                <Button Content="Удалить" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="BcDelete_Click"/>
+              </StackPanel>
+            </StackPanel>
+          </Grid>
+        </Border>
+      </Grid>
+
       <!-- ===== Защита ===== -->
       <ScrollViewer x:Name="PageSecurity" Visibility="Collapsed" VerticalScrollBarVisibility="Auto">
         <StackPanel MaxWidth="680" HorizontalAlignment="Left">
@@ -213,7 +283,7 @@
             <StackPanel>
               <TextBlock Text="Как хранятся пароли" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
               <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Ink2}" LineHeight="20"
-                         Text="Пароли и карточки хранятся только на этом компьютере в зашифрованном файле (AES-256). Ключ защищён вашей учётной записью Windows: на другом компьютере или под другим пользователем файл не открыть. Никуда в интернет они не отправляются. Подставляются данные только когда вы выбрали их в подсказке."/>
+                         Text="Пароли, карточки и банковские карты хранятся только на этом компьютере в зашифрованном файле (AES-256). Ключ защищён вашей учётной записью Windows: на другом компьютере или под другим пользователем файл не открыть. Никуда в интернет они не отправляются. Подставляются данные только когда вы выбрали их в подсказке."/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,0,0,14">

@@ -65,8 +65,78 @@ public sealed class Card
     }
 }
 
+/// <summary>Банковская карта. Код CVC/CVV не хранится никогда - его вводят при каждой оплате.</summary>
+public sealed class BankCard
+{
+    public string Id { get; set; } = Guid.NewGuid().ToString("N");
+    public string Title { get; set; } = "Карта";
+    /// <summary>Номер карты - только цифры.</summary>
+    public string Number { get; set; } = "";
+    /// <summary>Имя владельца латиницей, как на карте.</summary>
+    public string Holder { get; set; } = "";
+    public int ExpMonth { get; set; }
+    /// <summary>Год окончания, четыре цифры.</summary>
+    public int ExpYear { get; set; }
+    public string Note { get; set; } = "";
+
+    [JsonIgnore] public string Last4 => Number.Length >= 4 ? Number[^4..] : Number;
+    [JsonIgnore] public string Brand => CardTools.Brand(Number);
+    [JsonIgnore] public string Masked => (Brand.Length > 0 ? Brand + " " : "") + "•••• " + Last4;
+    [JsonIgnore] public string ExpText => ExpMonth > 0 && ExpYear > 0 ? $"{ExpMonth:00}/{ExpYear % 100:00}" : "";
+    [JsonIgnore] public string Summary => Masked + (ExpText.Length > 0 ? " · до " + ExpText : "");
+}
+
+public static class CardTools
+{
+    public static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
+
+    /// <summary>Контрольная сумма номера карты (алгоритм Луна) - ловит опечатки.</summary>
+    public static bool Luhn(string digits)
+    {
+        if (digits.Length < 12 || digits.Length > 19) return false;
+        int sum = 0;
+        bool dbl = false;
+        for (int i = digits.Length - 1; i >= 0; i--)
+        {
+            int d = digits[i] - '0';
+            if (dbl) { d *= 2; if (d > 9) d -= 9; }
+            sum += d;
+            dbl = !dbl;
+        }
+        return sum % 10 == 0;
+    }
+
+    public static string Brand(string digits)
+    {
+        if (digits.Length < 4) return "";
+        int p4 = int.Parse(digits[..4]);
+        int p2 = p4 / 100;
+        if (p4 >= 2200 && p4 <= 2204) return "Мир";
+        if (digits[0] == '4') return "Visa";
+        if ((p2 >= 51 && p2 <= 55) || (p4 >= 2221 && p4 <= 2720)) return "Mastercard";
+        if (p2 == 62) return "UnionPay";
+        if (p2 == 50 || (p2 >= 56 && p2 <= 69)) return "Maestro";
+        return "";
+    }
+
+    /// <summary>Номер группами по четыре цифры.</summary>
+    public static string Format(string digits) =>
+        string.Join(" ", Enumerable.Range(0, (digits.Length + 3) / 4).Select(i => digits.Substring(i * 4, Math.Min(4, digits.Length - i * 4))));
+
+    /// <summary>Срок «ММ/ГГ» или «ММ/ГГГГ».</summary>
+    public static bool TryParseExp(string? text, out int month, out int year)
+    {
+        month = year = 0;
+        var parts = (text ?? "").Split(new[] { '/', '.', '-', ' ' }, StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length != 2 || !int.TryParse(parts[0], out month) || !int.TryParse(parts[1], out year)) return false;
+        if (year < 100) year += 2000;
+        return month >= 1 && month <= 12 && year >= 2000 && year <= 2100;
+    }
+}
+
 public sealed class VaultData
 {
+    public List<BankCard> BankCards { get; set; } = new();
     public List<PasswordEntry> Passwords { get; set; } = new();
     public List<Card> Cards { get; set; } = new();
     /// <summary>Сайты, для которых вы выбрали «Никогда не сохранять пароль».</summary>
