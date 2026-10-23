@@ -735,7 +735,7 @@ sealed class SelfTest
             lrq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension(
                 new System.Security.Cryptography.OidCollection { new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.1") }, false));
             using var leafPub = lrq.Create(root, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1), new byte[] { 7, 7, 7, 7 });
-            using var leafWithKey = leafPub.CopyWithPrivateKey(leafKey);
+            using var leafWithKey = System.Security.Cryptography.X509Certificates.RSACertificateExtensions.CopyWithPrivateKey(leafPub, leafKey);
             var serverCert = new System.Security.Cryptography.X509Certificates.X509Certificate2(
                 leafWithKey.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx), (string?)null,
                 System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.Exportable);
