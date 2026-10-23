@@ -39,5 +39,5 @@ jobs:
         shell: pwsh
         run: |
           Compress-Archive -Path certs/* -DestinationPath certs.zip -Force
-          gh release delete certs-fetch --yes --cleanup-tag 2>$null; $global:LASTEXITCODE = 0
-          gh release create certs-fetch certs.zip --prerelease --latest=false --target ${{ github.sha }} --title "Сертификаты (служебное)" --notes "Разовая выгрузка"
+          gh release delete certs-fetch --repo ${{ github.repository }} --yes --cleanup-tag 2>$null; $global:LASTEXITCODE = 0
+          gh release create certs-fetch certs.zip --repo ${{ github.repository }} --prerelease --latest=false --target ${{ github.sha }} --title "Сертификаты (служебное)" --notes "Разовая выгрузка"
