@@ -453,6 +453,8 @@ public partial class MainWindow : Window
         {
             tab.IsLoading = false;
             tab.LoadFailed = !e.IsSuccess && e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled;
+            if (e.IsSuccess && (core.Source.StartsWith("http://") || core.Source.StartsWith("https://")))
+                _ = ProbeLanguageAsync(tab, core, core.Source);
             ScheduleSessionSave();
             if (tab.IsPinned) SavePinned();
             tab.CanGoBack = core.CanGoBack;
@@ -710,6 +712,8 @@ public partial class MainWindow : Window
         }
         tab.PendingUrl = uri;
         tab.PageHost = UrlTools.HostOf(uri);
+        tab.IsForeign = false;
+        tab.TranslateState = TranslateState.None;
         tab.Blocked = 0;
         tab.IsLoading = true;
         if (tab.Favicon != null && UrlTools.RegistrableDomain(UrlTools.HostOf(tab.Url)) != UrlTools.RegistrableDomain(tab.PageHost))
@@ -874,6 +878,13 @@ public partial class MainWindow : Window
                 var kind = dm.GetString();
                 if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
                 else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
+                else if (kind == "tr" && tab.TranslateState != TranslateState.None)
+                {
+                    // текст отдаётся переводчику только после того, как перевод страницы включили вы
+                    int id = root.GetProperty("id").GetInt32();
+                    var list = root.GetProperty("items").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+                    _ = TranslateBatchAsync(tab, core, id, list);
+                }
                 return;
             }
             if (!UrlTools.IsStartPage(e.Source)) return;
@@ -966,6 +977,7 @@ public partial class MainWindow : Window
             : exception ? "На этом сайте блокировка выключена"
             : $"Заблокировано на этой странице: {t!.Blocked}";
         UpdateAddress();
+        UpdateTranslateUi();
     }
 
     void UpdateAddress()
@@ -1271,6 +1283,7 @@ public partial class MainWindow : Window
         PrivacyPopup.IsOpen = false;
         ContainerMenu.IsOpen = false;
         TabSearchPopup.IsOpen = false;
+        SelTrPopup.IsOpen = false;
     }
 
     void ReopenClosed_Click(object sender, RoutedEventArgs e)
@@ -1336,6 +1349,7 @@ public partial class MainWindow : Window
             }
 
             var target = e.ContextMenuTarget;
+            if (source != null) AddTranslateMenuItems(source, e);
             if (source == null || !target.HasLinkUri) return;
             var link = target.LinkUri;
             if (!link.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !link.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return;

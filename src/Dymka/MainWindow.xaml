@@ -416,6 +416,26 @@
                              Foreground="{StaticResource Ink2}" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
+              <Button x:Name="TranslateBtn" DockPanel.Dock="Right" Click="Translate_Click" Focusable="False" Height="28"
+                      Margin="0,0,6,0" Visibility="Collapsed" Cursor="Hand">
+                <Button.Template>
+                  <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="14" Background="{StaticResource AccentSoft}" Padding="9,0,11,0">
+                      <ContentPresenter VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                      <Trigger Property="IsMouseOver" Value="True">
+                        <Setter TargetName="Bd" Property="Background" Value="#DCE5FF"/>
+                      </Trigger>
+                    </ControlTemplate.Triggers>
+                  </ControlTemplate>
+                </Button.Template>
+                <StackPanel Orientation="Horizontal">
+                  <local:Glyph Data="{StaticResource IcTranslate}" Size="15" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="TranslateText" Text="Перевести" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
+                             Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                </StackPanel>
+              </Button>
               <Grid VerticalAlignment="Center">
                 <TextBox x:Name="Address" BorderThickness="0" Background="Transparent" FontSize="14"
                          Foreground="{StaticResource Ink}" CaretBrush="{StaticResource Ink}" Padding="0"
@@ -577,6 +597,11 @@
                 <local:Glyph x:Name="LayoutGlyph" Data="{StaticResource IcLayoutSide}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock x:Name="LayoutItemText" Text="Вкладки сбоку" VerticalAlignment="Center"/></DockPanel>
             </Button>
+            <Button x:Name="TranslateMenuItem" Style="{StaticResource MenuRow}" Click="Translate_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcTranslate}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock x:Name="TranslateMenuText" Text="Перевести страницу на русский" VerticalAlignment="Center"/></DockPanel>
+            </Button>
             <Button Style="{StaticResource MenuRow}" Click="Print_Click">
               <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+P" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
                 <local:Glyph Data="{StaticResource IcPrint}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
@@ -718,6 +743,33 @@
                     Click="ToastAction_Click" VerticalAlignment="Center">
               <TextBlock x:Name="ToastActionText" Text="Вернуть" Foreground="#8FB2FF" FontSize="13" FontWeight="SemiBold"/>
             </Button>
+          </StackPanel>
+        </Border>
+      </Popup>
+
+      <!-- ===== Перевод выделенного ===== -->
+      <Popup x:Name="SelTrPopup" Placement="MousePoint" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
+        <Border Style="{StaticResource PopupCard}" Width="400" Padding="16,12,16,14">
+          <StackPanel>
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="SelTrClose_Click" ToolTip="Закрыть">
+                <local:Glyph Data="{StaticResource IcClose}" Size="13" StrokeWidth="2.4"/>
+              </Button>
+              <local:Glyph Data="{StaticResource IcTranslate}" Size="15" Foreground="{StaticResource Accent}" VerticalAlignment="Center"
+                           Margin="0,0,8,0"/>
+              <TextBlock x:Name="SelTrLang" Text="Яндекс Переводчик" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+            </DockPanel>
+            <TextBlock x:Name="SelTrSource" FontSize="12.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
+                       MaxHeight="60" TextTrimming="CharacterEllipsis"/>
+            <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
+              <ScrollViewer.Resources>
+                <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
+              </ScrollViewer.Resources>
+              <TextBox x:Name="SelTrResult" FontSize="14" TextWrapping="Wrap" IsReadOnly="True" BorderThickness="0"
+                       Background="Transparent" Padding="0" Foreground="{StaticResource Ink}"/>
+            </ScrollViewer>
+            <Button Content="Скопировать перевод" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0"
+                    Click="SelTrCopy_Click"/>
           </StackPanel>
         </Border>
       </Popup>

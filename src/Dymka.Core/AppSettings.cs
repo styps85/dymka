@@ -72,6 +72,9 @@ public sealed class AppSettings
 
     /// <summary>Перевод видео (встроенное расширение voice-over-translation, сервис Яндекса). По умолчанию выключен.</summary>
     public bool VideoTranslation { get; set; }
+
+    /// <summary>Предлагать перевод страниц не на русском (кнопка «Перевести» в адресной строке). Перевод - Яндекс Переводчик.</summary>
+    public bool OfferTranslation { get; set; } = true;
     public string BuiltinVotFolder { get; set; } = "";
 
     // --- печать: запоминаем последний выбор

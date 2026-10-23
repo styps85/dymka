@@ -179,6 +179,20 @@
 
         <Border Style="{StaticResource Card}">
           <StackPanel>
+            <TextBlock Text="Перевод страниц" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="OfferTranslationBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Предлагать перевод страниц не на русском"/>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="В адресной строке появится кнопка «Перевести». Перевод делает Яндекс Переводчик: текст страницы отправляется на его серверы - только когда вы нажали «Перевести». Перевести можно и выделенный текст: правая кнопка мыши - «Перевести»."/>
+              </StackPanel>
+            </DockPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
             <TextBlock Text="Перевод видео" Style="{StaticResource CardTitle}"/>
             <DockPanel>
               <CheckBox x:Name="VideoTranslationBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>

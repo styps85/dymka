@@ -448,11 +448,92 @@ sealed class SelfTest
         }
     }
 
+    string _testDir = "";
+
+    static bool HasCyrillic(string s) => s.Any(ch => ch >= '\u0400' && ch <= '\u04FF');
+
+    /// <summary>Перевод страниц через Яндекс Переводчик - настоящими запросами к сервису.</summary>
+    async Task TestTranslationAsync()
+    {
+        try
+        {
+            File.WriteAllText(Path.Combine(_testDir, "ru.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Русская страница</title><h1>Картотека арбитражных дел</h1>" +
+                "<p>Судебное заседание назначено на понедельник. Просим представить документы по делу о банкротстве заблаговременно.</p></html>");
+            string En(string title, string extra) =>
+                "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\"><title>" + title + "</title>" +
+                "<style>body{font:17px Segoe UI;max-width:760px;margin:40px auto;line-height:1.5}</style></head><body>" +
+                "<h1>Good morning, dear friends</h1>" +
+                "<p id=\"p1\">The court has scheduled a hearing for <a href=\"#\">next Monday</a> at ten o'clock in the morning.</p>" +
+                "<p id=\"p2\">Please bring all the documents related to the bankruptcy case and a copy of your passport.</p>" +
+                "<p><code id=\"code\">var total = 1;</code></p>" +
+                "<p id=\"nt\" class=\"notranslate\">Do not translate this sentence.</p>" + extra + "</body></html>";
+            File.WriteAllText(Path.Combine(_testDir, "en.html"), En("Translation test", ""));
+            File.WriteAllText(Path.Combine(_testDir, "en2.html"), En("Second page", "<p id=\"p3\">The creditors meeting will be held online.</p>"));
+
+            var tt = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => tt.Core != null && !tt.IsLoading, 20);
+            tt.Core!.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", _testDir,
+                Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            var core = tt.Core!;
+
+            _w.Navigate(tt, "https://trackers.dymka-test.org/ru.html");
+            await WaitFor(() => tt.Url.Contains("ru.html") && !tt.IsLoading, 20);
+            await Task.Delay(2500);
+            Check(!tt.IsForeign && !_w.TranslateButtonVisible, "русская страница: перевод не предлагается");
+
+            _w.Navigate(tt, "https://trackers.dymka-test.org/en.html");
+            await WaitFor(() => tt.Url.Contains("en.html") && !tt.IsLoading, 20);
+            Check(await WaitFor(() => tt.IsForeign && _w.TranslateButtonVisible, 8), "английская страница распознана: в адресной строке кнопка «Перевести»");
+            Capture(_w, "24-translate-offer");
+
+            await _w.TranslatePageAsync(tt);
+            await WaitFor(() => tt.TranslateState != TranslateState.Working, 40);
+            var tr = MainWindow.TranslatorForTest;
+            Line($"ИНФО перевод: состояние {tt.TranslateState}, язык {tt.SourceLang}, способ {tr.LastMethod}, запросов {tr.Requests}, ошибка «{tt.TranslateError}{(tt.TranslateError.Length == 0 ? tr.LastError : "")}»");
+            Check(tt.TranslateState == TranslateState.Done && tt.SourceLang == "en", "страница переведена Яндекс Переводчиком (язык оригинала - английский)");
+            await Task.Delay(800);
+            string p1 = await core.ExecuteScriptAsync("document.getElementById('p1').innerText");
+            Line("ИНФО перевод абзаца: " + p1);
+            Check(HasCyrillic(p1), "текст абзаца теперь на русском");
+            Check(await core.ExecuteScriptAsync("document.querySelector('#p1 a') !== null") == "true", "ссылка внутри абзаца на месте");
+            Check((await core.ExecuteScriptAsync("document.getElementById('code').innerText")).Contains("var total"), "программный код не переводится");
+            Check((await core.ExecuteScriptAsync("document.getElementById('nt').innerText")).Contains("Do not translate"), "помеченное «не переводить» не переводится");
+            Capture(_w, "25-translated");
+
+            await core.ExecuteScriptAsync("var d=document.createElement('p');d.id='dyn';d.textContent='The weather is very nice today.';document.body.appendChild(d);");
+            string dyn = await PollScript(core, "document.getElementById('dyn').innerText", HasCyrillic, 15);
+            Check(HasCyrillic(dyn), "абзац, появившийся после перевода, переведён сам: " + dyn);
+
+            _w.Navigate(tt, "https://trackers.dymka-test.org/en2.html");
+            await WaitFor(() => tt.Url.Contains("en2.html") && !tt.IsLoading, 20);
+            string p3 = await PollScript(core, "document.getElementById('p3') ? document.getElementById('p3').innerText : ''", HasCyrillic, 25);
+            Check(HasCyrillic(p3), "следующая страница того же сайта в этой вкладке переводится сама");
+
+            _w.RestoreOriginal(tt);
+            await Task.Delay(700);
+            string orig = await core.ExecuteScriptAsync("document.getElementById('p1').innerText");
+            Check(orig.Contains("court") && tt.TranslateState == TranslateState.None, "«Оригинал» возвращает текст страницы");
+
+            await _w.ShowSelectionTranslationAsync("Good evening, the meeting of creditors will take place tomorrow.");
+            Line("ИНФО перевод выделенного: " + _w.SelectionTranslationForTest);
+            Check(HasCyrillic(_w.SelectionTranslationForTest), "перевод выделенного текста");
+            await Task.Delay(400);
+            Capture(_w, "26-selection-translation");
+            _w.ClosePopups();
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке перевода: " + ex);
+            _failed++;
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromMinutes(7));
+            await Task.Delay(TimeSpan.FromMinutes(8));
             Line("ПРЕВЫШЕНО ВРЕМЯ САМОПРОВЕРКИ");
             Line("РЕЗУЛЬТАТ: ОШИБКА");
             Environment.Exit(3);
@@ -475,6 +556,7 @@ sealed class SelfTest
 
             // страница с трекерами: счётчики Google, Яндекса, Mail.ru и пиксель Facebook должны быть заблокированы
             var testDir = Path.Combine(_dir, "web");
+            _testDir = testDir;
             Directory.CreateDirectory(testDir);
             File.WriteAllText(Path.Combine(testDir, "trackers.html"),
                 "<!doctype html><html><head><meta charset=\"utf-8\"><title>Проверка трекеров</title>" +
@@ -599,6 +681,7 @@ sealed class SelfTest
             Capture(_w, "06-side-woken");
 
             await TestTabFeaturesAsync();
+            await TestTranslationAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();

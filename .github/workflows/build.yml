@@ -56,7 +56,7 @@ jobs:
           $dir = Join-Path $env:RUNNER_TEMP "selftest"
           $data = Join-Path $env:RUNNER_TEMP "dymka-data"
           $p = Start-Process -FilePath "dist/single/Dymka.exe" -ArgumentList @("--selftest", $dir, "--data", $data) -PassThru
-          if (-not $p.WaitForExit(480000)) { $p.Kill(); Write-Host "::error::Самопроверка зависла" }
+          if (-not $p.WaitForExit(540000)) { $p.Kill(); Write-Host "::error::Самопроверка зависла" }
           New-Item -ItemType Directory -Force -Path dist/selftest | Out-Null
           if (Test-Path $dir) { Copy-Item "$dir/*" dist/selftest/ }
           if (Test-Path "$data/log.txt") { Copy-Item "$data/log.txt" dist/selftest/log.txt }

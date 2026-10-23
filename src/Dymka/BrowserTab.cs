@@ -30,6 +30,21 @@ public sealed class BrowserTab : INotifyPropertyChanged
         }
     }
 
+    // --- перевод страницы
+    bool _isForeign;
+    /// <summary>Страница не на русском - в адресной строке предлагается перевод.</summary>
+    public bool IsForeign { get => _isForeign; set => Set(ref _isForeign, value); }
+
+    TranslateState _translateState;
+    public TranslateState TranslateState { get => _translateState; set => Set(ref _translateState, value); }
+
+    /// <summary>Сайт, который в этой вкладке переводится сам при переходах (после того как вы перевели одну его страницу).</summary>
+    public string TranslateSticky { get; set; } = "";
+    public string SourceLang { get; set; } = "";
+    public int TranslatePending { get; set; }
+    public int TranslatedBatches { get; set; }
+    public string TranslateError { get; set; } = "";
+
     /// <summary>Последняя загрузка страницы завершилась ошибкой (сайт недоступен, нет сети и т.п.).</summary>
     public bool LoadFailed { get; set; }
 
@@ -121,6 +136,8 @@ public sealed class BrowserTab : INotifyPropertyChanged
         return true;
     }
 }
+
+public enum TranslateState { None, Working, Done }
 
 static class BrushCache
 {

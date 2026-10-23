@@ -190,5 +190,60 @@ var s4 = AppSettings.Load(tmp3);
 Eq(s4.Session.Count == 1 && s4.Session[0].Tabs.Count == 2 && s4.Session[0].Active == 1 && s4.Session[0].Tabs[0].Title == "А", true, "сеанс сохраняется и читается");
 File.Delete(tmp3);
 
+// --- перевод страниц
+Eq(Translation.ExtractSid("var a = {sid: '0a1b2c3d.65f2e1a0.4f1c', x: 1}"), "0a1b2c3d.65f2e1a0.4f1c", "sid из страницы сервиса");
+Eq(Translation.ExtractSid("нет ничего"), null, "sid не найден");
+Eq(Translation.ServiceFor("0a1b2c3d.65f2e1a0"), "tr-url-widget", "короткий sid - виджет");
+Eq(Translation.BuildUrl("abc12345", "ru"), "https://translate.yandex.net/api/v1/tr.json/translate?srv=tr-url-widget&id=abc12345-0-0&format=html&lang=ru", "адрес запроса (язык определяется сам)");
+Eq(Translation.BuildBody(new[] { "Hello<wbr>world", "A & B" }), "text=Hello%3Cwbr%3Eworld&text=A%20%26%20B", "тело запроса");
+var bt = Translation.Batch(new[] { new string('a', 500), new string('b', 200), new string('c', 200), new string('d', 1000), "e" }, 800);
+Eq(string.Join("|", bt.Select(b => string.Join(",", b))), "0,1|2|3|4", "пакеты по 800 символов, длинный сегмент - отдельно");
+var pr = Translation.ParseResponse("{\"code\":200,\"lang\":\"en-ru\",\"text\":[\"Привет<wbr>мир\",\"A &amp; B\"]}");
+Eq(pr.code == 200 && pr.lang == "en-ru" && pr.texts.Count == 2, true, "разбор ответа сервиса");
+Eq(string.Join("|", Translation.SplitPieces(pr.texts[0])), "Привет|мир", "куски абзаца разделяются обратно");
+Eq(Translation.SplitPieces("A &amp; B<wbr/>C")[0], "A & B", "HTML-сущности раскодируются");
+Eq(Translation.SourceOf("en-ru"), "en", "язык оригинала");
+Eq(Translation.IsForeign("en", 0, 500), true, "английская страница - предложить перевод");
+Eq(Translation.IsForeign("en", 400, 500), false, "русский текст при ошибочном lang=en - не предлагать");
+Eq(Translation.IsForeign("ru", 0, 10), false, "мало текста и lang=ru - не предлагать");
+Eq(Translation.IsForeign("", 0, 10), false, "мало текста и нет lang - не предлагать");
+Eq(Translation.IsForeign("uk", 450, 500), true, "украинский (кириллица) - предложить");
+Eq(Translation.IsForeign("ru-RU", 300, 500), false, "русская страница");
+Eq(Translation.TargetForSelection("Доброе утро"), "en", "выделенный русский текст - на английский");
+Eq(Translation.TargetForSelection("Good morning"), "ru", "выделенный английский - на русский");
+
+var fake = new FakeYandex();
+var ytr = new YandexTranslator(fake);
+var (pieces, srcLang) = ytr.TranslateSegmentsAsync(new[] { "Hello<wbr>world", "Bye" }, "ru").GetAwaiter().GetResult();
+Eq(srcLang, "en", "переводчик: язык оригинала");
+Eq(string.Join("|", pieces[0]) + "/" + string.Join("|", pieces[1]), "[ru]Hello|[ru]world/[ru]Bye", "переводчик: куски на своих местах");
+Eq(fake.SidRequests, 1, "sid запрашивается один раз и кешируется");
+var (txt, _) = ytr.TranslateTextAsync("Line one\n\nLine two", "ru").GetAwaiter().GetResult();
+Eq(txt, "[ru]Line one\n\n[ru]Line two", "перевод выделенного: строки сохраняются");
+fake.FailPost = true;
+var (p2, _) = ytr.TranslateSegmentsAsync(new[] { "Hi" }, "ru").GetAwaiter().GetResult();
+Eq(p2[0][0] == "[ru]Hi" && ytr.LastMethod == "GET", true, "если POST не принят - запасной GET");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
+
+sealed class FakeYandex : HttpMessageHandler
+{
+    public int SidRequests;
+    public bool FailPost;
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+    {
+        var url = req.RequestUri!.ToString();
+        if (url.Contains("turbopages"))
+        {
+            SidRequests++;
+            return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("... sid: 'a1b2c3d4.e5f6a7b8.c9d0', ...") };
+        }
+        if (req.Method == HttpMethod.Post && FailPost) return new HttpResponseMessage(System.Net.HttpStatusCode.MethodNotAllowed);
+        string query = req.Method == HttpMethod.Post ? await req.Content!.ReadAsStringAsync(ct) : req.RequestUri.Query;
+        var texts = query.TrimStart('?').Split('&').Where(p => p.StartsWith("text=")).Select(p => Uri.UnescapeDataString(p[5..]))
+            .Select(s => string.Join("<wbr>", s.Split("<wbr>").Select(x => "[ru]" + x)));
+        var json = System.Text.Json.JsonSerializer.Serialize(new { code = 200, lang = "en-ru", text = texts });
+        return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(json) };
+    }
+}

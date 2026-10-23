@@ -50,6 +50,7 @@ public partial class SettingsWindow : Window
         StartRestore.IsChecked = _s.RestoreSession;
         StartNew.IsChecked = !_s.RestoreSession;
         VideoTranslationBox.IsChecked = _s.VideoTranslation;
+        OfferTranslationBox.IsChecked = _s.OfferTranslation;
         VersionInfo.Text = $"Установлена версия {App.VersionText}. Новая версия скачивается и устанавливается по вашему согласию.";
 
         ClearOnExit.IsChecked = _s.ClearCookiesOnExit;
@@ -90,6 +91,7 @@ public partial class SettingsWindow : Window
         _s.RestoreSession = StartRestore.IsChecked == true;
         VideoTranslationChanged = _s.VideoTranslation != (VideoTranslationBox.IsChecked == true);
         _s.VideoTranslation = VideoTranslationBox.IsChecked == true;
+        _s.OfferTranslation = OfferTranslationBox.IsChecked == true;
         _s.ClearCookiesOnExit = ClearOnExit.IsChecked == true;
         _s.BlockThirdPartyCookies = Block3p.IsChecked == true;
         _s.AutoUpdateLists = AutoLists.IsChecked == true;
