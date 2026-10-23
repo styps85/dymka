@@ -63,6 +63,13 @@ public sealed class AppSettings
 
     public bool CheckUpdates { get; set; } = true;
 
+    /// <summary>При запуске восстанавливать вкладки прошлого сеанса (спящими) или начинать с новой вкладки.</summary>
+    public bool RestoreSession { get; set; } = true;
+    /// <summary>Открытые вкладки по окнам (закреплённые хранятся отдельно, в Pinned).</summary>
+    public List<SessionWindow> Session { get; set; } = new();
+    /// <summary>Очистка вкладок: «давно не открывались» - больше скольких дней.</summary>
+    public int CleanupOldDays { get; set; } = TabCleanup.DefaultOldDays;
+
     /// <summary>Перевод видео (встроенное расширение voice-over-translation, сервис Яндекса). По умолчанию выключен.</summary>
     public bool VideoTranslation { get; set; }
     public string BuiltinVotFolder { get; set; } = "";
@@ -175,6 +182,8 @@ public sealed class AppSettings
         if (s.SmartScreenMode is not ("off" or "bank" or "all")) s.SmartScreenMode = "bank";
         if (s.PrintPagesPerSheet is not (1 or 2 or 4 or 6 or 9 or 16)) s.PrintPagesPerSheet = 1;
         s.PrintScale = Math.Clamp(s.PrintScale, 10, 200);
+        s.CleanupOldDays = Math.Clamp(s.CleanupOldDays, 1, 365);
+        s.Session ??= new List<SessionWindow>();
         if (s.StatsDate.Date != DateTime.Today) { s.StatsDate = DateTime.Today; s.BlockedToday = 0; }
         return s;
     }

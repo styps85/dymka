@@ -47,6 +47,8 @@ public partial class SettingsWindow : Window
                 Content = text, Tag = id, GroupName = "smartscreen", Style = chip, IsChecked = _s.SmartScreenMode == id,
             });
         CheckUpdatesBox.IsChecked = _s.CheckUpdates;
+        StartRestore.IsChecked = _s.RestoreSession;
+        StartNew.IsChecked = !_s.RestoreSession;
         VideoTranslationBox.IsChecked = _s.VideoTranslation;
         VersionInfo.Text = $"Установлена версия {App.VersionText}. Новая версия скачивается и устанавливается по вашему согласию.";
 
@@ -85,6 +87,7 @@ public partial class SettingsWindow : Window
         foreach (RadioButton r in SmartScreenPanel.Children)
             if (r.IsChecked == true) _s.SmartScreenMode = (string)r.Tag;
         _s.CheckUpdates = CheckUpdatesBox.IsChecked == true;
+        _s.RestoreSession = StartRestore.IsChecked == true;
         VideoTranslationChanged = _s.VideoTranslation != (VideoTranslationBox.IsChecked == true);
         _s.VideoTranslation = VideoTranslationBox.IsChecked == true;
         _s.ClearCookiesOnExit = ClearOnExit.IsChecked == true;

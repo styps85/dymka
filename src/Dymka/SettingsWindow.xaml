@@ -92,6 +92,18 @@
 
         <Border Style="{StaticResource Card}">
           <StackPanel>
+            <TextBlock Text="При запуске" Style="{StaticResource CardTitle}"/>
+            <WrapPanel>
+              <RadioButton x:Name="StartRestore" GroupName="startup" Style="{StaticResource Chip}" Content="Восстанавливать вкладки"/>
+              <RadioButton x:Name="StartNew" GroupName="startup" Style="{StaticResource Chip}" Content="Начинать с новой вкладки"/>
+            </WrapPanel>
+            <TextBlock Text="Вкладки прошлого сеанса появляются спящими и загружаются по щелчку - память не тратится. Вход на сайты (cookie) при закрытии всё равно удаляется, если это включено ниже."
+                       Style="{StaticResource Hint}"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
             <TextBlock Text="Поиск" Style="{StaticResource CardTitle}"/>
             <WrapPanel x:Name="EnginePanel"/>
             <TextBlock Text="DuckDuckGo и Startpage не собирают историю поиска." Style="{StaticResource Hint}"/>

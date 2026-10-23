@@ -12,6 +12,10 @@ static class Shared
     public static readonly HashSet<string> UsedContainers = new();
     public static readonly List<MainWindow> Windows = new();
     public static bool StartupDone;
+    /// <summary>Последнее окно закрывается: сеанс уже сохранён и больше не перезаписывается.</summary>
+    public static bool SessionFrozen;
+    /// <summary>Движки, процесс которых уже завершился.</summary>
+    public static readonly HashSet<CoreWebView2Environment> ExitedEnvs = new();
 
     /// <summary>Профили (контейнеры), в которых расширения уже сверены в этом сеансе.</summary>
     public static readonly HashSet<string> ExtensionsSynced = new();

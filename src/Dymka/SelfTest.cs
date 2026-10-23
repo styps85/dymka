@@ -224,7 +224,7 @@ sealed class SelfTest
 
             // раздельный просмотр
             var b = await _w.NewTabAsync("https://example.com/", activate: false);
-            await WaitFor(() => b.View?.CoreWebView2 != null && !b.IsLoading && b.Url.Contains("example.com"), 30);
+            await WaitFor(() => b.Core != null && !b.IsLoading && b.Url.Contains("example.com"), 30);
             _w.StartSplit(a, b);
             await Task.Delay(1500);
             Check(_w.IsSplit && a.View?.IsVisible == true && b.View?.IsVisible == true, "раздельный просмотр: обе страницы видны");
@@ -252,7 +252,7 @@ sealed class SelfTest
 
             // второе окно
             var w2 = _w.OpenWindow("https://example.com/", "work");
-            Check(await WaitFor(() => w2.ActiveTab?.View?.CoreWebView2 != null && w2.ActiveTab.IsLoading == false, 30), "открылось второе окно");
+            Check(await WaitFor(() => w2.ActiveTab?.Core != null && w2.ActiveTab.IsLoading == false, 30), "открылось второе окно");
             _w.Topmost = false;
             w2.Topmost = true;
             w2.Activate();
@@ -269,7 +269,7 @@ sealed class SelfTest
             await _w.ResyncExtensionsAsync();
             var yt = await _w.NewTabAsync("https://www.youtube.com/watch?v=jNQXAC9IVRw", activate: true);
             await WaitFor(() => yt.Url.Contains("youtube.com") && !yt.IsLoading, 40);
-            var ytCore = yt.View?.CoreWebView2;
+            var ytCore = yt.Core;
             if (ytCore != null)
             {
                 var exts = await ytCore.Profile.GetBrowserExtensionsAsync();
@@ -285,13 +285,13 @@ sealed class SelfTest
 
             // контейнеры на стартовой странице: у каждого свои плитки
             var st = await _w.NewTabAsync(null, activate: true, container: "work");
-            await WaitFor(() => st.View?.CoreWebView2 != null && !st.IsLoading, 30);
+            await WaitFor(() => st.Core != null && !st.IsLoading, 30);
             await Task.Delay(1200);
             Capture(_w, "18-start-work");
-            await st.View!.CoreWebView2.ExecuteScriptAsync("document.querySelector('[data-container=\"personal\"]').click()");
-            Check(await WaitFor(() => _w.ActiveTab?.Container == "personal" && _w.ActiveTab.IsStart && _w.ActiveTab.View?.CoreWebView2 != null && !_w.ActiveTab.IsLoading, 20),
+            await st.Core!.ExecuteScriptAsync("document.querySelector('[data-container=\"personal\"]').click()");
+            Check(await WaitFor(() => _w.ActiveTab?.Container == "personal" && _w.ActiveTab.IsStart && _w.ActiveTab.Core != null && !_w.ActiveTab.IsLoading, 20),
                 "переключение контейнера на стартовой странице: вкладка перешла в «Личное»");
-            var pcore = _w.ActiveTab!.View!.CoreWebView2;
+            var pcore = _w.ActiveTab!.Core!;
             var emptyShown = await PollScript(pcore, "!document.getElementById('empty').hidden", v => v == "true", 10);
             Check(emptyShown == "true", "у «Личного» свой (пока пустой) набор плиток");
             await Task.Delay(800);
@@ -311,11 +311,148 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Ночная ошибка пользователя, очистка вкладок, поиск, сеанс и падение движка.</summary>
+    async Task TestSessionAndRecoveryAsync()
+    {
+        try
+        {
+            // сценарий, после которого у пользователя упал движок: сайт с плитки -> «Перенести в» «Личное» ->
+            // новая вкладка -> на стартовой странице переключить на «Работу» -> щёлкнуть по перенесённой вкладке
+            var s1 = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => s1.Core != null && !s1.IsLoading, 20);
+            _w.Navigate(s1, "https://example.com/?tile=4pda");
+            await WaitFor(() => s1.Url.Contains("tile=4pda") && !s1.IsLoading, 30);
+            await _w.MoveToContainerAsync(s1, "personal");
+            var movedTile = _w.ActiveTab!;
+            Check(movedTile.Container == "personal" && !_w.Tabs.Contains(s1), "сценарий ночной ошибки: вкладка перенесена в «Личное»");
+            var s2 = await _w.NewTabAsync(null, activate: true);
+            await WaitFor(() => s2.Core != null && !s2.IsLoading, 20);
+            await Task.Delay(800);
+            await s2.Core!.ExecuteScriptAsync("document.querySelector('[data-container=\"work\"]').click()");
+            Check(await WaitFor(() => _w.ActiveTab?.Container == "work" && _w.ActiveTab.IsStart && _w.ActiveTab.Core != null && !_w.ActiveTab.IsLoading, 20),
+                "сценарий ночной ошибки: на стартовой странице выбрана «Работа»");
+            Check(!_w.ListedTabs.Contains(movedTile), "в «Работе» вкладка из «Личного» в списке не показывается");
+            await Task.Delay(1000);
+            Capture(_w, "19-night-scenario");
+            _w.Activate(movedTile);
+            await WaitFor(() => movedTile.Core != null && !movedTile.IsLoading, 20);
+            await Task.Delay(1500);
+            Check(_w.EngineRestarts == 0 && movedTile.Core != null && _w.ActiveTab == movedTile,
+                "сценарий ночной ошибки: вкладка открывается, движок работает");
+
+            // очистка: дубликаты и пустые вкладки
+            var d1 = await _w.NewTabAsync("https://example.com/?dup=1", activate: true, container: "work");
+            await WaitFor(() => d1.Core != null && !d1.IsLoading && d1.Url.Contains("dup=1"), 30);
+            var d2 = await _w.NewTabAsync("https://example.com/?dup=1", activate: false, container: "work");
+            await WaitFor(() => d2.Core != null && !d2.IsLoading && d2.Url.Contains("dup=1"), 30);
+            var e1 = await _w.NewTabAsync(null, activate: false, container: "work");
+            var e2 = await _w.NewTabAsync(null, activate: false, container: "personal");
+            _w.Activate(d1);
+            await Task.Delay(500);
+            var found = _w.FindCleanup();
+            Line("ИНФО очистка нашла: " + string.Join("; ", found.Select(f => $"{f.Group}: {f.Tab.Title}")));
+            Check(found.Count(f => f.Group == Dymka.Core.CleanupGroup.Duplicates && (f.Tab.Id == d1.Id || f.Tab.Id == d2.Id)) == 1,
+                "очистка: из двух одинаковых вкладок к закрытию предложена одна");
+            Check(found.Any(f => f.Tab.Id == e1.Id) && found.Any(f => f.Tab.Id == e2.Id), "очистка: пустые вкладки найдены (в обоих контейнерах)");
+            Check(!found.Any(f => f.Tab.Id == d1.Id), "очистка: открытая сейчас вкладка не предлагается");
+            _w.OpenCleanupForTest();
+            var cw = _w.CleanupWindowForTest;
+            Check(cw != null && cw.FoundCount == found.Count, "окно очистки открылось и показывает найденное");
+            int countBefore = _w.Tabs.Count;
+            var ids = cw?.SelectedIds ?? new List<int>();
+            if (cw != null)
+            {
+                cw.Topmost = true;
+                await Task.Delay(1200);
+                Capture(cw, "20-cleanup");
+                cw.Close();
+            }
+            int closed = _w.CloseTabsForCleanup(ids);
+            await Task.Delay(400);
+            Check(closed == ids.Count && closed > 0 && _w.Tabs.Count == countBefore - closed, $"очистка: закрыто вкладок {closed}");
+            Check(_w.Tabs.Count(x => x.Url.Contains("dup=1")) == 1 && !_w.Tabs.Contains(e1) && !_w.Tabs.Contains(e2),
+                "очистка: дубликат и пустые вкладки закрыты");
+            Check(_w.ToastTextForTest.Contains("Закрыто вкладок"), "уведомление «Закрыто вкладок: N - Вернуть»");
+            await Task.Delay(300);
+            Capture(_w, "20b-cleanup-toast");
+            _w.UndoCleanup();
+            Check(_w.Tabs.Count == countBefore && _w.Tabs.Count(x => x.Url.Contains("dup=1")) == 2, "«Вернуть» вернуло закрытые вкладки");
+
+            // поиск по вкладкам: Ctrl+Shift+A при фокусе в странице
+            _w.ActiveTab!.View?.Focus();
+            await Task.Delay(500);
+            Native.PressCtrlShift(0x41); // Ctrl+Shift+A
+            Check(await WaitFor(() => _w.TabSearchOpen, 5), "Ctrl+Shift+A открывает поиск по вкладкам");
+            if (!_w.TabSearchOpen) _w.OpenTabSearch();
+            _w.SetTabSearchTextForTest("wikipedia");
+            await Task.Delay(500);
+            var res = _w.TabSearchResults;
+            Line("ИНФО поиск «wikipedia»: " + string.Join("; ", res.Select(r => r.Title + " [" + r.Place + "]")));
+            Check(res.Count > 0 && res.All(r => (r.Title + r.Tab.Url).Contains("ikipedia", StringComparison.OrdinalIgnoreCase)), "поиск находит вкладку по названию и адресу");
+            Capture(_w, "21-tab-search");
+            if (res.Count > 0)
+            {
+                var target = res[0].Tab;
+                _w.GoToSearchResult(res[0]);
+                Check(_w.ActiveTab == target && !_w.TabSearchOpen, "выбор в поиске открывает найденную вкладку");
+                await WaitFor(() => target.Core != null && !target.IsLoading, 30);
+            }
+
+            // сеанс: сохранение и восстановление (в отдельном окне, как при следующем запуске)
+            _w.SaveSessionNow();
+            var sess = _w.Settings.Session;
+            int expected = _w.Tabs.Count(x => !x.IsPinned && !x.IsStart);
+            Check(sess.Count == 1 && sess[0].Tabs.Count == expected, $"сеанс сохранён: вкладок {(sess.Count > 0 ? sess[0].Tabs.Count : 0)} из {expected}");
+            if (sess.Count > 0)
+            {
+                var w3 = _w.OpenWindow(null, "work", sess[0]);
+                bool restored = await WaitFor(() => w3.Tabs.Count == expected && w3.ActiveTab?.Core != null && !w3.ActiveTab.IsLoading, 40);
+                Check(restored, $"сеанс восстановлен: вкладок {w3.Tabs.Count}");
+                Check(w3.Tabs.Count(x => x.IsSleeping) == expected - 1, "восстановленные вкладки спят, загружена только активная");
+                Check(w3.ActiveTab?.Url == sess[0].Tabs[Math.Max(0, sess[0].Active)].Url, "активна та же вкладка, что была");
+                _w.Topmost = false;
+                w3.Topmost = true;
+                await Task.Delay(1000);
+                Capture(w3, "22-session-restored");
+                w3.Topmost = false;
+                _w.Topmost = true;
+                w3.Close();
+                await Task.Delay(1500);
+                _w.SaveSessionNow();
+                Check(_w.Settings.Session.Count == 1, "закрытое окно из сеанса убрано");
+            }
+
+            // падение движка: процесс завершается принудительно, браузер должен сам всё восстановить
+            int restartsBefore = _w.EngineRestarts;
+            var act = _w.ActiveTab!;
+            Check(_w.KillEngineForTest(), "процесс движка завершён (имитация падения)");
+            Check(await WaitFor(() => _w.EngineRestarts == restartsBefore + 1 && _w.ActiveTab?.Core != null && !_w.ActiveTab.IsLoading, 45),
+                "после падения движок перезапущен, открытая вкладка загружена заново");
+            Check(_w.ActiveTab == act && _w.Tabs.Where(x => x != act).All(x => x.View == null), "остальные вкладки сохранились и спят");
+            Line("ИНФО уведомление: " + _w.ToastTextForTest);
+            Check(_w.ToastTextForTest.Contains("Движок перезапущен"), "уведомление «Движок перезапущен, вкладки восстановлены»");
+            Capture(_w, "23-engine-restarted");
+            var other = _w.Tabs.FirstOrDefault(x => x != act && !x.IsPinned && x.Container == act.Container && !x.IsStart);
+            if (other != null)
+            {
+                _w.Activate(other);
+                Check(await WaitFor(() => other.Core != null && !other.IsLoading, 40), "щелчок по вкладке после падения движка - без ошибки, вкладка открылась");
+            }
+            var fresh = await _w.NewTabAsync("https://example.com/?after=crash", activate: true);
+            Check(await WaitFor(() => fresh.Core != null && !fresh.IsLoading && fresh.Url.Contains("after=crash"), 30), "новая вкладка после перезапуска движка работает");
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке сеанса и восстановления: " + ex);
+            _failed++;
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromMinutes(4));
+            await Task.Delay(TimeSpan.FromMinutes(7));
             Line("ПРЕВЫШЕНО ВРЕМЯ САМОПРОВЕРКИ");
             Line("РЕЗУЛЬТАТ: ОШИБКА");
             Environment.Exit(3);
@@ -327,12 +464,12 @@ sealed class SelfTest
             _w.Topmost = true;
             _w.Activate();
 
-            Check(await WaitFor(() => _w.ActiveTab?.View?.CoreWebView2 != null && _w.ActiveTab.IsLoading == false, 40),
+            Check(await WaitFor(() => _w.ActiveTab?.Core != null && _w.ActiveTab.IsLoading == false, 40),
                 "движок WebView2 запущен, открыта стартовая страница");
             await Task.Delay(2500);
             Capture(_w, "01-top-start");
 
-            var startCore = _w.ActiveTab!.View!.CoreWebView2;
+            var startCore = _w.ActiveTab!.Core!;
             var tiles = await startCore.ExecuteScriptAsync("document.querySelectorAll('.tile:not(.add)').length");
             Check(tiles == _w.Settings.ShortcutsFor(_w.ActiveTab!.Container).Count.ToString(), $"стартовая страница получила плитки сайтов ({tiles})");
 
@@ -436,7 +573,7 @@ sealed class SelfTest
             _w.ClosePopups();
 
             var third = await _w.NewTabAsync("https://www.wikipedia.org/", activate: false);
-            Check(await WaitFor(() => third.View?.CoreWebView2 != null && third.Title.Contains("Wikipedia") && !third.IsLoading, 40),
+            Check(await WaitFor(() => third.Core != null && third.Title.Contains("Wikipedia") && !third.IsLoading, 40),
                 "фоновая вкладка загружена: " + third.Title);
             _w.UpdateMemory();
             long before = _w.MemoryBytes;
@@ -456,12 +593,13 @@ sealed class SelfTest
             _w.ClosePopups();
 
             _w.Activate(third);
-            Check(await WaitFor(() => third.View?.CoreWebView2 != null && !third.IsLoading && !third.IsSleeping, 40),
+            Check(await WaitFor(() => third.Core != null && !third.IsLoading && !third.IsSleeping, 40),
                 "спящая вкладка проснулась при открытии");
             await Task.Delay(1500);
             Capture(_w, "06-side-woken");
 
             await TestTabFeaturesAsync();
+            await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();
             sw.Topmost = true;

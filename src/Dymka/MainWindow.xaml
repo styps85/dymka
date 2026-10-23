@@ -226,13 +226,18 @@
                         VerticalAlignment="Bottom" Focusable="False" ClipToBounds="True">
             <ItemsControl.ItemsPanel>
               <ItemsPanelTemplate>
-                <local:ShrinkTabPanel Reserve="44"/>
+                <local:ShrinkTabPanel Reserve="80"/>
               </ItemsPanelTemplate>
             </ItemsControl.ItemsPanel>
           </ItemsControl>
           <Button DockPanel.Dock="Left" Style="{StaticResource IconButton}" Width="32" Height="32" Margin="2,0,0,4"
                   VerticalAlignment="Bottom" Click="NewTab_Click" ToolTip="Новая вкладка (Ctrl+T)">
             <local:Glyph Data="{StaticResource IcPlus}" Size="18"/>
+          </Button>
+          <Button x:Name="TopSearchBtn" DockPanel.Dock="Left" Style="{StaticResource IconButton}" Width="32" Height="32" Margin="2,0,0,4"
+                  VerticalAlignment="Bottom" Click="TabSearch_Click" ToolTip="Поиск по вкладкам (Ctrl+Shift+A)"
+                  WindowChrome.IsHitTestVisibleInChrome="True">
+            <local:Glyph Data="{StaticResource IcTabSearch}" Size="17"/>
           </Button>
         </DockPanel>
       </Grid>
@@ -303,7 +308,17 @@
                 </StackPanel>
               </Button>
               <ItemsControl x:Name="SidePinned" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
-              <TextBlock Text="ОТКРЫТЫ" Style="{StaticResource SectionLabel}"/>
+              <DockPanel Margin="0,6,0,0">
+                <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="Cleanup_Click"
+                        ToolTip="Очистить вкладки: дубликаты, пустые, с ошибкой" Margin="0,0,2,0">
+                  <local:Glyph Data="{StaticResource IcBroom}" Size="14" Foreground="{StaticResource Muted}"/>
+                </Button>
+                <Button x:Name="SideSearchBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="TabSearch_Click"
+                        ToolTip="Поиск по вкладкам (Ctrl+Shift+A)" Margin="0,0,2,0">
+                  <local:Glyph Data="{StaticResource IcTabSearch}" Size="14" Foreground="{StaticResource Muted}"/>
+                </Button>
+                <TextBlock Text="ОТКРЫТЫ" Style="{StaticResource SectionLabel}" Margin="10,6,10,4" VerticalAlignment="Center"/>
+              </DockPanel>
               <ItemsControl x:Name="SideAwake" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
               <StackPanel x:Name="SleepHeader" Orientation="Horizontal" Margin="10,14,10,4" Visibility="Collapsed">
                 <local:Glyph Data="{StaticResource IcMoon}" Size="12" Foreground="{StaticResource Muted}" Margin="0,0,6,0"
@@ -546,6 +561,16 @@
                 <local:Glyph Data="{StaticResource IcMoon}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Усыпить остальные вкладки" VerticalAlignment="Center"/></DockPanel>
             </Button>
+            <Button Style="{StaticResource MenuRow}" Click="TabSearch_Click">
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+A" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcTabSearch}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Поиск по вкладкам" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Button Style="{StaticResource MenuRow}" Click="Cleanup_Click">
+              <DockPanel>
+                <local:Glyph Data="{StaticResource IcBroom}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Очистить вкладки…" VerticalAlignment="Center"/></DockPanel>
+            </Button>
             <Border Height="1" Background="{StaticResource Line}" Margin="8,5"/>
             <Button Style="{StaticResource MenuRow}" Click="ToggleLayout_Click">
               <DockPanel>
@@ -687,7 +712,81 @@
       <Popup x:Name="Toast" PlacementTarget="{Binding ElementName=AddressBorder}" Placement="Bottom" StaysOpen="True"
              AllowsTransparency="True" PopupAnimation="Fade" IsHitTestVisible="False">
         <Border Background="#1B2230" CornerRadius="10" Padding="14,8" Margin="10,8,10,14">
-          <TextBlock x:Name="ToastText" Foreground="White" FontSize="13"/>
+          <StackPanel Orientation="Horizontal">
+            <TextBlock x:Name="ToastText" Foreground="White" FontSize="13" VerticalAlignment="Center"/>
+            <Button x:Name="ToastAction" Style="{StaticResource PlainButton}" Cursor="Hand" Margin="16,0,0,0" Visibility="Collapsed"
+                    Click="ToastAction_Click" VerticalAlignment="Center">
+              <TextBlock x:Name="ToastActionText" Text="Вернуть" Foreground="#8FB2FF" FontSize="13" FontWeight="SemiBold"/>
+            </Button>
+          </StackPanel>
+        </Border>
+      </Popup>
+
+      <!-- ===== Поиск по вкладкам ===== -->
+      <Popup x:Name="TabSearchPopup" PlacementTarget="{Binding ElementName=AddressBorder}" Placement="Bottom"
+             StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-14" VerticalOffset="0">
+        <Border Style="{StaticResource PopupCard}" Width="460" Padding="8">
+          <StackPanel>
+            <Border Background="{StaticResource Field}" CornerRadius="12" Padding="12,0" Height="40" Margin="0,0,0,6">
+              <DockPanel>
+                <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcTabSearch}" Size="16" Foreground="{StaticResource Muted}"
+                             VerticalAlignment="Center" Margin="0,0,10,0"/>
+                <Grid VerticalAlignment="Center">
+                  <TextBox x:Name="TabSearchBox" BorderThickness="0" Background="Transparent" FontSize="14" Padding="0"
+                           TextChanged="TabSearchBox_TextChanged" PreviewKeyDown="TabSearchBox_PreviewKeyDown"/>
+                  <TextBlock x:Name="TabSearchHint" Text="Найти вкладку по названию или адресу" FontSize="14" Foreground="#7A8394"
+                             IsHitTestVisible="False" Margin="2,0,0,0"/>
+                </Grid>
+              </DockPanel>
+            </Border>
+            <TextBlock x:Name="TabSearchEmpty" Text="Ничего не найдено" Foreground="{StaticResource Muted}" Margin="12,10" Visibility="Collapsed"/>
+            <ListBox x:Name="TabSearchList" BorderThickness="0" Background="Transparent" MaxHeight="420" Focusable="False"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled" PreviewMouseLeftButtonUp="TabSearchList_Click">
+              <ListBox.Resources>
+                <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
+              </ListBox.Resources>
+              <ListBox.ItemContainerStyle>
+                <Style TargetType="ListBoxItem">
+                  <Setter Property="Focusable" Value="False"/>
+                  <Setter Property="Cursor" Value="Hand"/>
+                  <Setter Property="Template">
+                    <Setter.Value>
+                      <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="Bd" CornerRadius="10" Padding="10,7" Background="Transparent">
+                          <ContentPresenter/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                          <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                          </Trigger>
+                          <Trigger Property="IsSelected" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                          </Trigger>
+                        </ControlTemplate.Triggers>
+                      </ControlTemplate>
+                    </Setter.Value>
+                  </Setter>
+                </Style>
+              </ListBox.ItemContainerStyle>
+              <ListBox.ItemTemplate>
+                <DataTemplate>
+                  <DockPanel>
+                    <Border DockPanel.Dock="Right" CornerRadius="8" Background="{StaticResource Field}" Padding="7,2" Margin="8,0,0,0"
+                            VerticalAlignment="Center">
+                      <StackPanel Orientation="Horizontal">
+                        <Ellipse Width="7" Height="7" Fill="{Binding ContainerBrush}" Margin="0,0,5,0" VerticalAlignment="Center"/>
+                        <TextBlock Text="{Binding Place}" FontSize="11.5" Foreground="{StaticResource Ink2}"/>
+                      </StackPanel>
+                    </Border>
+                    <StackPanel>
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding Host}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                  </DockPanel>
+                </DataTemplate>
+              </ListBox.ItemTemplate>
+            </ListBox>
+          </StackPanel>
         </Border>
       </Popup>
     </Grid>

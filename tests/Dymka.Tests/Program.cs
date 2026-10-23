@@ -149,5 +149,46 @@ Eq(st.Shortcuts, null, "старый общий список больше не �
 File.Delete(tmp2);
 Eq(AppSettings.Load(Path.Combine(Path.GetTempPath(), "nonexistent-" + Guid.NewGuid() + ".json")).ShortcutsFor("work").Count, 4, "первый запуск: 4 плитки в «Работе»");
 
+// --- очистка вкладок и поиск
+var now0 = new DateTime(2026, 10, 23, 5, 0, 0);
+TabInfo T(int id, string url, string c = "work", bool start = false, bool pinned = false, bool active = false, bool err = false, double daysAgo = 0, string title = "") =>
+    new(id, c, url, title.Length > 0 ? title : url, start, pinned, active, err, now0.AddDays(-daysAgo));
+var tabsC = new List<TabInfo>
+{
+    T(1, "https://kad.arbitr.ru/", daysAgo: 2),
+    T(2, "https://kad.arbitr.ru/", daysAgo: 0.1),            // самая свежая - остаётся
+    T(3, "https://kad.arbitr.ru/", c: "personal"),           // другой контейнер - не дубликат
+    T(4, "https://dymka.start/start.html", start: true),
+    T(5, "https://dymka.start/start.html", start: true, active: true),   // активная - не трогаем
+    T(6, "https://broken.example/", err: true),
+    T(7, "https://old.example/", daysAgo: 30),
+    T(8, "https://pinned.example/", pinned: true, daysAgo: 60),          // закреплённая - не трогаем
+    T(9, "https://fedresurs.ru/", daysAgo: 12),
+    T(10, "https://fedresurs.ru/", daysAgo: 20),             // дубликат и старая - только в «Дубликатах»
+};
+var found2 = TabCleanup.Find(tabsC, now0, 7);
+string Ids(CleanupGroup g) => string.Join(",", found2.Where(x => x.Group == g).Select(x => x.Tab.Id).OrderBy(i => i));
+Eq(Ids(CleanupGroup.Duplicates), "1,10", "дубликаты: остаются самые свежие, другой контейнер не считается");
+Eq(Ids(CleanupGroup.Empty), "4", "пустые вкладки, кроме активной");
+Eq(Ids(CleanupGroup.Errors), "6", "страницы с ошибкой");
+Eq(Ids(CleanupGroup.Old), "7,9", "давно не открывались (больше 7 дней), закреплённая не трогается");
+Eq(found2.Select(x => x.Tab.Id).Distinct().Count(), found2.Count, "каждая вкладка - не больше чем в одной группе");
+Eq(TabCleanup.CheckedByDefault(CleanupGroup.Old), false, "«давно не открывались» по умолчанию не отмечены");
+var dupPinned = TabCleanup.Find(new[] { T(1, "https://a.ru/", daysAgo: 0), T(2, "https://a.ru/", pinned: true, daysAgo: 5) }, now0);
+Eq(string.Join(",", dupPinned.Select(x => x.Tab.Id)), "1", "дубликат закреплённой вкладки закрывается, закреплённая остаётся");
+var sr = TabCleanup.Search(tabsC.Append(T(11, "https://example.com/%D0%B4%D0%B5%D0%BB%D0%BE", title: "Карточка дела")), "дело");
+Eq(sr.FirstOrDefault()?.Id, 11, "поиск по адресу с русскими буквами (раскодированный адрес)");
+Eq(TabCleanup.Search(tabsC, "FEDRES").Count, 2, "поиск без учёта регистра");
+Eq(TabCleanup.Search(tabsC, "kad personal").Count, 0, "все слова должны встретиться (контейнер не ищется)");
+Eq(TabCleanup.Search(tabsC, "").Any(x => x.IsStart), false, "пустой запрос: стартовые страницы не показываются");
+var tmp3 = Path.Combine(Path.GetTempPath(), "dymka-test-" + Guid.NewGuid() + ".json");
+var s3 = AppSettings.Load(tmp3);
+Eq(s3.RestoreSession, true, "восстановление сеанса включено по умолчанию");
+s3.Session.Add(new SessionWindow { Active = 1, Container = "personal", Tabs = { new SessionTab { Url = "https://a.ru/", Title = "А", Container = "personal" }, new SessionTab { Url = "https://b.ru/", Container = "work" } } });
+s3.Save();
+var s4 = AppSettings.Load(tmp3);
+Eq(s4.Session.Count == 1 && s4.Session[0].Tabs.Count == 2 && s4.Session[0].Active == 1 && s4.Session[0].Tabs[0].Title == "А", true, "сеанс сохраняется и читается");
+File.Delete(tmp3);
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;

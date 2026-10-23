@@ -79,6 +79,17 @@ static class Native
         keybd_event(0x11, 0, 2, UIntPtr.Zero);
     }
 
+    /// <summary>Нажать Ctrl+Shift+клавиша.</summary>
+    public static void PressCtrlShift(byte vk)
+    {
+        keybd_event(0x11, 0, 0, UIntPtr.Zero);
+        keybd_event(0x10, 0, 0, UIntPtr.Zero);
+        keybd_event(vk, 0, 0, UIntPtr.Zero);
+        keybd_event(vk, 0, 2, UIntPtr.Zero);
+        keybd_event(0x10, 0, 2, UIntPtr.Zero);
+        keybd_event(0x11, 0, 2, UIntPtr.Zero);
+    }
+
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] static extern void mouse_event(int flags, int dx, int dy, int data, UIntPtr extra);
 

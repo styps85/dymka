@@ -2,6 +2,7 @@ using System.ComponentModel;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
 using Dymka.Core;
+using Microsoft.Web.WebView2.Core;
 using Microsoft.Web.WebView2.Wpf;
 
 namespace Dymka;
@@ -17,6 +18,20 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public BrowserTab(string container) => Container = container;
 
     public WebView2? View { get; set; }
+
+    /// <summary>Движок страницы. После падения процесса движка обращение к View.CoreWebView2 бросает исключение,
+    /// поэтому всюду используется это свойство: оно возвращает null для «мёртвой» страницы.</summary>
+    public CoreWebView2? Core
+    {
+        get
+        {
+            try { return View?.CoreWebView2; }
+            catch { return null; }
+        }
+    }
+
+    /// <summary>Последняя загрузка страницы завершилась ошибкой (сайт недоступен, нет сети и т.п.).</summary>
+    public bool LoadFailed { get; set; }
 
     /// <summary>Хост текущей страницы (для правил блокировки) и адрес, который сейчас загружается.</summary>
     public string PageHost { get; set; } = "";

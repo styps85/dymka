@@ -43,7 +43,7 @@ public partial class MainWindow
             {
                 Grid.SetColumn(t.View, col);
                 t.View.Visibility = Visibility.Visible;
-                TrySetMemoryLevel(t.View.CoreWebView2, low: false);
+                TrySetMemoryLevel(t.Core, low: false);
             }
             else
             {
@@ -73,7 +73,7 @@ public partial class MainWindow
             if (t != _active)
             {
                 t.View.Visibility = Visibility.Hidden;
-                TrySetMemoryLevel(t.View.CoreWebView2, low: true);
+                TrySetMemoryLevel(t.Core, low: true);
             }
         }
         UpdateSplitMarks();
@@ -188,9 +188,9 @@ public partial class MainWindow
 
     // ===================================================================== окна и контейнеры
 
-    public MainWindow OpenWindow(string? url, string? container)
+    public MainWindow OpenWindow(string? url, string? container, SessionWindow? restore = null)
     {
-        var w = new MainWindow(_settings, _dataDir, null, url) { InitialContainer = container };
+        var w = new MainWindow(_settings, _dataDir, null, url) { InitialContainer = container, RestoreFrom = restore };
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         w.WindowStartupLocation = WindowStartupLocation.Manual;
         w.WindowState = WindowState.Normal;
@@ -219,26 +219,31 @@ public partial class MainWindow
             SwitchContainer(container);
             return;
         }
+        App.Log($"Стартовая вкладка: {tab.Container} -> {container}");
         var nt = new BrowserTab(container);
         nt.PropertyChanged += OnTabPropertyChanged;
         _tabs.Insert(_tabs.IndexOf(tab) + 1, nt);
         bool wasActive = tab == _active;
         if (wasActive) Activate(nt);
-        CloseTab(tab, remember: false);
+        // сначала новая страница, потом закрытие старой: у движка не бывает момента без единой страницы
         await EnsureViewAsync(nt, UrlTools.StartUrl, navigate: true);
+        CloseTab(tab, remember: false);
         if (wasActive && nt == _active) Address.Focus();
     }
 
     public async Task MoveToContainerAsync(BrowserTab tab, string container)
     {
         if (tab.Container == container) return;
+        if (!_tabs.Contains(tab)) return;
+        App.Log($"Перенос вкладки {UrlTools.HostOf(tab.Url)}: {tab.Container} -> {container}");
         var nt = new BrowserTab(container) { Url = tab.Url, Title = tab.Title, IsPinned = tab.IsPinned };
         nt.PropertyChanged += OnTabPropertyChanged;
         int idx = _tabs.IndexOf(tab);
         _tabs.Insert(idx + 1, nt);
         Activate(nt);
-        CloseTab(tab, remember: false);
+        // сначала новая страница, потом закрытие старой: у движка не бывает момента без единой страницы
         await EnsureViewAsync(nt, string.IsNullOrEmpty(nt.Url) ? UrlTools.StartUrl : nt.Url, navigate: true);
+        CloseTab(tab, remember: false);
         if (nt.IsPinned) SavePinned();
         ShowToast("Вкладка перенесена в «" + AppSettings.ContainerById(container).Name + "»");
     }
@@ -247,17 +252,34 @@ public partial class MainWindow
 
     DispatcherTimer? _toastTimer;
 
-    public void ShowToast(string text)
+    Action? _toastAction;
+
+    public void ShowToast(string text, string? action = null, Action? onAction = null, double seconds = 1.8)
     {
         ToastText.Text = text;
+        _toastAction = onAction;
+        bool withAction = action != null && onAction != null;
+        ToastAction.Visibility = withAction ? Visibility.Visible : Visibility.Collapsed;
+        if (withAction) ToastActionText.Text = action;
+        Toast.IsHitTestVisible = withAction;
         Toast.IsOpen = false;
         Toast.HorizontalOffset = 0;
         Toast.IsOpen = true;
         _toastTimer?.Stop();
-        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1.8) };
+        _toastTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(withAction ? Math.Max(seconds, 7) : seconds) };
         _toastTimer.Tick += (_, _) => { Toast.IsOpen = false; _toastTimer?.Stop(); };
         _toastTimer.Start();
     }
+
+    void ToastAction_Click(object sender, RoutedEventArgs e)
+    {
+        var act = _toastAction;
+        _toastAction = null;
+        Toast.IsOpen = false;
+        act?.Invoke();
+    }
+
+    public string ToastTextForTest => Toast.IsOpen ? ToastText.Text : "";
 
     // ===================================================================== меню адресной строки
 
@@ -561,8 +583,8 @@ public partial class MainWindow
     {
         Shared.ExtensionsSynced.Clear();
         foreach (var w in Shared.Windows)
-            foreach (var group in w._tabs.Where(t => t.View?.CoreWebView2 != null).GroupBy(t => t.Container))
-                await w.EnsureExtensionsAsync(group.Key, group.First().View!.CoreWebView2);
+            foreach (var group in w._tabs.Where(t => t.Core != null).GroupBy(t => t.Container))
+                await w.EnsureExtensionsAsync(group.Key, group.First().Core!);
     }
 
     async void Extensions_Click(object sender, RoutedEventArgs e)

@@ -162,8 +162,7 @@ public partial class MainWindow : Window
         {
             Directory.CreateDirectory(_uiDir);
             WriteStartPage();
-            Shared.EnvTask ??= CreateEnvironmentAsync();
-            _env = await Shared.EnvTask;
+            await AcquireEnvAsync();
         }
         catch (WebView2RuntimeNotFoundException)
         {
@@ -203,8 +202,13 @@ public partial class MainWindow : Window
             RestorePinned();
         }
 
-        await NewTabAsync(_startupUrl, activate: true, container: InitialContainer);
+        bool restored = first && _selfTestDir == null && MemTestFile == null && RestoreSessionAtStartup();
+        if (RestoreFrom != null) restored = RestoreWindow(RestoreFrom);
+        if (!restored || _startupUrl != null)
+            await NewTabAsync(_startupUrl, activate: true, container: InitialContainer);
 
+        _sessionReady = true;
+        ScheduleSessionSave();
         _sleepTimer.Start();
         _memTimer.Start();
         UpdateMemory();
@@ -230,7 +234,7 @@ public partial class MainWindow : Window
     async Task RunMemTestAsync(string file)
     {
         var until = DateTime.Now.AddSeconds(40);
-        while (DateTime.Now < until && (_active?.View?.CoreWebView2 == null || _active.IsLoading)) await Task.Delay(250);
+        while (DateTime.Now < until && (_active?.Core == null || _active.IsLoading)) await Task.Delay(250);
         await Task.Delay(6000);
         GC.Collect();
         GC.WaitForPendingFinalizers();
@@ -357,16 +361,17 @@ public partial class MainWindow : Window
             tab.View = view;
             ContentHost.Children.Add(view);
             MarkContainerUsed(tab.Container);
-            var opts = _env!.CreateCoreWebView2ControllerOptions();
+            var env = await AcquireEnvAsync();
+            var opts = env.CreateCoreWebView2ControllerOptions();
             opts.ProfileName = tab.Container;
-            await view.EnsureCoreWebView2Async(_env, opts);
+            await view.EnsureCoreWebView2Async(env, opts);
             if (!_tabs.Contains(tab) || tab.View != view)
             {
                 ContentHost.Children.Remove(view);
                 view.Dispose();
                 return;
             }
-            ConfigureCore(tab, view.CoreWebView2);
+            ConfigureCore(tab, view.CoreWebView2, env);
             await EnsureExtensionsAsync(tab.Container, view.CoreWebView2);
             if (navigate && !string.IsNullOrEmpty(url))
                 NavigateCore(view.CoreWebView2, url);
@@ -387,6 +392,14 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             App.Log("Создание вкладки: " + ex);
+            if (tab.View != null && tab.Core == null)
+            {
+                // страница не создалась (например, движок как раз падал): вкладка засыпает и проснётся по щелчку
+                DisposeView(tab);
+                tab.IsSleeping = true;
+                tab.IsLoading = false;
+                RefreshViews();
+            }
         }
         finally
         {
@@ -394,7 +407,7 @@ public partial class MainWindow : Window
         }
     }
 
-    void ConfigureCore(BrowserTab tab, CoreWebView2 core)
+    void ConfigureCore(BrowserTab tab, CoreWebView2 core, CoreWebView2Environment env)
     {
         var s = core.Settings;
         s.IsStatusBarEnabled = true;
@@ -439,6 +452,8 @@ public partial class MainWindow : Window
         core.NavigationCompleted += (_, e) =>
         {
             tab.IsLoading = false;
+            tab.LoadFailed = !e.IsSuccess && e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled;
+            ScheduleSessionSave();
             if (tab.IsPinned) SavePinned();
             tab.CanGoBack = core.CanGoBack;
             tab.CanGoForward = core.CanGoForward;
@@ -464,8 +479,13 @@ public partial class MainWindow : Window
         core.ProcessFailed += (_, e) =>
         {
             App.Log($"Сбой процесса движка: {e.ProcessFailedKind} ({tab.Url})");
-            if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
-                e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
+            if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
+            {
+                // упал весь движок: все страницы окна «мертвы», их надо пересоздать
+                OnEngineLost(env);
+            }
+            else if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessExited ||
+                     e.ProcessFailedKind == CoreWebView2ProcessFailedKind.RenderProcessUnresponsive)
             {
                 try { core.Reload(); } catch { }
             }
@@ -484,7 +504,7 @@ public partial class MainWindow : Window
     public void Navigate(BrowserTab? tab, string url)
     {
         if (tab == null) return;
-        var core = tab.View?.CoreWebView2;
+        var core = tab.Core;
         if (core != null) NavigateCore(core, url);
         else
         {
@@ -496,6 +516,7 @@ public partial class MainWindow : Window
 
     public void Activate(BrowserTab tab)
     {
+        if (!_tabs.Contains(tab)) return;
         if (_active == tab && tab.View != null) return;
         if (_splitLeft != null && !InSplit(tab)) EndSplit();
         var old = _active;
@@ -506,7 +527,7 @@ public partial class MainWindow : Window
             if (old.View != null && !InSplit(old))
             {
                 old.View.Visibility = Visibility.Hidden;
-                TrySetMemoryLevel(old.View.CoreWebView2, low: true);
+                TrySetMemoryLevel(old.Core, low: true);
             }
         }
 
@@ -531,13 +552,14 @@ public partial class MainWindow : Window
         else
         {
             tab.View.Visibility = Visibility.Visible;
-            TrySetMemoryLevel(tab.View.CoreWebView2, low: false);
+            TrySetMemoryLevel(tab.Core, low: false);
             if (!tab.IsStart && !Address.IsKeyboardFocused) tab.View.Focus();
         }
 
         RefreshViews();
         UpdateToolbar();
         UpdateSplitMarks();
+        ScheduleSessionSave();
     }
 
     static void TrySetMemoryLevel(CoreWebView2? core, bool low)
@@ -580,7 +602,7 @@ public partial class MainWindow : Window
         var v = tab.View;
         tab.View = null;
         if (v == null) return;
-        ContentHost.Children.Remove(v);
+        try { ContentHost.Children.Remove(v); } catch (Exception ex) { App.Log("Удаление страницы: " + ex.Message); }
         try { v.Dispose(); } catch { }
     }
 
@@ -624,6 +646,7 @@ public partial class MainWindow : Window
         UpdatePinnedUi();
         foreach (var c in _containers)
             c.Count = _tabs.Count(t => t.Container == c.Id);
+        ScheduleSessionSave();
     }
 
     void MarkContainerUsed(string id)
@@ -766,9 +789,9 @@ public partial class MainWindow : Window
             if (idx >= 0 && idx < _tabs.Count - 1) _tabs.Insert(idx + 1, tab); else _tabs.Add(tab);
             if (!background) Activate(tab); else RefreshViews();
             await EnsureViewAsync(tab, null, navigate: false);
-            if (tab.View?.CoreWebView2 != null)
+            if (tab.Core != null)
             {
-                e.NewWindow = tab.View.CoreWebView2;
+                e.NewWindow = tab.Core!;
                 e.Handled = true;
             }
         }
@@ -1047,12 +1070,12 @@ public partial class MainWindow : Window
         Address.SelectAll();
     }
 
-    void Back_Click(object sender, RoutedEventArgs e) { try { _active?.View?.CoreWebView2?.GoBack(); } catch { } }
-    void Forward_Click(object sender, RoutedEventArgs e) { try { _active?.View?.CoreWebView2?.GoForward(); } catch { } }
+    void Back_Click(object sender, RoutedEventArgs e) { try { _active?.Core?.GoBack(); } catch { } }
+    void Forward_Click(object sender, RoutedEventArgs e) { try { _active?.Core?.GoForward(); } catch { } }
 
     void Reload_Click(object sender, RoutedEventArgs e)
     {
-        var core = _active?.View?.CoreWebView2;
+        var core = _active?.Core;
         if (core == null) return;
         try
         {
@@ -1189,7 +1212,7 @@ public partial class MainWindow : Window
         if (t == null) return;
         _settings.SetListMembership(_settings.TrackerExceptions, t.PageHost, PpBlockToggle.IsChecked != true);
         _settings.Save();
-        try { t.View?.CoreWebView2?.Reload(); } catch { }
+        try { t.Core?.Reload(); } catch { }
         UpdateToolbar();
     }
 
@@ -1205,7 +1228,7 @@ public partial class MainWindow : Window
     async void ClearSite_Click(object sender, RoutedEventArgs e)
     {
         var t = _active;
-        var core = t?.View?.CoreWebView2;
+        var core = t?.Core;
         PrivacyPopup.IsOpen = false;
         if (t == null || core == null) return;
         try
@@ -1247,6 +1270,7 @@ public partial class MainWindow : Window
         MainMenu.IsOpen = false;
         PrivacyPopup.IsOpen = false;
         ContainerMenu.IsOpen = false;
+        TabSearchPopup.IsOpen = false;
     }
 
     void ReopenClosed_Click(object sender, RoutedEventArgs e)
@@ -1346,7 +1370,7 @@ public partial class MainWindow : Window
     public void OpenPrintDialog()
     {
         var tab = _active;
-        var core = tab?.View?.CoreWebView2;
+        var core = tab?.Core;
         if (tab == null || core == null || tab.IsStart || _printWindow != null) return;
         // Ctrl+P может прийти дважды (от окна и от страницы) - второй запрос игнорируем
         if (DateTime.Now - _lastPrintRequest < TimeSpan.FromSeconds(1)) return;
@@ -1361,13 +1385,13 @@ public partial class MainWindow : Window
     void Downloads_Click(object sender, RoutedEventArgs e)
     {
         ClosePopups();
-        try { _active?.View?.CoreWebView2?.OpenDefaultDownloadDialog(); } catch { }
+        try { _active?.Core?.OpenDefaultDownloadDialog(); } catch { }
     }
 
     void DevTools_Click(object sender, RoutedEventArgs e)
     {
         ClosePopups();
-        try { _active?.View?.CoreWebView2?.OpenDevToolsWindow(); } catch { }
+        try { _active?.Core?.OpenDevToolsWindow(); } catch { }
     }
 
     async void ClearAllNow_Click(object sender, RoutedEventArgs e)
@@ -1380,7 +1404,7 @@ public partial class MainWindow : Window
         if (i != 0) return;
         await CleanupContainersAsync(AppSettings.Containers.Select(c => c.Id).ToList());
         foreach (var t in _tabs.Where(t => t.View != null))
-            try { t.View!.CoreWebView2?.Reload(); } catch { }
+            try { t.Core?.Reload(); } catch { }
     }
 
     void Settings_Click(object sender, RoutedEventArgs e)
@@ -1393,7 +1417,7 @@ public partial class MainWindow : Window
             ApplyLayout();
             UpdateToolbar();
             foreach (var t in _tabs)
-                try { if (t.View?.CoreWebView2 != null) t.View.CoreWebView2.Settings.IsReputationCheckingRequired = _settings.UseSmartScreen(t.Container); } catch { }
+                try { if (t.Core != null) t.Core.Settings.IsReputationCheckingRequired = _settings.UseSmartScreen(t.Container); } catch { }
             if (w.UpdateListsRequested) _ = UpdateListsAsync();
             if (w.VideoTranslationChanged)
             {
@@ -1463,7 +1487,7 @@ public partial class MainWindow : Window
         if (u == null || _updating) return;
         var (i, _) = Dialogs.Show(this, $"Доступна версия {u.Version}",
             $"Сейчас установлена версия {App.VersionText}. Скачать обновление? Это займёт около минуты, " +
-            "потом браузер перезапустится. Открытые вкладки закроются.",
+            "потом браузер перезапустится" + (_settings.RestoreSession ? " и откроет ваши вкладки снова." : ". Открытые вкладки закроются."),
             new[] { "Обновить", "Позже" });
         if (i != 0) return;
         _updating = true;
@@ -1558,7 +1582,7 @@ public partial class MainWindow : Window
             WebView2? temp = null;
             try
             {
-                var core = _tabs.FirstOrDefault(t => t.Container == id && t.View?.CoreWebView2 != null)?.View?.CoreWebView2;
+                var core = _tabs.FirstOrDefault(t => t.Container == id && t.Core != null)?.Core;
                 if (core == null)
                 {
                     temp = new WebView2 { Visibility = Visibility.Hidden, Width = 1, Height = 1 };
@@ -1609,11 +1633,17 @@ public partial class MainWindow : Window
     {
         SaveWindowBounds();
         bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
+        if (!othersOpen && !_cleanupDone)
+        {
+            // последнее окно: запоминаем вкладки всех окон и больше сеанс не трогаем
+            SaveSessionNow();
+            Shared.SessionFrozen = true;
+        }
         if (othersOpen)
         {
             // данные сайтов чистит последнее закрываемое окно
             _closingForGood = true;
-            _settings.Save();
+            SaveSessionNow();   // закрытое окно (не последнее) в сеанс не попадает
             foreach (var t in _tabs.ToList()) DisposeView(t);
             return;
         }
@@ -1769,9 +1799,10 @@ public partial class MainWindow : Window
         else if (ctrl && key == Key.J) Downloads_Click(this, new RoutedEventArgs());
         else if (ctrl && !shift && key == Key.P) OpenPrintDialog();
         else if (ctrl && !shift && key == Key.N) OpenWindow(null, _container);
+        else if (ctrl && shift && key == Key.A) OpenTabSearch();
         else if (key == Key.Escape && _active?.IsLoading == true && !Address.IsKeyboardFocused)
         {
-            try { _active.View?.CoreWebView2?.Stop(); } catch { }
+            try { _active.Core?.Stop(); } catch { }
         }
         else handled = false;
 
