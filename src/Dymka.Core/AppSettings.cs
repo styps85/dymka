@@ -75,6 +75,13 @@ public sealed class AppSettings
 
     /// <summary>Предлагать перевод страниц не на русском (кнопка «Перевести» в адресной строке). Перевод - Яндекс Переводчик.</summary>
     public bool OfferTranslation { get; set; } = true;
+
+    /// <summary>Предлагать сохранить пароль после входа на сайт.</summary>
+    public bool OfferSavePasswords { get; set; } = true;
+    /// <summary>Подсказка с карточками при входе в поле анкеты (ФИО, ИНН, паспорт, адрес…).</summary>
+    public bool OfferAutofill { get; set; } = true;
+    /// <summary>Через сколько минут простоя закрывать хранилище с главным паролем (0 - только при закрытии браузера).</summary>
+    public int VaultLockMinutes { get; set; } = 15;
     public string BuiltinVotFolder { get; set; } = "";
 
     // --- печать: запоминаем последний выбор

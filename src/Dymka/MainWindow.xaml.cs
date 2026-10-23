@@ -150,7 +150,7 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => OnStateChanged();
         Deactivated += (_, _) => ClosePopups();
         PreviewKeyDown += OnPreviewKeyDown;
-        _sleepTimer.Tick += (_, _) => SleepIdleTabs();
+        _sleepTimer.Tick += (_, _) => { SleepIdleTabs(); CheckVaultLock(); };
         _memTimer.Tick += (_, _) => UpdateMemory();
     }
 
@@ -446,6 +446,7 @@ public partial class MainWindow : Window
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(GpcScript);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(PrintScript);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(FocusScript);
+        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(FormsScript);
 
         core.WebResourceRequested += (_, e) => OnWebResourceRequested(tab, e);
         core.NavigationStarting += (_, e) => OnNavigationStarting(tab, core, e);
@@ -714,6 +715,7 @@ public partial class MainWindow : Window
         tab.PageHost = UrlTools.HostOf(uri);
         tab.IsForeign = false;
         tab.TranslateState = TranslateState.None;
+        if (tab == _active) FillPopup.IsOpen = false;
         tab.Blocked = 0;
         tab.IsLoading = true;
         if (tab.Favicon != null && UrlTools.RegistrableDomain(UrlTools.HostOf(tab.Url)) != UrlTools.RegistrableDomain(tab.PageHost))
@@ -878,6 +880,7 @@ public partial class MainWindow : Window
                 var kind = dm.GetString();
                 if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
                 else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
+                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit") OnFormMessage(tab, core, kind, root);
                 else if (kind == "tr" && tab.TranslateState != TranslateState.None)
                 {
                     // текст отдаётся переводчику только после того, как перевод страницы включили вы
@@ -1284,6 +1287,7 @@ public partial class MainWindow : Window
         ContainerMenu.IsOpen = false;
         TabSearchPopup.IsOpen = false;
         SelTrPopup.IsOpen = false;
+        FillPopup.IsOpen = false;
     }
 
     void ReopenClosed_Click(object sender, RoutedEventArgs e)

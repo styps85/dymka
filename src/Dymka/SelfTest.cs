@@ -528,11 +528,156 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Пароли и автозаполнение: сохранение после входа, подсказка и подстановка, импорт CSV, карточки, главный пароль.</summary>
+    async Task TestPasswordsAsync()
+    {
+        try
+        {
+            var v = Shared.Vault;
+            File.WriteAllText(Path.Combine(_testDir, "login.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Вход</title><style>body{font:16px Segoe UI;margin:40px}input{display:block;margin:6px 0 14px;padding:8px;width:280px}</style>" +
+                "<h2>Вход в личный кабинет</h2><form id=\"f\" onsubmit=\"event.preventDefault();document.title='sent'\">" +
+                "<label>Логин<input id=\"user\" name=\"login\" type=\"text\"></label><label>Пароль<input id=\"pw\" name=\"password\" type=\"password\"></label>" +
+                "<button id=\"go\" type=\"submit\">Войти</button></form></html>");
+            var lt = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => lt.Core != null && !lt.IsLoading, 20);
+            var core = lt.Core!;
+            core.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", _testDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            _w.Navigate(lt, "https://trackers.dymka-test.org/login.html");
+            await WaitFor(() => lt.Url.Contains("login.html") && !lt.IsLoading, 20);
+            await Task.Delay(500);
+
+            await core.ExecuteScriptAsync("document.getElementById('user').value='semenov';document.getElementById('pw').value='Секрет-123';document.getElementById('go').click();");
+            Check(await WaitFor(() => _w.SavePromptOpen, 6), "после входа на сайт предлагается сохранить пароль");
+            await Task.Delay(400);
+            Capture(_w, "27-save-password");
+            _w.ConfirmSavePassword();
+            Check(v.Data?.Passwords.Any(x => x.Host == "trackers.dymka-test.org" && x.Username == "semenov" && x.Password == "Секрет-123") == true, "пароль сохранён");
+            var vaultFile = File.ReadAllText(Path.Combine(_w.DataDir, "vault.dat"));
+            Check(!vaultFile.Contains("Секрет") && !vaultFile.Contains("semenov"), "в файле хранилища пароль и логин зашифрованы");
+
+            await core.ExecuteScriptAsync("document.getElementById('user').value='semenov';document.getElementById('pw').value='Секрет-123';document.getElementById('f').requestSubmit();");
+            await Task.Delay(1200);
+            Check(!_w.SavePromptOpen, "уже сохранённый пароль повторно не предлагается");
+
+            _w.Navigate(lt, "https://trackers.dymka-test.org/login.html?again=1");
+            await WaitFor(() => lt.Url.Contains("again=1") && !lt.IsLoading, 20);
+            await Task.Delay(600);
+            lt.View!.Focus();
+            await Task.Delay(300);
+            await core.ExecuteScriptAsync("document.getElementById('pw').focus()");
+            Check(await WaitFor(() => _w.FillRowsForTest.Contains("semenov"), 6), "у поля пароля - подсказка с сохранённым логином");
+            await Task.Delay(400);
+            Capture(_w, "28-fill-password");
+            if (_w.FillRowsForTest.Count > 0) _w.ClickFillRowForTest(0);
+            string lp = await PollScript(core, "document.getElementById('user').value+'|'+document.getElementById('pw').value", s => s.Contains("Секрет"), 5);
+            Check(lp == "\"semenov|Секрет-123\"", "логин и пароль подставлены по выбору в подсказке");
+
+            // окно паролей: импорт CSV из Chrome и удаление файла
+            _w.OpenVaultWindow("passwords");
+            var vw = _w.VaultWindowForTest;
+            Check(vw != null, "окно «Пароли и автозаполнение» открылось");
+            if (vw != null)
+            {
+                vw.Topmost = true;
+                var csv = Path.Combine(_dir, "chrome-passwords.csv");
+                File.WriteAllText(csv, "name,url,username,password,note\nfedresurs.ru,https://fedresurs.ru/,ivanov,pass1,\nbank,https://online.bank.ru/,ivanov@mail.ru,\"p,2\",\n");
+                var r = vw.ImportCsv(csv);
+                Check(r.error == null && r.added == 2, $"импорт CSV: новых {r.added}");
+                Check(VaultWindow.DeleteFileSecurely(csv) && !File.Exists(csv), "файл CSV с паролями удалён");
+                await Task.Delay(800);
+                Capture(vw, "29-vault-passwords");
+
+                vw.ShowPageForTest("cards");
+                vw.FillCardEditorForTest(new Dymka.Core.Card
+                {
+                    Title = "Я", LastName = "Иванов", FirstName = "Иван", MiddleName = "Петрович", BirthDate = "01.02.1980", Inn = "667100000000",
+                    Snils = "123-456-789 00", PassportSeries = "6500", PassportNumber = "123456", PassportIssuedBy = "ГУ МВД России по Свердловской области",
+                    PassportIssueDate = "05.06.2010", PassportCode = "660-001", Phone = "+7 900 000-00-00", Email = "ivanov@example.ru",
+                    Addresses =
+                    {
+                        new Dymka.Core.CardAddress { Label = "Домашний", Postcode = "620001", Text = "г. Екатеринбург, ул. Ленина, д. 1, кв. 1" },
+                        new Dymka.Core.CardAddress { Label = "Рабочий", Postcode = "620002", Text = "г. Екатеринбург, ул. Мира, д. 2, офис 3" },
+                        new Dymka.Core.CardAddress { Label = "Почтовый", Postcode = "620000", Text = "г. Екатеринбург, Главпочтамт, а/я 24" },
+                    },
+                });
+                vw.SaveCardFromEditor();
+                await Task.Delay(800);
+                Capture(vw, "30-vault-card");
+                vw.ShowPageForTest("security");
+                await Task.Delay(500);
+                Capture(vw, "31-vault-security");
+                vw.Close();
+            }
+            Check(v.Data?.Cards.Count == 1 && v.Data.Cards[0].Addresses.Count == 3, "карточка с тремя адресами сохранена");
+
+            // анкета: подсказка у поля и заполнение карточкой
+            string L(string id, string label, string type = "text") => $"<label for=\"{id}\">{label}</label><input id=\"{id}\" type=\"{type}\">";
+            File.WriteAllText(Path.Combine(_testDir, "form.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Анкета</title><style>body{font:15px Segoe UI;margin:30px;columns:2}label{display:block;margin-top:8px}input{width:300px;padding:5px}</style><form>" +
+                L("last", "Фамилия") + L("first", "Имя") + L("middle", "Отчество") + L("bday", "Дата рождения", "date") + L("inn", "ИНН") + L("snils", "СНИЛС") +
+                L("ser", "Серия паспорта") + L("num", "Номер паспорта") + L("issued", "Кем выдан") + L("idate", "Дата выдачи") + L("code", "Код подразделения") +
+                L("reg", "Адрес регистрации") + L("zip", "Индекс") + L("postal", "Почтовый адрес") + L("addr", "Адрес") + L("phone", "Телефон", "tel") +
+                L("mail", "Электронная почта") + L("comment", "Комментарий") + "</form></html>");
+            _w.Navigate(lt, "https://trackers.dymka-test.org/form.html");
+            await WaitFor(() => lt.Url.Contains("form.html") && !lt.IsLoading, 20);
+            await Task.Delay(600);
+            lt.View!.Focus();
+            await Task.Delay(300);
+            await core.ExecuteScriptAsync("document.getElementById('last').focus()");
+            Check(await WaitFor(() => _w.FillRowsForTest.Contains("Я"), 6), "в поле «Фамилия» - подсказка с карточкой «Я»");
+            await Task.Delay(400);
+            Capture(_w, "32-fill-card");
+            if (_w.FillRowsForTest.Count > 0) _w.ClickFillRowForTest(0);
+            string Q(string id) => $"document.getElementById('{id}').value";
+            string got = await PollScript(core, "[" + string.Join(",", new[] { "last", "first", "middle", "bday", "inn", "snils", "ser", "num", "issued", "idate", "code", "reg", "zip", "postal", "addr", "phone", "mail", "comment" }.Select(Q)) + "].join('|')",
+                s => s.Contains("Иванов"), 5);
+            Line("ИНФО анкета: " + got);
+            Check(got == "\"Иванов|Иван|Петрович|1980-02-01|667100000000|123-456-789 00|6500|123456|ГУ МВД России по Свердловской области|05.06.2010|660-001|" +
+                        "г. Екатеринбург, ул. Ленина, д. 1, кв. 1|620001|г. Екатеринбург, Главпочтамт, а/я 24|г. Екатеринбург, ул. Ленина, д. 1, кв. 1|+7 900 000-00-00|ivanov@example.ru|\"",
+                "анкета заполнена: ФИО, дата, ИНН, СНИЛС, паспорт, адрес регистрации - домашний, почтовый - почтовый, комментарий не тронут");
+            await Task.Delay(300);
+            Capture(_w, "33-card-filled");
+            await core.ExecuteScriptAsync("document.getElementById('addr').focus()");
+            await WaitFor(() => _w.FillRowsForTest.Contains("Я"), 6);
+            if (_w.FillRowsForTest.Count > 0) _w.ClickFillChipForTest(0, 1);
+            string addr = await PollScript(core, Q("addr"), s => s.Contains("Мира"), 5);
+            Check(addr.Contains("Мира"), "для поля «Адрес» адрес выбирается в подсказке (рабочий)");
+
+            // главный пароль: хранилище закрывается, подсказка просит его ввести
+            v.SetMasterPassword("Мастер-пароль-1");
+            v.Lock();
+            Check(!v.IsUnlocked, "хранилище с главным паролем закрыто");
+            _w.Navigate(lt, "https://trackers.dymka-test.org/login.html?locked=1");
+            await WaitFor(() => lt.Url.Contains("locked=1") && !lt.IsLoading, 20);
+            await Task.Delay(600);
+            lt.View!.Focus();
+            await core.ExecuteScriptAsync("document.getElementById('pw').focus()");
+            Check(await WaitFor(() => _w.FillRowsForTest.FirstOrDefault()?.Contains("главным паролем") == true, 6), "закрытое хранилище: подсказка просит главный пароль");
+            MainWindow.UnlockForTest = "неверный";
+            _w.ClickFillRowForTest(0);
+            Check(!v.IsUnlocked, "неверный главный пароль не открывает хранилище");
+            await core.ExecuteScriptAsync("document.getElementById('user').focus();document.getElementById('pw').focus()");
+            await WaitFor(() => _w.FillRowsForTest.Count > 0, 6);
+            MainWindow.UnlockForTest = "Мастер-пароль-1";
+            _w.ClickFillRowForTest(0);
+            Check(v.IsUnlocked && await WaitFor(() => _w.FillRowsForTest.Contains("semenov"), 6), "верный главный пароль открывает хранилище, подсказка с логином");
+            MainWindow.UnlockForTest = null;
+            v.SetMasterPassword(null);
+            _w.ClosePopups();
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке паролей: " + ex);
+            _failed++;
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromMinutes(8));
+            await Task.Delay(TimeSpan.FromMinutes(9));
             Line("ПРЕВЫШЕНО ВРЕМЯ САМОПРОВЕРКИ");
             Line("РЕЗУЛЬТАТ: ОШИБКА");
             Environment.Exit(3);
@@ -681,6 +826,7 @@ sealed class SelfTest
 
             await TestTabFeaturesAsync();
             await TestTranslationAsync();
+            await TestPasswordsAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();

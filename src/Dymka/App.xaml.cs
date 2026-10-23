@@ -52,6 +52,13 @@ public partial class App : Application
         TaskScheduler.UnobservedTaskException += (_, ev) => { Log("Фоновая ошибка: " + ev.Exception); ev.SetObserved(); };
 
         var settings = AppSettings.Load(Path.Combine(dataDir, "settings.json"));
+        Shared.Vault = new Vault(Path.Combine(dataDir, "vault.dat"), new Dpapi());
+        // заблокировали Windows - закрываем хранилище с главным паролем
+        Microsoft.Win32.SystemEvents.SessionSwitch += (_, ev) =>
+        {
+            if (ev.Reason is Microsoft.Win32.SessionSwitchReason.SessionLock or Microsoft.Win32.SessionSwitchReason.ConsoleDisconnect)
+                Dispatcher.BeginInvoke(new Action(() => Shared.Vault.Lock()));
+        };
         if (url != null && File.Exists(url)) url = new Uri(Path.GetFullPath(url)).AbsoluteUri;
 
         var w = new MainWindow(settings, dataDir, selfTest, url) { MemTestFile = memTest };

@@ -225,6 +225,112 @@ fake.FailGet = true;
 var (p2, _) = ytr.TranslateSegmentsAsync(new[] { "Hi" }, "ru").GetAwaiter().GetResult();
 Eq(p2[0][0] == "[ru]Hi" && ytr.LastMethod == "POST", true, "если GET не принят - запасной POST");
 
+// --- хранилище паролей
+var vdir = Path.Combine(Path.GetTempPath(), "dymka-vault-" + Guid.NewGuid());
+var vpath = Path.Combine(vdir, "vault.dat");
+var prot = new FakeProtector();
+var vault = new Vault(vpath, prot);
+Eq(vault.State, VaultState.Empty, "хранилища ещё нет");
+var vdata = vault.Data!;
+Eq(vault.Exists && !vault.HasMasterPassword, true, "хранилище создаётся при первом обращении, без главного пароля");
+Eq(Vault.Remember(vdata, "https://kad.arbitr.ru/login", "semenov", "Секрет-1"), "added", "пароль сохранён");
+Eq(Vault.Remember(vdata, "https://kad.arbitr.ru/", "semenov", "Секрет-1"), "same", "тот же пароль - без изменений");
+Eq(Vault.Remember(vdata, "https://kad.arbitr.ru/", "semenov", "Секрет-2"), "updated", "новый пароль обновляет старый");
+vdata.Cards.Add(new Card { Title = "Я", LastName = "Иванов", FirstName = "Иван", MiddleName = "Петрович",
+    Addresses = { new CardAddress { Label = "Домашний", Text = "г. Екатеринбург, ул. Ленина, 1" }, new CardAddress { Label = "Почтовый", Postcode = "620000", Text = "а/я 24" } } });
+vault.Save();
+var raw = File.ReadAllText(vpath);
+Eq(raw.Contains("Секрет") || raw.Contains("semenov") || raw.Contains("Ленина"), false, "в файле хранилища нет открытого текста");
+var v2 = new Vault(vpath, prot);
+Eq(v2.State, VaultState.Locked, "после перезапуска хранилище закрыто");
+Eq(v2.Data?.Passwords.FirstOrDefault()?.Password, "Секрет-2", "без главного пароля открывается само (защита Windows)");
+Eq(v2.Data?.Cards[0].ShortName, "Иванов И.П.", "карточка с инициалами");
+v2.SetMasterPassword("пароль-мастер");
+var v3 = new Vault(vpath, prot);
+Eq(v3.HasMasterPassword && v3.Data == null, true, "с главным паролем само не открывается");
+bool wrong = false;
+try { v3.Unlock("неверный"); } catch (WrongPasswordException) { wrong = true; }
+Eq(wrong && !v3.IsUnlocked, true, "неверный главный пароль не подходит");
+v3.Unlock("пароль-мастер");
+Eq(v3.Data?.Passwords.Count, 1, "верный главный пароль открывает хранилище");
+Eq(v3.CheckMasterPassword("пароль-мастер") && !v3.CheckMasterPassword("x"), true, "проверка главного пароля");
+v3.Lock();
+Eq(v3.IsUnlocked, false, "хранилище закрывается (автоблокировка)");
+bool otherUser = false;
+try { new Vault(vpath, new FakeProtector(0x33)).Unlock("пароль-мастер"); } catch (Exception) { otherUser = true; }
+Eq(otherUser, true, "на другой учётной записи Windows файл не открыть даже с главным паролем");
+v3.Unlock("пароль-мастер");
+v3.SetMasterPassword(null);
+Eq(new Vault(vpath, prot).Data?.Passwords.Count, 1, "главный пароль снят - снова открывается само");
+var fh = Vault.ForHost(new[] { new PasswordEntry { Host = "esia.gosuslugi.ru", Username = "a" }, new PasswordEntry { Host = "www.gosuslugi.ru", Username = "b" }, new PasswordEntry { Host = "nalog.ru", Username = "c" } }, "www.gosuslugi.ru");
+Eq(string.Join(",", fh.Select(x => x.Username)), "b,a", "пароли сайта: сначала точный адрес, потом тот же домен, чужие не показываются");
+Directory.Delete(vdir, true);
+
+// --- импорт CSV
+var chromeCsv = "name,url,username,password,note\r\nkad.arbitr.ru,https://kad.arbitr.ru/,semenov,\"p,a\"\"ss\",\r\nМой банк,https://online.bank.ru/login,ivan@mail.ru,qwerty ,заметка\r\n,android://abc@com.app/,u,p,\r\n";
+var (ce, cskip, cerr) = PasswordCsv.Parse(chromeCsv);
+Eq(cerr == null && ce.Count == 2 && cskip == 1, true, "CSV Chrome: 2 пароля, приложение Android пропущено");
+Eq(ce[0].Password, "p,a\"ss", "пароль с запятой и кавычкой");
+Eq(ce[1].Password, "qwerty ", "пробелы в пароле сохраняются");
+Eq(ce[1].Host + "|" + ce[1].Note, "online.bank.ru|заметка", "сайт и примечание");
+var (ye, _, _) = PasswordCsv.Parse("\uFEFFurl,login,password\nhttps://fedresurs.ru,user1,pw1\n");
+Eq(ye.Count == 1 && ye[0].Username == "user1", true, "CSV Яндекс Браузера (столбец login)");
+var (fe, _, _) = PasswordCsv.Parse("\"url\",\"username\",\"password\",\"httpRealm\"\n\"https://a.ru\",\"x\",\"y\",\"\"\n");
+Eq(fe.Count == 1 && fe[0].Password == "y", true, "CSV Firefox (все поля в кавычках)");
+Eq(PasswordCsv.Parse("a,b\n1,2").error != null, true, "не выгрузка паролей - понятная ошибка");
+var mdata = new VaultData();
+PasswordCsv.Merge(mdata, ce);
+var (ma, mu, ms) = PasswordCsv.Merge(mdata, PasswordCsv.Parse(chromeCsv.Replace("qwerty ", "new")).entries);
+Eq((ma, mu, ms), (0, 1, 1), "повторный импорт: новых нет, один пароль обновлён");
+
+// --- распознавание полей и автозаполнение
+FieldInfo F(int i, string label, string type = "text", string name = "", string ph = "", string ac = "") => new(i, type, name, "", ac, label, ph);
+FieldKind K(string label, string type = "text", string name = "", string ph = "", string ac = "") => FormFill.Classify(F(0, label, type, name, ph, ac));
+Eq(K("Фамилия"), FieldKind.LastName, "поле «Фамилия»");
+Eq(K("Имя"), FieldKind.FirstName, "поле «Имя»");
+Eq(K("Отчество (при наличии)"), FieldKind.MiddleName, "поле «Отчество»");
+Eq(K("Фамилия, имя, отчество"), FieldKind.FullName, "поле ФИО");
+Eq(K("", name: "lastName"), FieldKind.LastName, "name=lastName");
+Eq(K("", name: "first_name"), FieldKind.FirstName, "name=first_name");
+Eq(K("First name"), FieldKind.FirstName, "First name - не полное имя");
+Eq(K("ИНН"), FieldKind.Inn, "ИНН");
+Eq(K("СНИЛС"), FieldKind.Snils, "СНИЛС");
+Eq(K("Серия паспорта"), FieldKind.PassportSeries, "серия паспорта");
+Eq(K("Номер паспорта"), FieldKind.PassportNumber, "номер паспорта");
+Eq(K("Серия и номер паспорта"), FieldKind.PassportSeriesNumber, "серия и номер одним полем");
+Eq(K("Кем выдан"), FieldKind.PassportIssuedBy, "кем выдан");
+Eq(K("Дата выдачи", "date"), FieldKind.PassportIssueDate, "дата выдачи");
+Eq(K("Код подразделения"), FieldKind.PassportCode, "код подразделения");
+Eq(K("Дата рождения"), FieldKind.BirthDate, "дата рождения");
+Eq(K("Место рождения"), FieldKind.None, "место рождения не путается с датой");
+Eq(K("Адрес электронной почты"), FieldKind.Email, "адрес электронной почты - это почта, не адрес");
+Eq(K("Почтовый адрес"), FieldKind.Address, "почтовый адрес - это адрес");
+Eq(K("Почтовый индекс"), FieldKind.Postcode, "индекс");
+Eq(K("Контактный телефон"), FieldKind.Phone, "телефон");
+Eq(K("", "tel"), FieldKind.Phone, "type=tel");
+Eq(K("Регистрационный номер арбитражного управляющего"), FieldKind.RegNumber, "рег. номер АУ");
+Eq(K("Наименование СРО"), FieldKind.Sro, "СРО");
+Eq(K("Срок оплаты"), FieldKind.None, "«срок» - не СРО");
+Eq(K("Сумма"), FieldKind.None, "неизвестное поле не заполняется");
+Eq(FormFill.ClassifyAll(new[] { F(0, "Серия"), F(1, "Номер") })[1], FieldKind.PassportNumber, "«Номер» после «Серии» - номер паспорта");
+var card = new Card { LastName = "Иванов", FirstName = "Иван", MiddleName = "Петрович", BirthDate = "01.02.1980", Inn = "123456789012", PassportIssueDate = "05.06.2010",
+    Addresses = { new CardAddress { Label = "Домашний", Postcode = "620001", Text = "г. Екатеринбург, ул. Ленина, 1" },
+                  new CardAddress { Label = "Рабочий", Postcode = "620002", Text = "г. Екатеринбург, ул. Мира, 2" },
+                  new CardAddress { Label = "Почтовый", Postcode = "620000", Text = "Главпочтамт, а/я 24" } } };
+var form = new[] { F(0, "Фамилия"), F(1, "Имя"), F(2, "Отчество"), F(3, "Дата рождения", "date"), F(4, "ИНН"), F(5, "Адрес регистрации"),
+    F(6, "Индекс"), F(7, "Почтовый адрес"), F(8, "Адрес места работы"), F(9, "Дата выдачи"), F(10, "Комментарий") };
+var fill = FormFill.Build(card, form).ToDictionary(x => x.Index, x => x.Value);
+Eq(fill[0] + " " + fill[1] + " " + fill[2], "Иванов Иван Петрович", "ФИО по полям");
+Eq(fill[3], "1980-02-01", "дата в поле type=date - в формате гггг-мм-дд");
+Eq(fill[9], "05.06.2010", "дата в обычном поле - как в карточке");
+Eq(fill[5], "г. Екатеринбург, ул. Ленина, 1", "адрес регистрации - домашний адрес");
+Eq(fill[6], "620001", "индекс после адреса регистрации - индекс домашнего адреса");
+Eq(fill[7], "Главпочтамт, а/я 24", "почтовый адрес - почтовый");
+Eq(fill[8], "г. Екатеринбург, ул. Мира, 2", "адрес работы - рабочий");
+Eq(fill.ContainsKey(10), false, "неизвестное поле не трогается");
+var fill2 = FormFill.Build(card, new[] { F(0, "Адрес") }, chosenAddress: 1);
+Eq(fill2[0].Value, "г. Екатеринбург, ул. Мира, 2", "для поля «Адрес» без уточнения - адрес, выбранный в подсказке");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
 
@@ -247,4 +353,10 @@ sealed class FakeYandex : HttpMessageHandler
         var json = System.Text.Json.JsonSerializer.Serialize(new { code = 200, lang = "en-ru", text = texts });
         return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent(json) };
     }
+}
+
+sealed class FakeProtector(byte k = 0x5A) : IKeyProtector
+{
+    public byte[] Protect(byte[] d) => d.Select(b => (byte)(b ^ k)).Prepend(k).ToArray();
+    public byte[] Unprotect(byte[] d) => d[0] != k ? throw new System.Security.Cryptography.CryptographicException("чужая учётная запись") : d.Skip(1).Select(b => (byte)(b ^ k)).ToArray();
 }

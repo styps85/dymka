@@ -17,6 +17,9 @@ static class Shared
     /// <summary>Движки, процесс которых уже завершился.</summary>
     public static readonly HashSet<CoreWebView2Environment> ExitedEnvs = new();
 
+    /// <summary>Хранилище паролей и карточек (одно на все окна).</summary>
+    public static Vault Vault = null!;
+
     /// <summary>Профили (контейнеры), в которых расширения уже сверены в этом сеансе.</summary>
     public static readonly HashSet<string> ExtensionsSynced = new();
 }
