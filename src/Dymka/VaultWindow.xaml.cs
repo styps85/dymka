@@ -68,7 +68,11 @@ public partial class VaultWindow : Window
         else if (!list.Contains(_pw!)) ShowPassword(null);
     }
 
-    void PwSearch_TextChanged(object sender, TextChangedEventArgs e) => RefreshPasswords();
+    void PwSearch_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (PwSearchHint != null) PwSearchHint.Visibility = PwSearch.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        if (PwList != null) RefreshPasswords();
+    }
 
     void PwList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {

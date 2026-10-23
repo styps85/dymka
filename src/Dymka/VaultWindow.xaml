@@ -98,8 +98,11 @@
         </Grid.ColumnDefinitions>
         <Border Style="{StaticResource Card}" Padding="10">
           <DockPanel>
-            <TextBox x:Name="PwSearch" DockPanel.Dock="Top" Style="{StaticResource FieldBox}" TextChanged="PwSearch_TextChanged" Margin="0,0,0,8"
-                     ToolTip="Поиск по сайту и логину"/>
+            <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
+              <TextBox x:Name="PwSearch" Style="{StaticResource FieldBox}" TextChanged="PwSearch_TextChanged"/>
+              <TextBlock x:Name="PwSearchHint" Text="Поиск по сайту и логину" Foreground="#7A8394" IsHitTestVisible="False"
+                         VerticalAlignment="Center" Margin="13,0,0,0"/>
+            </Grid>
             <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
               <Button Content="Добавить пароль" Style="{StaticResource SecondaryButton}" Click="PwNew_Click" Margin="0,0,0,6"/>
               <Button Content="Импорт из Chrome или Яндекса (CSV)…" Style="{StaticResource SecondaryButton}" Click="PwImport_Click"/>
