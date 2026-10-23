@@ -429,8 +429,7 @@ sealed class SelfTest
             Check(await WaitFor(() => _w.EngineRestarts == restartsBefore + 1 && _w.ActiveTab?.Core != null && !_w.ActiveTab.IsLoading, 45),
                 "после падения движок перезапущен, открытая вкладка загружена заново");
             Check(_w.ActiveTab == act && _w.Tabs.Where(x => x != act).All(x => x.View == null), "остальные вкладки сохранились и спят");
-            Line("ИНФО уведомление: " + _w.ToastTextForTest);
-            Check(_w.ToastTextForTest.Contains("Движок перезапущен"), "уведомление «Движок перезапущен, вкладки восстановлены»");
+            Check(await WaitFor(() => _w.ToastTextForTest.Contains("Движок перезапущен"), 5), "уведомление «Движок перезапущен, вкладки восстановлены»");
             Capture(_w, "23-engine-restarted");
             var other = _w.Tabs.FirstOrDefault(x => x != act && !x.IsPinned && x.Container == act.Container && !x.IsStart);
             if (other != null)

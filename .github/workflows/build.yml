@@ -64,7 +64,7 @@ jobs:
           $report = Get-Content "$dir/selftest.txt" -Raw -Encoding utf8
           Write-Host $report
           if ($report -notmatch "РЕЗУЛЬТАТ: OK") {
-            $msg = ($report -split "`n" | Where-Object { $_ -match "ПРОВАЛ|ОШИБКА|ИСКЛЮЧЕНИЕ" }) -join "%0A"
+            $msg = ($report -split "`n" | Where-Object { $_ -cmatch "ПРОВАЛ|ОШИБКА|ИСКЛЮЧЕНИЕ" }) -join "%0A"
             Write-Host "::error title=Самопроверка::$msg"
             exit 1
           }

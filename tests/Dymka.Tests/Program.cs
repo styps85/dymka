@@ -220,9 +220,10 @@ Eq(string.Join("|", pieces[0]) + "/" + string.Join("|", pieces[1]), "[ru]Hello|[
 Eq(fake.SidRequests, 1, "sid запрашивается один раз и кешируется");
 var (txt, _) = ytr.TranslateTextAsync("Line one\n\nLine two", "ru").GetAwaiter().GetResult();
 Eq(txt, "[ru]Line one\n\n[ru]Line two", "перевод выделенного: строки сохраняются");
-fake.FailPost = true;
+Eq(ytr.LastMethod, "GET", "запрос перевода - GET");
+fake.FailGet = true;
 var (p2, _) = ytr.TranslateSegmentsAsync(new[] { "Hi" }, "ru").GetAwaiter().GetResult();
-Eq(p2[0][0] == "[ru]Hi" && ytr.LastMethod == "GET", true, "если POST не принят - запасной GET");
+Eq(p2[0][0] == "[ru]Hi" && ytr.LastMethod == "POST", true, "если GET не принят - запасной POST");
 
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
@@ -230,7 +231,7 @@ return failed == 0 ? 0 : 1;
 sealed class FakeYandex : HttpMessageHandler
 {
     public int SidRequests;
-    public bool FailPost;
+    public bool FailGet;
     protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
     {
         var url = req.RequestUri!.ToString();
@@ -239,7 +240,7 @@ sealed class FakeYandex : HttpMessageHandler
             SidRequests++;
             return new HttpResponseMessage(System.Net.HttpStatusCode.OK) { Content = new StringContent("... sid: 'a1b2c3d4.e5f6a7b8.c9d0', ...") };
         }
-        if (req.Method == HttpMethod.Post && FailPost) return new HttpResponseMessage(System.Net.HttpStatusCode.MethodNotAllowed);
+        if (req.Method == HttpMethod.Get && FailGet) return new HttpResponseMessage(System.Net.HttpStatusCode.MethodNotAllowed);
         string query = req.Method == HttpMethod.Post ? await req.Content!.ReadAsStringAsync(ct) : req.RequestUri.Query;
         var texts = query.TrimStart('?').Split('&').Where(p => p.StartsWith("text=")).Select(p => Uri.UnescapeDataString(p[5..]))
             .Select(s => string.Join("<wbr>", s.Split("<wbr>").Select(x => "[ru]" + x)));

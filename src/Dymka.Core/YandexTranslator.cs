@@ -106,20 +106,8 @@ public sealed class YandexTranslator
                 var url = Translation.BuildUrl(sid, target);
                 var body = Translation.BuildBody(segs);
                 string? json = null;
-                try
-                {
-                    Requests++;
-                    using var resp = await _http.PostAsync(url, new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded"), ct);
-                    if (resp.IsSuccessStatusCode)
-                    {
-                        json = await resp.Content.ReadAsStringAsync(ct);
-                        LastMethod = "POST";
-                    }
-                    else LastError = $"POST: ответ {(int)resp.StatusCode}";
-                }
-                catch (HttpRequestException ex) { LastError = ex.Message; }
-
-                if (json == null && url.Length + body.Length < 7000)
+                // сервис принимает GET (POST отвечает 405); очень длинный запрос - на всякий случай через POST
+                if (url.Length + body.Length < 7000)
                 {
                     try
                     {
@@ -131,6 +119,21 @@ public sealed class YandexTranslator
                             LastMethod = "GET";
                         }
                         else LastError = $"GET: ответ {(int)resp.StatusCode}";
+                    }
+                    catch (HttpRequestException ex) { LastError = ex.Message; }
+                }
+                if (json == null)
+                {
+                    try
+                    {
+                        Requests++;
+                        using var resp = await _http.PostAsync(url, new StringContent(body, Encoding.UTF8, "application/x-www-form-urlencoded"), ct);
+                        if (resp.IsSuccessStatusCode)
+                        {
+                            json = await resp.Content.ReadAsStringAsync(ct);
+                            LastMethod = "POST";
+                        }
+                        else LastError = $"POST: ответ {(int)resp.StatusCode}";
                     }
                     catch (HttpRequestException ex) { LastError = ex.Message; }
                 }

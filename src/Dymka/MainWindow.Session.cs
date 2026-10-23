@@ -119,7 +119,7 @@ public partial class MainWindow
             return;
         }
 
-        EngineRestarts++;
+        ShowToast("Движок перезапущен, вкладки восстановлены", seconds: 5);
         var a = _active;
         if (a != null)
         {
@@ -128,7 +128,7 @@ public partial class MainWindow
         }
         RefreshViews();
         UpdateToolbar();
-        ShowToast("Движок перезапущен, вкладки восстановлены", seconds: 4);
+        EngineRestarts++;
     }
 
     /// <summary>Для самопроверки: завершить процесс движка, как при его падении.</summary>
