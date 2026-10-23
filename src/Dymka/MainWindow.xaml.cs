@@ -565,7 +565,11 @@ public partial class MainWindow : Window
         }
 
         RefreshViews();
+        // при переходе на другую вкладку недонабранный текст в адресной строке заменяется её адресом
+        _forceAddress = old != tab;
+        SuggestPopup.IsOpen = false;
         UpdateToolbar();
+        _forceAddress = false;
         UpdateSplitMarks();
         ScheduleSessionSave();
     }
@@ -993,9 +997,11 @@ public partial class MainWindow : Window
         UpdateTranslateUi();
     }
 
+    bool _forceAddress;
+
     void UpdateAddress()
     {
-        if (Address.IsKeyboardFocused) return;
+        if (Address.IsKeyboardFocused && !_forceAddress) return;
         var t = _active;
         var url = t?.Url ?? "";
         if (t == null || t.IsStart || url == "about:blank")
