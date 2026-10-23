@@ -131,6 +131,7 @@ public partial class MainWindow : Window
         Address.TextChanged += (_, _) =>
         {
             UpdatePlaceholder();
+            if (Address.IsKeyboardFocused) ScheduleSuggestions();
             if (AddressMenu.IsOpen && Address.Text != _addressAtMenuOpen) AddressMenu.IsOpen = false;
         };
         PreviewMouseDown += (_, _) =>
@@ -148,7 +149,7 @@ public partial class MainWindow : Window
         Loaded += OnLoaded;
         Closing += OnClosing;
         StateChanged += (_, _) => OnStateChanged();
-        Deactivated += (_, _) => ClosePopups();
+        Deactivated += (_, _) => ClosePopups(keepTabSearch: true);
         PreviewKeyDown += OnPreviewKeyDown;
         _sleepTimer.Tick += (_, _) => { SleepIdleTabs(); CheckVaultLock(); };
         _memTimer.Tick += (_, _) => UpdateMemory();
@@ -270,7 +271,9 @@ public partial class MainWindow : Window
             "--no-pings",
             "--disable-domain-reliability",
             "--disable-breakpad",
-            _settings.BlockThirdPartyCookies ? "--test-third-party-cookie-phaseout" : "");
+            _settings.BlockThirdPartyCookies ? "--test-third-party-cookie-phaseout" : "",
+            // самопроверка: тестовые «российские» сайты на этом компьютере
+            _selfTestDir != null ? "--host-resolver-rules=\"MAP *.dymka-test.ru 127.0.0.1, MAP *.dymka-test.com 127.0.0.1\"" : "");
 
         var options = new CoreWebView2EnvironmentOptions(args.Trim(), "ru");
         try { options.AreBrowserExtensionsEnabled = true; } catch { }
@@ -474,6 +477,8 @@ public partial class MainWindow : Window
         core.ContextMenuRequested += (_, e) => CustomizeContextMenu(tab, e);
         core.PermissionRequested += (_, e) => OnPermissionRequested(e);
         core.WebMessageReceived += (_, e) => OnWebMessage(tab, core, e);
+        try { core.ServerCertificateErrorDetected += (_, e) => OnServerCertificateError(tab, e); }
+        catch (Exception ex) { App.Log("Проверка сертификатов недоступна: " + ex.Message); }
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
@@ -645,6 +650,7 @@ public partial class MainWindow : Window
         _sleepView.Refresh();
         _pinnedView.Refresh();
         SleepHeader.Visibility = _sleepView.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+        SleepHeaderText.Text = $"СПЯТ ({_sleepView.Count}) - откроются по щелчку";
         PinnedHeader.Visibility = _pinnedView.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
         UpdatePinnedUi();
         foreach (var c in _containers)
@@ -901,6 +907,10 @@ public partial class MainWindow : Window
                 case "init":
                     SendStartData(tab, core);
                     break;
+                case "suggest":
+                    var sq = root.TryGetProperty("q", out var sqv) ? sqv.GetString() ?? "" : "";
+                    _ = SendStartSuggestionsAsync(core, sq);
+                    break;
                 case "go":
                     var target = UrlTools.ToNavigable(root.GetProperty("q").GetString(), _settings.Engine.Template);
                     if (target != null) NavigateCore(core, target);
@@ -1037,6 +1047,10 @@ public partial class MainWindow : Window
     void Address_LostFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         AddressMenu.IsOpen = false;
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            if (!(SuggestPanel.IsMouseOver) && !Address.IsKeyboardFocused) SuggestPopup.IsOpen = false;
+        }), DispatcherPriority.Input);
         AddressBorder.BorderBrush = Brushes.Transparent;
         AddressBorder.Background = (Brush)FindResource("Field");
         UpdateAddress();
@@ -1059,6 +1073,8 @@ public partial class MainWindow : Window
             var target = UrlTools.ToNavigable(Address.Text, _settings.Engine.Template);
             if (target == null) return;
             e.Handled = true;
+            SuggestPopup.IsOpen = false;
+            _suggestCts?.Cancel();
             if ((Keyboard.Modifiers & ModifierKeys.Alt) != 0)
             {
                 _ = NewTabAsync(target, activate: true);
@@ -1153,7 +1169,9 @@ public partial class MainWindow : Window
         var host = t.PageHost.Length > 0 ? t.PageHost : UrlTools.HostOf(t.Url);
         PpHost.Text = host;
         bool secure = t.Url.StartsWith("https://");
-        PpSecure.Text = secure ? "Соединение защищено" : "Соединение не защищено";
+        PpSecure.Text = !secure ? "Соединение не защищено"
+            : UsesRussianCa(host) ? "Соединение защищено сертификатом Минцифры"
+            : "Соединение защищено";
         PpLockIcon.Data = (Geometry)FindResource(secure ? "IcLock" : "IcWarn");
         PpLockIcon.Foreground = secure ? (Brush)FindResource("Green") : BrushCache.Get("#B26A00");
         PpLockBg.Background = secure ? (Brush)FindResource("GreenSoft") : BrushCache.Get("#FFF2DC");
@@ -1279,15 +1297,16 @@ public partial class MainWindow : Window
 
     public void OpenMenuForTest() => Menu_Click(this, new RoutedEventArgs());
 
-    internal void ClosePopups()
+    internal void ClosePopups(bool keepTabSearch = false)
     {
         AddressMenu.IsOpen = false;
         MainMenu.IsOpen = false;
         PrivacyPopup.IsOpen = false;
         ContainerMenu.IsOpen = false;
-        TabSearchPopup.IsOpen = false;
+        if (!keepTabSearch) _tabSearch?.Close();
         SelTrPopup.IsOpen = false;
         FillPopup.IsOpen = false;
+        SuggestPopup.IsOpen = false;
     }
 
     void ReopenClosed_Click(object sender, RoutedEventArgs e)

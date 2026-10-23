@@ -20,6 +20,9 @@ static class Shared
     /// <summary>Хранилище паролей и карточек (одно на все окна).</summary>
     public static Vault Vault = null!;
 
+    /// <summary>Сайты, открытые по сертификату Минцифры в этом сеансе.</summary>
+    public static readonly HashSet<string> RussianCaHosts = new();
+
     /// <summary>Профили (контейнеры), в которых расширения уже сверены в этом сеансе.</summary>
     public static readonly HashSet<string> ExtensionsSynced = new();
 }

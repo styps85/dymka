@@ -90,6 +90,18 @@ static class Native
         keybd_event(0x11, 0, 2, UIntPtr.Zero);
     }
 
+    /// <summary>Набрать латинские буквы и цифры, как с клавиатуры (для самопроверки).</summary>
+    public static void TypeLatin(string text)
+    {
+        foreach (var ch in text.ToUpperInvariant())
+        {
+            byte vk = ch == ' ' ? (byte)0x20 : (byte)ch;
+            keybd_event(vk, 0, 0, UIntPtr.Zero);
+            keybd_event(vk, 0, 2, UIntPtr.Zero);
+            Thread.Sleep(30);
+        }
+    }
+
     [DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
     [DllImport("user32.dll")] static extern void mouse_event(int flags, int dx, int dy, int data, UIntPtr extra);
 

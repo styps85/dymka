@@ -384,7 +384,10 @@ sealed class SelfTest
             Native.PressCtrlShift(0x41); // Ctrl+Shift+A
             Check(await WaitFor(() => _w.TabSearchOpen, 5), "Ctrl+Shift+A открывает поиск по вкладкам");
             if (!_w.TabSearchOpen) _w.OpenTabSearch();
-            _w.SetTabSearchTextForTest("wikipedia");
+            await Task.Delay(600);
+            Native.TypeLatin("wikip");   // настоящий набор с клавиатуры: текст должен попасть в строку поиска, а не на страницу
+            Check(await WaitFor(() => _w.TabSearchTextForTest == "wikip", 4), "текст, набранный с клавиатуры, попадает в строку поиска по вкладкам: «" + _w.TabSearchTextForTest + "»");
+            if (_w.TabSearchTextForTest != "wikip") _w.SetTabSearchTextForTest("wikipedia");
             await Task.Delay(500);
             var res = _w.TabSearchResults;
             Line("ИНФО поиск «wikipedia»: " + string.Join("; ", res.Select(r => r.Title + " [" + r.Place + "]")));
@@ -673,11 +676,147 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Подсказки при вводе (адресная строка и стартовая страница) и отсутствие подсказки карточек в поле поиска.</summary>
+    async Task TestSuggestionsAsync()
+    {
+        try
+        {
+            var st = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => st.Core != null && !st.IsLoading, 20);
+            await Task.Delay(800);
+            _w.TypeInAddressForTest("картотека");
+            Check(await WaitFor(() => _w.SuggestionsForTest.Any(s => s.Kind == "nav" && s.Url.Contains("kad.arbitr.ru")), 6),
+                "адресная строка: «картотека» - предложение перейти на kad.arbitr.ru");
+            await WaitFor(() => _w.SuggestionsForTest.Any(s => s.Kind == "search"), 4);
+            Line("ИНФО подсказки: " + string.Join("; ", _w.SuggestionsForTest.Select(s => s.Kind + ": " + s.Text)));
+            Check(_w.SuggestionsForTest.Any(s => s.Kind == "search"), "поисковые подсказки (" + _w.Settings.Engine.Name + ")");
+            Capture(_w, "34-suggest-address");
+            _w.ClosePopups();
+
+            var core = st.Core!;
+            await core.ExecuteScriptAsync("var q=document.getElementById('q');q.focus();q.value='картотека';q.dispatchEvent(new Event('input'));");
+            string first = await PollScript(core, "(document.querySelector('#sugg div')||{}).innerText||''", v => v.Contains("Картотека"), 8);
+            Check(first.Contains("Картотека"), "стартовая страница: подсказка «Перейти: Картотека…» - " + first);
+            await Task.Delay(300);
+            Capture(_w, "35-suggest-start");
+            Check(_w.FillRowsForTest.Count == 0, "в поле поиска стартовой страницы подсказки карточек нет");
+            await core.ExecuteScriptAsync("document.getElementById('q').value='';document.getElementById('q').blur();");
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке подсказок: " + ex);
+            _failed++;
+        }
+    }
+
+    /// <summary>Сертификаты Минцифры: тестовый «российский» сайт на этом компьютере с сертификатом от тестового корневого центра.</summary>
+    async Task TestRussianCaAsync()
+    {
+        System.Net.Sockets.TcpListener? listener = null;
+        var cts = new CancellationTokenSource();
+        try
+        {
+            using var rootKey = System.Security.Cryptography.RSA.Create(2048);
+            using var leafKey = System.Security.Cryptography.RSA.Create(2048);
+            var rrq = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=Dymka Test Russian Root", rootKey,
+                System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+            rrq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension(true, false, 0, true));
+            rrq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509KeyUsageExtension(
+                System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.KeyCertSign | System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.CrlSign, true));
+            using var root = rrq.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(2));
+            var lrq = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=rutest.dymka-test.ru", leafKey,
+                System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+            var san = new System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder();
+            san.AddDnsName("rutest.dymka-test.ru");
+            san.AddDnsName("rutest.dymka-test.com");
+            lrq.CertificateExtensions.Add(san.Build());
+            lrq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509KeyUsageExtension(
+                System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.DigitalSignature | System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.KeyEncipherment, true));
+            lrq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension(
+                new System.Security.Cryptography.OidCollection { new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.1") }, false));
+            using var leafPub = lrq.Create(root, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1), new byte[] { 7, 7, 7, 7 });
+            using var leafWithKey = leafPub.CopyWithPrivateKey(leafKey);
+            var serverCert = new System.Security.Cryptography.X509Certificates.X509Certificate2(
+                leafWithKey.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx), (string?)null,
+                System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.Exportable);
+            RussianRoots.ExtraRootsForTest.Add(new System.Security.Cryptography.X509Certificates.X509Certificate2(root.RawData));
+
+            listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            var l = listener;
+            _ = Task.Run(async () =>
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    System.Net.Sockets.TcpClient c;
+                    try { c = await l.AcceptTcpClientAsync(cts.Token); } catch { break; }
+                    _ = Task.Run(() => ServeTls(c, serverCert));
+                }
+            });
+
+            var tab = await _w.NewTabAsync(null, activate: true, container: "bank");
+            await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
+            var core = tab.Core!;
+            _w.Navigate(tab, $"https://rutest.dymka-test.ru:{port}/");
+            bool ok = await WaitFor(() => core.DocumentTitle == "Российский сертификат", 20);
+            Check(ok, "сайт .ru с сертификатом «Минцифры» (тестовый центр) открывается");
+            Check(MainWindow.UsesRussianCa("rutest.dymka-test.ru"), "браузер отметил сайт как защищённый сертификатом Минцифры");
+            await Task.Delay(500);
+            _w.OpenPrivacyPanel();
+            await Task.Delay(700);
+            Capture(_w, "36-russian-ca");
+            _w.ClosePopups();
+
+            _w.Navigate(tab, $"https://rutest.dymka-test.com:{port}/");
+            await Task.Delay(6000);
+            Line("ИНФО сайт .com с тем же сертификатом: заголовок «" + core.DocumentTitle + "»");
+            Check(core.DocumentTitle != "Российский сертификат" && !MainWindow.UsesRussianCa("rutest.dymka-test.com"),
+                "сайт не в российской зоне с таким сертификатом не открывается (сертификаты Минцифры действуют только для .ru, .рф, .su, .рус)");
+            Capture(_w, "37-russian-ca-com-blocked");
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке сертификатов: " + ex);
+            _failed++;
+        }
+        finally
+        {
+            cts.Cancel();
+            try { listener?.Stop(); } catch { }
+            RussianRoots.ExtraRootsForTest.Clear();
+        }
+    }
+
+    static async Task ServeTls(System.Net.Sockets.TcpClient client, System.Security.Cryptography.X509Certificates.X509Certificate2 cert)
+    {
+        using (client)
+        using (var ssl = new System.Net.Security.SslStream(client.GetStream(), false))
+        {
+            try
+            {
+                await ssl.AuthenticateAsServerAsync(new System.Net.Security.SslServerAuthenticationOptions
+                {
+                    ServerCertificate = cert,
+                    ApplicationProtocols = new List<System.Net.Security.SslApplicationProtocol> { System.Net.Security.SslApplicationProtocol.Http11 },
+                });
+                var buf = new byte[8192];
+                await ssl.ReadAsync(buf);
+                var body = Encoding.UTF8.GetBytes("<!doctype html><meta charset=\"utf-8\"><title>Российский сертификат</title><body style=\"font:16px Segoe UI;margin:40px\"><h1>Тестовый сайт с сертификатом «Минцифры»</h1></body>");
+                var head = Encoding.ASCII.GetBytes($"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n");
+                await ssl.WriteAsync(head);
+                await ssl.WriteAsync(body);
+                await ssl.FlushAsync();
+            }
+            catch { }
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
         {
-            await Task.Delay(TimeSpan.FromMinutes(9));
+            await Task.Delay(TimeSpan.FromMinutes(10));
             Line("ПРЕВЫШЕНО ВРЕМЯ САМОПРОВЕРКИ");
             Line("РЕЗУЛЬТАТ: ОШИБКА");
             Environment.Exit(3);
@@ -827,6 +966,8 @@ sealed class SelfTest
             await TestTabFeaturesAsync();
             await TestTranslationAsync();
             await TestPasswordsAsync();
+            await TestSuggestionsAsync();
+            await TestRussianCaAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();

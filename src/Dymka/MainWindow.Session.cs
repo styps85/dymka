@@ -330,30 +330,36 @@ public partial class MainWindow
         OpenTabSearch();
     }
 
+    TabSearchWindow? _tabSearch;
+
+    /// <summary>Поиск открывается отдельным маленьким окном: только окно может забрать ввод с клавиатуры у страницы
+    /// (во всплывающей панели текст уходил в поле на открытой странице).</summary>
     public void OpenTabSearch()
     {
         ClosePopups();
-        TabSearchBox.Text = "";
-        FillTabSearch();
-        TabSearchPopup.IsOpen = true;
-        Dispatcher.BeginInvoke(new Action(() =>
-        {
-            TabSearchBox.Focus();
-            Keyboard.Focus(TabSearchBox);
-        }), DispatcherPriority.Input);
+        if (_tabSearch != null) { _tabSearch.Activate(); return; }
+        var w = new TabSearchWindow(SearchTabs, GoToSearchResult) { Owner = this };
+        var p = AddressBorder.PointToScreen(new Point(0, AddressBorder.ActualHeight));
+        var dpi = VisualTreeHelper.GetDpi(this);
+        w.Left = p.X / dpi.DpiScaleX - 14;
+        w.Top = p.Y / dpi.DpiScaleY - 4;
+        w.Closed += (_, _) => { _tabSearch = null; };
+        _tabSearch = w;
+        w.Show();
+        w.Activate();
     }
 
-    public bool TabSearchOpen => TabSearchPopup.IsOpen;
+    public bool TabSearchOpen => _tabSearch != null;
 
     /// <summary>Вкладки, видимые сейчас в списке (текущий контейнер), - для самопроверки.</summary>
     public IEnumerable<BrowserTab> ListedTabs => _topView.Cast<BrowserTab>().Concat(_pinnedView.Cast<BrowserTab>());
 
-    void FillTabSearch()
+    List<TabSearchItem> SearchTabs(string query)
     {
         var windows = Shared.Windows.Where(w => !w._closingForGood).ToList();
         var all = windows.SelectMany(w => w._tabs.Select(t => (w, t))).ToList();
         var byId = all.ToDictionary(x => x.t.Id);
-        var found = TabCleanup.Search(all.Select(x => x.w.InfoOf(x.t)), TabSearchBox.Text);
+        var found = TabCleanup.Search(all.Select(x => x.w.InfoOf(x.t)), query);
         var items = new List<TabSearchItem>();
         foreach (var info in found.Take(60))
         {
@@ -363,56 +369,17 @@ public partial class MainWindow
             string host = t.Url.StartsWith("http") ? Uri.UnescapeDataString(t.Url) : t.Url;
             items.Add(new TabSearchItem(t, w, t.Title, host, place, BrushCache.Get(c.Color)));
         }
-        TabSearchList.ItemsSource = items;
-        if (items.Count > 0) TabSearchList.SelectedIndex = 0;
-        TabSearchEmpty.Visibility = items.Count == 0 ? Visibility.Visible : Visibility.Collapsed;
-        TabSearchHint.Visibility = TabSearchBox.Text.Length == 0 ? Visibility.Visible : Visibility.Collapsed;
+        return items;
     }
 
-    public IReadOnlyList<TabSearchItem> TabSearchResults => (TabSearchList.ItemsSource as List<TabSearchItem>) ?? new List<TabSearchItem>();
-
-    public void SetTabSearchTextForTest(string text) => TabSearchBox.Text = text;
-
-    void TabSearchBox_TextChanged(object sender, TextChangedEventArgs e) => FillTabSearch();
-
-    void TabSearchBox_PreviewKeyDown(object sender, KeyEventArgs e)
-    {
-        int n = TabSearchList.Items.Count;
-        switch (e.Key)
-        {
-            case Key.Down:
-                if (n > 0) TabSearchList.SelectedIndex = (TabSearchList.SelectedIndex + 1) % n;
-                TabSearchList.ScrollIntoView(TabSearchList.SelectedItem);
-                e.Handled = true;
-                break;
-            case Key.Up:
-                if (n > 0) TabSearchList.SelectedIndex = (TabSearchList.SelectedIndex - 1 + n) % n;
-                TabSearchList.ScrollIntoView(TabSearchList.SelectedItem);
-                e.Handled = true;
-                break;
-            case Key.Enter:
-                GoToSearchResult(TabSearchList.SelectedItem as TabSearchItem);
-                e.Handled = true;
-                break;
-            case Key.Escape:
-                TabSearchPopup.IsOpen = false;
-                _active?.View?.Focus();
-                e.Handled = true;
-                break;
-        }
-    }
-
-    void TabSearchList_Click(object sender, MouseButtonEventArgs e)
-    {
-        var d = e.OriginalSource as DependencyObject;
-        while (d != null && d is not ListBoxItem) d = VisualTreeHelper.GetParent(d);
-        if (d is ListBoxItem { DataContext: TabSearchItem item }) GoToSearchResult(item);
-    }
+    public IReadOnlyList<TabSearchItem> TabSearchResults => _tabSearch?.Results ?? new List<TabSearchItem>();
+    public string TabSearchTextForTest => _tabSearch?.Text ?? "";
+    public void SetTabSearchTextForTest(string text) { if (_tabSearch != null) _tabSearch.Text = text; }
 
     /// <summary>Переход к найденной вкладке (в том числе в другом окне и другом контейнере).</summary>
     public void GoToSearchResult(TabSearchItem? item)
     {
-        TabSearchPopup.IsOpen = false;
+        _tabSearch?.Close();
         if (item == null || !item.Window._tabs.Contains(item.Tab)) return;
         var w = item.Window;
         if (w != this)

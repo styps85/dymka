@@ -26,6 +26,15 @@
     display: flex; align-items: center; gap: 12px; padding: 0 22px; border: 1.5px solid transparent;
   }
   form.search:focus-within { border-color: var(--accent); }
+  form.search { position: relative; }
+  .sugg { position: absolute; left: 0; right: 0; top: 62px; background: #fff; border-radius: 18px; padding: 6px; z-index: 5;
+    box-shadow: 0 1px 2px rgba(27,34,48,.06), 0 14px 34px rgba(27,34,48,.13); border: 1px solid #E3E7EE; }
+  .sugg[hidden] { display: none; }
+  .sugg div { display: flex; align-items: center; gap: 12px; height: 40px; padding: 0 14px; border-radius: 11px; cursor: pointer; font-size: 15px; }
+  .sugg div:hover, .sugg div.sel { background: #EAF0FF; }
+  .sugg div b { font-weight: 600; }
+  .sugg div span.t { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+  .sugg div span.h { color: #7A8394; font-size: 13px; }
   form.search input {
     flex: 1; border: 0; outline: 0; background: transparent; font: inherit; font-size: 16px; color: var(--ink);
     -webkit-user-select: text; user-select: text;
@@ -88,7 +97,8 @@
 
   <form class="search" id="search" autocomplete="off">
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#5B6475" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>
-    <input id="q" aria-label="Поиск" placeholder="Искать в DuckDuckGo или ввести адрес">
+    <input id="q" aria-label="Поиск" placeholder="Искать в DuckDuckGo или ввести адрес" role="combobox" autocomplete="off">
+    <div class="sugg" id="sugg" hidden></div>
   </form>
 
   <div class="seg" id="seg" role="tablist" aria-label="Контейнер"></div>
@@ -187,9 +197,52 @@
     send({ type: 'init' });
   }
 
+  // подсказки при вводе: переход на сайт (из плиток, вкладок, сохранённых паролей, известных сайтов) и поисковые подсказки
+  const qEl = document.getElementById('q'), sugg = document.getElementById('sugg');
+  let items = [], sel = -1, timer = 0;
+  const GLOBE = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#3D63DD" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/></svg>';
+  const LENS = '<svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="#7A8394" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-4-4"/></svg>';
+  const esc = (s) => s.replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  function hideSugg() { sugg.hidden = true; items = []; sel = -1; }
+  function drawSugg() {
+    if (!items.length) { hideSugg(); return; }
+    sugg.innerHTML = items.map((s, i) => '<div data-i="' + i + '" class="' + (i === sel ? 'sel' : '') + '">' +
+      (s.kind === 'nav' ? GLOBE + '<span class="t"><b>Перейти: ' + esc(s.text) + '</b></span><span class="h">' + esc(s.hint) + '</span>'
+                        : LENS + '<span class="t">' + esc(s.text) + '</span>') + '</div>').join('');
+    sugg.hidden = false;
+  }
+  function choose(i) {
+    const s = items[i];
+    if (!s) return;
+    hideSugg();
+    send({ type: 'go', q: s.kind === 'nav' ? s.url : s.text });
+  }
+  qEl.addEventListener('input', () => {
+    clearTimeout(timer);
+    const q = qEl.value.trim();
+    if (q.length < 2) { hideSugg(); return; }
+    timer = setTimeout(() => send({ type: 'suggest', q: qEl.value }), 120);
+  });
+  qEl.addEventListener('keydown', (e) => {
+    if (sugg.hidden) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      const n = items.length + 1;
+      sel = ((sel + 1 + (e.key === 'ArrowDown' ? 1 : -1)) % n + n) % n - 1;
+      drawSugg();
+    } else if (e.key === 'Escape') { hideSugg(); }
+    else if (e.key === 'Enter' && sel >= 0) { e.preventDefault(); choose(sel); }
+  });
+  qEl.addEventListener('blur', () => setTimeout(hideSugg, 180));
+  sugg.addEventListener('mousedown', (e) => { const d = e.target.closest('div[data-i]'); if (d) { e.preventDefault(); choose(+d.dataset.i); } });
+  if (wv) wv.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'suggest' && e.data.q === qEl.value && document.activeElement === qEl) { items = e.data.items || []; sel = -1; drawSugg(); }
+  });
+
   document.getElementById('search').addEventListener('submit', (e) => {
     e.preventDefault();
-    const q = document.getElementById('q').value.trim();
+    const q = qEl.value.trim();
+    hideSugg();
     if (q) send({ type: 'go', q });
   });
 

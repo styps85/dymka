@@ -107,6 +107,14 @@
             <TextBlock Text="Поиск" Style="{StaticResource CardTitle}"/>
             <WrapPanel x:Name="EnginePanel"/>
             <TextBlock Text="DuckDuckGo и Startpage не собирают историю поиска." Style="{StaticResource Hint}"/>
+            <DockPanel Margin="0,14,0,0">
+              <CheckBox x:Name="SuggestBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Подсказки поисковой системы при вводе"/>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="То, что вы набираете в адресной строке, отправляется выбранной поисковой системе, и она предлагает варианты. Подсказки «перейти на сайт» (ваши плитки, вкладки, сайты с сохранёнными паролями, известные официальные сайты) работают и без этого - на компьютере."/>
+              </StackPanel>
+            </DockPanel>
           </StackPanel>
         </Border>
 
@@ -156,6 +164,22 @@
             </DockPanel>
             <Button Content="Обновить списки сейчас" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left"
                     Margin="0,8,0,0" Click="UpdateLists_Click" x:Name="UpdateListsBtn"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Российские сертификаты (Минцифры)" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="RuCaBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Открывать сайты с сертификатами Минцифры"/>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="Сертификаты встроены в браузер, в Windows ничего не устанавливается. Действуют только для сайтов в зонах .ru, .рф, .su, .рус и сайтов из списка ниже - на остальных сайтах им не доверяется."/>
+              </StackPanel>
+            </DockPanel>
+            <TextBlock Text="Другие сайты с сертификатами Минцифры (по одному в строке):" Style="{StaticResource Hint}" Margin="0,12,0,6"/>
+            <TextBox x:Name="RuCaSites" Style="{StaticResource FieldBox}" AcceptsReturn="True" Height="70" TextWrapping="NoWrap" VerticalContentAlignment="Top"/>
           </StackPanel>
         </Border>
 

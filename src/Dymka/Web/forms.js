@@ -2,6 +2,7 @@
   // Пароли и автозаполнение «Дымки». Страница только сообщает браузеру, что вы встали в поле входа или анкеты,
   // и что форма входа отправлена. Подставляет данные браузер - и только когда вы выбрали их в подсказке.
   if (window.top !== window || window.__dymkaForms) return;
+  if (location.hostname === 'dymka.start') return;   // своя стартовая страница: в поле поиска подсказки карточек не нужны
   function post(m) { try { window.chrome.webview.postMessage(m); } catch (e) { } }
   var SKIP = { hidden: 1, submit: 1, button: 1, reset: 1, image: 1, file: 1, checkbox: 1, radio: 1, range: 1, color: 1, search: 1 };
   var filling = false, lastFocus = null, lastFields = [], lastSent = '', lastSentAt = 0;
@@ -37,6 +38,15 @@
       }
     }
     return t.replace(/\s+/g, ' ').trim().slice(0, 140);
+  }
+
+  // поле поиска сайта - не анкета
+  function isSearch(el) {
+    var t = typeOf(el), role = (el.getAttribute('role') || '').toLowerCase();
+    if (t === 'search' || role === 'searchbox' || role === 'combobox') return true;
+    if (el.closest('[role=search],form[role=search]')) return true;
+    var s = ((el.name || '') + ' ' + (el.id || '') + ' ' + (el.getAttribute('placeholder') || '') + ' ' + (el.getAttribute('aria-label') || '')).toLowerCase();
+    return /(^|[^a-z])(q|query|search|searchtext)([^a-z]|$)|поиск|искать|найти/.test(s);
   }
 
   function fieldsOf(scope) {
@@ -91,7 +101,7 @@
       post({ __dymka: 'pw-focus', rect: rectOf(el) });
       return;
     }
-    if (SKIP[t]) return;
+    if (SKIP[t] || isSearch(el)) return;
     var list = fieldsOf(el.form || document);
     var idx = list.indexOf(el);
     if (idx < 0) return;
@@ -127,6 +137,15 @@
   }, true);
 
   window.__dymkaForms = {
+    // «Заполнить карточкой» из меню правой кнопки: поля формы, в которой стоит курсор
+    describeFocused: function () {
+      var el = document.activeElement;
+      var scope = el && el.form ? el.form : document;
+      if (el && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) lastFocus = el;
+      var list = fieldsOf(scope);
+      var idx = el ? list.indexOf(el) : -1;
+      return JSON.stringify({ focus: idx, rect: el ? rectOf(el) : { x: 40, y: 40 }, fields: describe(list) });
+    },
     fillLogin: function (u, p) {
       var pws = pwFields(lastFocus && lastFocus.form || document);
       if (!pws.length) pws = pwFields(document);

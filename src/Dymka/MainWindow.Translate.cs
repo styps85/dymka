@@ -229,6 +229,13 @@ public partial class MainWindow
             items.Insert(at, Item($"Перевести «{shortSel}»", () => _ = ShowSelectionTranslationAsync(sel)));
         }
 
+        if (target.IsEditable && Shared.Vault.Exists && source.Url.StartsWith("http"))
+        {
+            var core = source.Core;
+            if (core != null)
+                items.Insert(0, Item("Заполнить карточкой…", () => _ = FillFromContextMenuAsync(source, core)));
+        }
+
         var url = source.Url;
         if (target.Kind == CoreWebView2ContextMenuTargetKind.Page && !target.HasLinkUri && !target.HasSelection &&
             (url.StartsWith("http://") || url.StartsWith("https://")) && !source.IsStart)

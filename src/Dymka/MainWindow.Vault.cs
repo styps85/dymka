@@ -138,12 +138,17 @@ public partial class MainWindow
         OpenFillPopup(tab, rect);
     }
 
-    void ShowCardHints(BrowserTab tab, CoreWebView2 core, JsonElement rect, int focus, List<FieldInfo> fields)
+    void ShowCardHints(BrowserTab tab, CoreWebView2 core, JsonElement rect, int focus, List<FieldInfo> fields, bool forced = false)
     {
         var v = TheVault;
-        if (!_settings.OfferAutofill || !v.Exists) return;
+        if ((!_settings.OfferAutofill && !forced) || !v.Exists) return;
         var kinds = FormFill.ClassifyAll(fields);
-        if (focus < 0 || focus >= kinds.Length || kinds[focus] == FieldKind.None) { FillPopup.IsOpen = false; return; }
+        if (!forced && (focus < 0 || focus >= kinds.Length || kinds[focus] == FieldKind.None)) { FillPopup.IsOpen = false; return; }
+        if (forced && !kinds.Any(k => k != FieldKind.None))
+        {
+            ShowToast("В этой форме не нашлось знакомых полей (ФИО, ИНН, паспорт, адрес…)", seconds: 4);
+            return;
+        }
         _fillFields = fields;
         _fillRows.Clear();
         if (v.HasMasterPassword && !v.IsUnlocked)
@@ -151,13 +156,17 @@ public partial class MainWindow
             _fillRows.Add(new FillRow("Карточки закрыты главным паролем", "Нажмите, чтобы открыть", () =>
             {
                 FillPopup.IsOpen = false;
-                if (EnsureVaultOpen()) ShowCardHints(tab, core, rect, focus, fields);
+                if (EnsureVaultOpen()) ShowCardHints(tab, core, rect, focus, fields, forced);
             }));
         }
         else
         {
             var cards = v.Data!.Cards;
-            if (cards.Count == 0) return;
+            if (cards.Count == 0)
+            {
+                if (forced) ShowToast("Карточек пока нет: добавьте их в «⋯» - «Пароли и автозаполнение»", seconds: 4);
+                return;
+            }
             bool hasAddress = kinds.Any(k => k is FieldKind.Address or FieldKind.Postcode);
             foreach (var c in cards)
             {
@@ -195,18 +204,23 @@ public partial class MainWindow
             });
             if (r.Sub.Length > 0)
                 content.Children.Add(new TextBlock { Text = r.Sub, FontSize = 12, Foreground = (Brush)FindResource("Muted"), TextTrimming = TextTrimming.CharacterEllipsis });
-            var btn = new Button { Style = (Style)FindResource("MenuRow"), Height = double.NaN, MinHeight = 38, Padding = new Thickness(0, 6, 0, 6), Content = content, Focusable = false };
+            if (panel.Children.Count > 0 && !r.Muted)
+                panel.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line"), Margin = new Thickness(10, 4, 10, 4) });
+            else if (r.Muted)
+                panel.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line"), Margin = new Thickness(10, 4, 10, 2) });
+            var btn = new Button { Style = (Style)FindResource("MenuRow"), Height = double.NaN, MinHeight = 40, Padding = new Thickness(0, 8, 0, 8), Content = content, Focusable = false };
             btn.Click += (_, _) => { FillPopup.IsOpen = false; r.Act(); };
             panel.Children.Add(btn);
             if (r.Chips != null)
             {
-                var wrap = new WrapPanel { Margin = new Thickness(10, 0, 10, 6) };
+                var wrap = new WrapPanel { Margin = new Thickness(10, 2, 10, 8) };
                 wrap.Children.Add(new TextBlock { Text = "адрес:", FontSize = 12, Foreground = (Brush)FindResource("Muted"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 6, 0) });
                 foreach (var (label, act) in r.Chips)
                 {
                     var a = act;
                     var chip = MakeChip(label, null);
-                    chip.Height = 26;
+                    chip.Height = 28;
+                    chip.Margin = new Thickness(0, 3, 8, 3);
                     chip.Click += (_, _) => { FillPopup.IsOpen = false; a(); };
                     wrap.Children.Add(chip);
                 }
@@ -245,6 +259,23 @@ public partial class MainWindow
         if (pairs.Count == 0) return;
         try { _ = core.ExecuteScriptAsync($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)})"); }
         catch (Exception ex) { App.Log("Автозаполнение: " + ex.Message); }
+    }
+
+    /// <summary>«Заполнить карточкой» из меню правой кнопки - даже если поле не распознано.</summary>
+    async Task FillFromContextMenuAsync(BrowserTab tab, CoreWebView2 core)
+    {
+        try
+        {
+            var raw = await core.ExecuteScriptAsync("window.__dymkaForms ? window.__dymkaForms.describeFocused() : ''");
+            var json = JsonSerializer.Deserialize<string>(raw);
+            if (string.IsNullOrEmpty(json)) return;
+            using var doc = JsonDocument.Parse(json);
+            var root = doc.RootElement;
+            var fields = root.GetProperty("fields").EnumerateArray().Select(f => new FieldInfo(
+                f.GetProperty("i").GetInt32(), Str(f, "type"), Str(f, "name"), Str(f, "id"), Str(f, "ac"), Str(f, "label"), Str(f, "ph"))).ToList();
+            ShowCardHints(tab, core, root.GetProperty("rect").Clone(), root.GetProperty("focus").GetInt32(), fields, forced: true);
+        }
+        catch (Exception ex) { App.Log("Заполнить карточкой: " + ex.Message); }
     }
 
     public IReadOnlyList<string> FillRowsForTest => FillPopup.IsOpen ? _fillRows.Select(r => r.Title).ToList() : new List<string>();

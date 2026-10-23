@@ -331,6 +331,67 @@ Eq(fill.ContainsKey(10), false, "неизвестное поле не трога
 var fill2 = FormFill.Build(card, new[] { F(0, "Адрес") }, chosenAddress: 1);
 Eq(fill2[0].Value, "г. Екатеринбург, ул. Мира, 2", "для поля «Адрес» без уточнения - адрес, выбранный в подсказке");
 
+// --- поля поиска и подсказки при вводе
+Eq(K("", ph: "Искать в Яндекс или ввести адрес"), FieldKind.None, "поле поиска стартовой страницы - не адрес");
+Eq(K("Поиск по сайту"), FieldKind.None, "поле «Поиск» не анкета");
+Eq(K("", "search", name: "q"), FieldKind.None, "type=search не анкета");
+var sg = Suggest.Local("картотека", new[] { ("Почта", "https://mail.yandex.ru/") });
+Eq(sg.FirstOrDefault()?.Url, "https://kad.arbitr.ru/", "«картотека» - предложение перейти в картотеку арбитражных дел");
+Eq(Suggest.Local("кар", new[] { ("Картотека", "https://kad.arbitr.ru/") }).Count, 1, "плитка и встроенный сайт с тем же адресом - одна подсказка");
+Eq(Suggest.Local("ефрсб", Array.Empty<(string, string)>()).Any(x => x.Url.Contains("fedresurs")), true, "«ефрсб» - Федресурс");
+Eq(Suggest.Local("мой ар", Array.Empty<(string, string)>()).FirstOrDefault()?.Url, "https://my.arbitr.ru/", "несколько слов, последнее не дописано");
+Eq(Suggest.Local("к", Array.Empty<(string, string)>()).Count, 0, "одна буква - без подсказок");
+Eq(Suggest.Local("рецепт борща", Array.Empty<(string, string)>()).Count, 0, "посторонний запрос - переходов нет");
+Eq(string.Join("|", Suggest.ParseRemote("[\"картотека\",[\"картотека арбитражных дел\",\"картотека дел\"]]")), "картотека арбитражных дел|картотека дел", "подсказки поисковика (OpenSearch)");
+Eq(Suggest.ParseRemote("не json").Count, 0, "плохой ответ поисковика - без подсказок");
+var mg = Suggest.Merge("картотека", sg, new List<string> { "картотека", "картотека арбитражных дел" }, "Яндекс");
+Eq(mg.Count == 2 && mg[0].Kind == "nav" && mg[1].Text == "картотека арбитражных дел", true, "сначала переход на сайт, потом поиск, без повтора ввода");
+Eq(Suggest.RemoteUrl("startpage", "a b").StartsWith("https://duckduckgo.com/ac/"), true, "Startpage - подсказки DuckDuckGo");
+
+// --- сертификаты Минцифры (проверка на тестовом удостоверяющем центре)
+Eq(RussianCa.IsAllowedHost("online.alfabank.ru", null), true, ".ru - разрешено");
+Eq(RussianCa.IsAllowedHost("госуслуги.рф", null), true, ".рф - разрешено");
+Eq(RussianCa.IsAllowedHost("example.com", null), false, ".com - нет");
+Eq(RussianCa.IsAllowedHost("bank.example.com", new[] { "example.com" }), true, "сайт из вашего списка - разрешено");
+using (var rootKey = System.Security.Cryptography.RSA.Create(2048))
+using (var leafKey = System.Security.Cryptography.RSA.Create(2048))
+using (var otherKey = System.Security.Cryptography.RSA.Create(2048))
+{
+    System.Security.Cryptography.X509Certificates.X509Certificate2 MakeRoot(System.Security.Cryptography.RSA key, string name)
+    {
+        var rq = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=" + name, key, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+        rq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509BasicConstraintsExtension(true, false, 0, true));
+        rq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509KeyUsageExtension(System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.KeyCertSign | System.Security.Cryptography.X509Certificates.X509KeyUsageFlags.CrlSign, true));
+        return rq.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(5));
+    }
+    var root = MakeRoot(rootKey, "Test Russian Root");
+    var other = MakeRoot(otherKey, "Other Root");
+    var lrq = new System.Security.Cryptography.X509Certificates.CertificateRequest("CN=bank.test.ru", leafKey, System.Security.Cryptography.HashAlgorithmName.SHA256, System.Security.Cryptography.RSASignaturePadding.Pkcs1);
+    var san = new System.Security.Cryptography.X509Certificates.SubjectAlternativeNameBuilder();
+    san.AddDnsName("bank.test.ru");
+    lrq.CertificateExtensions.Add(san.Build());
+    lrq.CertificateExtensions.Add(new System.Security.Cryptography.X509Certificates.X509EnhancedKeyUsageExtension(new System.Security.Cryptography.OidCollection { new System.Security.Cryptography.Oid("1.3.6.1.5.5.7.3.1") }, false));
+    var leaf = lrq.Create(root, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1), new byte[] { 1, 2, 3, 4 });
+    var leafPem = leaf.ExportCertificatePem();
+    Eq(RussianCa.Verify(leafPem, new[] { leafPem }, "bank.test.ru", new[] { root }, null, out _), true, "сертификат, выданный корневым центром, принимается");
+    Eq(RussianCa.Verify(leafPem, null, "evil.test.ru", new[] { root }, null, out var why1), false, "сертификат другого сайта не принимается (" + why1 + ")");
+    Eq(RussianCa.Verify(leafPem, null, "bank.test.ru", new[] { other }, null, out _), false, "сертификат чужого центра не принимается");
+}
+var bundled = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "../../../../../src/Dymka/Bundled"));
+var rootFile = Path.Combine(bundled, "russian_trusted_root_ca.crt");
+if (File.Exists(rootFile))
+{
+    var rr = System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPem(File.ReadAllText(rootFile));
+    var rs = System.Security.Cryptography.X509Certificates.X509Certificate2.CreateFromPem(File.ReadAllText(Path.Combine(bundled, "russian_trusted_sub_ca.crt")));
+    Eq(rr.Subject.Contains("Russian Trusted Root CA") && rs.Issuer == rr.Subject, true, "встроенные сертификаты Минцифры: корневой и промежуточный");
+    using var ch = new System.Security.Cryptography.X509Certificates.X509Chain();
+    ch.ChainPolicy.TrustMode = System.Security.Cryptography.X509Certificates.X509ChainTrustMode.CustomRootTrust;
+    ch.ChainPolicy.CustomTrustStore.Add(rr);
+    ch.ChainPolicy.RevocationMode = System.Security.Cryptography.X509Certificates.X509RevocationMode.NoCheck;
+    Eq(ch.Build(rs), true, "промежуточный сертификат подписан корневым");
+}
+else Console.WriteLine("(встроенных сертификатов ещё нет: " + rootFile + ")");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
 

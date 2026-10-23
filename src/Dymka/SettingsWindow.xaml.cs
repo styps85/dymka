@@ -51,6 +51,9 @@ public partial class SettingsWindow : Window
         StartNew.IsChecked = !_s.RestoreSession;
         VideoTranslationBox.IsChecked = _s.VideoTranslation;
         OfferTranslationBox.IsChecked = _s.OfferTranslation;
+        SuggestBox.IsChecked = _s.SearchSuggestions;
+        RuCaBox.IsChecked = _s.TrustRussianCa;
+        RuCaSites.Text = string.Join(Environment.NewLine, _s.RussianCaSites);
         VersionInfo.Text = $"Установлена версия {App.VersionText}. Новая версия скачивается и устанавливается по вашему согласию.";
 
         ClearOnExit.IsChecked = _s.ClearCookiesOnExit;
@@ -92,6 +95,9 @@ public partial class SettingsWindow : Window
         VideoTranslationChanged = _s.VideoTranslation != (VideoTranslationBox.IsChecked == true);
         _s.VideoTranslation = VideoTranslationBox.IsChecked == true;
         _s.OfferTranslation = OfferTranslationBox.IsChecked == true;
+        _s.SearchSuggestions = SuggestBox.IsChecked == true;
+        _s.TrustRussianCa = RuCaBox.IsChecked == true;
+        _s.RussianCaSites = ParseDomains(RuCaSites.Text);
         _s.ClearCookiesOnExit = ClearOnExit.IsChecked == true;
         _s.BlockThirdPartyCookies = Block3p.IsChecked == true;
         _s.AutoUpdateLists = AutoLists.IsChecked == true;

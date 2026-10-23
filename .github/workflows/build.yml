@@ -56,7 +56,7 @@ jobs:
           $dir = Join-Path $env:RUNNER_TEMP "selftest"
           $data = Join-Path $env:RUNNER_TEMP "dymka-data"
           $p = Start-Process -FilePath "dist/single/Dymka.exe" -ArgumentList @("--selftest", $dir, "--data", $data) -PassThru
-          if (-not $p.WaitForExit(600000)) { $p.Kill(); Write-Host "::error::Самопроверка зависла" }
+          if (-not $p.WaitForExit(660000)) { $p.Kill(); Write-Host "::error::Самопроверка зависла" }
           New-Item -ItemType Directory -Force -Path dist/selftest | Out-Null
           if (Test-Path $dir) { Copy-Item "$dir/*" dist/selftest/ }
           if (Test-Path "$data/log.txt") { Copy-Item "$data/log.txt" dist/selftest/log.txt }
@@ -96,6 +96,7 @@ jobs:
           if (-not (Test-Path dist/selftest)) { exit 0 }
           if (-not (Get-ChildItem dist/selftest)) { exit 0 }
           Compress-Archive -Path dist/selftest/* -DestinationPath dist/selftest.zip -Force
+          gh release delete certs-fetch --yes --cleanup-tag 2>$null
           gh release delete selftest --yes --cleanup-tag 2>$null
           $global:LASTEXITCODE = 0
           gh release create selftest dist/selftest.zip --prerelease --latest=false --target ${{ github.sha }} --title "Самопроверка сборки ${{ github.run_number }} (служебное)" --notes "Снимки окна и отчёт автоматической самопроверки. Скачивать не нужно."

@@ -23,6 +23,8 @@ public static class FormFill
     // порядок важен: сначала более узкие признаки
     static readonly (FieldKind kind, Regex re)[] Rules =
     {
+        // поля поиска не анкета: подсказку карточек в них не показываем
+        (FieldKind.None, R(@"поиск|искать|найти|search|query")),
         (FieldKind.Email, R(@"e-?mail|электронн\w*\s*почт|эл\.?\s*почт|\bпочта\b(?!\w)")),
         (FieldKind.Snils, R(@"снилс|snils")),
         (FieldKind.Inn, R(@"(^|[^а-яa-z])инн([^а-яa-z]|$)|(^|[^a-z])inn([^a-z]|$)")),
@@ -50,6 +52,7 @@ public static class FormFill
         var type = (f.Type ?? "").ToLowerInvariant();
         if (type is "password" or "hidden" or "checkbox" or "radio" or "submit" or "button" or "file" or "image" or "reset" or "range" or "color")
             return FieldKind.None;
+        if (type == "search") return FieldKind.None;
         if (type == "email") return FieldKind.Email;
         if (type == "tel") return FieldKind.Phone;
 
