@@ -433,6 +433,29 @@ Eq(saved != null && saved.Number == "4111111111111111" && saved.ExpMonth == 12 &
 Eq(FormFill.CardFromForm(new[] { F(0, "Номер карты") }, new[] { "4111 1111 1111 1112" }), null, "номер с ошибкой - не предлагается");
 var noLabel = FormFill.CardFromForm(new[] { F(0, ""), F(1, "") }, new[] { "2202 2000 1234 5672", "что-то" });
 Eq(noLabel?.Number, "2202200012345672", "номер без подписи узнаётся по контрольной сумме");
+Eq(UrlTools.IsStartPage("https://dymka.start/start.html") && UrlTools.IsStartPage("https://dymka.start/"), true, "стартовая страница");
+Eq(UrlTools.IsStartPage(UrlTools.GalleryUrl), false, "галерея фонов - не стартовая страница");
+Eq(UrlTools.IsGalleryPage(UrlTools.GalleryUrl) && UrlTools.IsInternalPage(UrlTools.GalleryUrl), true, "галерея фонов - служебная страница");
+// ---- фоны новой вкладки
+var wps = Wallpapers.Order(new[] { "custom-moi.jpg", "gallery-зима-1.jpg", "dymka-2.jpg", "dymka-1.jpg", "gallery-новый год-1.png", "readme.txt", "gallery-весна.webp" });
+Eq(string.Join(",", wps), "dymka-1.jpg,dymka-2.jpg,gallery-весна.webp,gallery-зима-1.jpg,gallery-новый год-1.png,custom-moi.jpg", "фоны по порядку: стандартные, галерея, свои");
+Eq(Wallpapers.Step(wps, "dymka-1.jpg", 1), "dymka-2.jpg", "стрелка вперёд");
+Eq(Wallpapers.Step(wps, "dymka-1.jpg", -1), "custom-moi.jpg", "стрелка назад по кругу");
+Eq(Wallpapers.Step(wps, "нет-такого.jpg", 1), "dymka-1.jpg", "неизвестный фон - начинаем с первого");
+Eq(Wallpapers.ThemeOf("gallery-Новый Год-2.jpg"), "newyear", "тема по имени: новый год");
+Eq(Wallpapers.ThemeOf("winter-snow.jpg") + Wallpapers.ThemeOf("8 марта-1.jpg") + Wallpapers.ThemeOf("осень.png"), "wintermarch8autumn", "темы: зима, 8 марта, осень");
+Eq(Wallpapers.ThemeOf("dymka-1-sky-waves.jpg"), "", "стандартный фон - круглый год");
+Eq(Wallpapers.HolidayOf(new DateTime(2026, 12, 31)) + Wallpapers.HolidayOf(new DateTime(2027, 1, 5)) + Wallpapers.HolidayOf(new DateTime(2027, 3, 7)), "newyearnewyearmarch8", "праздники по датам");
+Eq(Wallpapers.SeasonOf(new DateTime(2026, 10, 25)), "autumn", "октябрь - осень");
+Eq(string.Join(",", Wallpapers.Pool(wps, new DateTime(2026, 12, 31), true)), "gallery-новый год-1.png", "в Новый год - новогодние фоны");
+Eq(string.Join(",", Wallpapers.Pool(wps, new DateTime(2027, 1, 20), true)), "gallery-зима-1.jpg", "зимой - зимние фоны");
+Eq(string.Join(",", Wallpapers.Pool(wps, new DateTime(2026, 10, 25), true)), "dymka-1.jpg,dymka-2.jpg,custom-moi.jpg", "осенью без осенних - фоны без темы");
+Eq(Wallpapers.Pool(wps, new DateTime(2026, 12, 31), false).Contains("gallery-новый год-1.png"), false, "без времён года праздничные фоны не выпадают как фон дня");
+var d1 = Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 25), false);
+var d2 = Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 26), false);
+Eq(d1 != d2 && d1 == Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 25, 23, 0, 0), false), true, "фон дня меняется раз в сутки");
+Eq(Wallpapers.SafeName("gallery-", "../../evil name?.PNG"), "gallery-evil-name-.png", "безопасное имя файла фона");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
 

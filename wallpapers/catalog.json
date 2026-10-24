@@ -1,0 +1,62 @@
+{
+ "version": 1,
+ "items": [
+  {
+   "file": "dymka-1-sky-waves.jpg",
+   "title": "Небесные волны",
+   "builtin": true
+  },
+  {
+   "file": "dymka-2-peach-circles.jpg",
+   "title": "Персиковые круги",
+   "builtin": true
+  },
+  {
+   "file": "dymka-3-sage-sand.jpg",
+   "title": "Шалфей и песок",
+   "builtin": true
+  },
+  {
+   "file": "dymka-4-lilac-waves.jpg",
+   "title": "Сиреневые волны",
+   "builtin": true
+  },
+  {
+   "file": "dymka-5-apricot-arcs.jpg",
+   "title": "Абрикосовые дуги",
+   "builtin": true
+  },
+  {
+   "file": "gallery-blue-waves.jpg",
+   "title": "Голубые волны"
+  },
+  {
+   "file": "gallery-lilac-ribbons.jpg",
+   "title": "Сиреневые ленты"
+  },
+  {
+   "file": "gallery-mint-blobs.jpg",
+   "title": "Мятные пятна"
+  },
+  {
+   "file": "gallery-peach-sunrise.jpg",
+   "title": "Персиковый рассвет"
+  },
+  {
+   "file": "gallery-rose-arcs.jpg",
+   "title": "Розовые дуги"
+  },
+  {
+   "file": "gallery-sand-pebbles.jpg",
+   "title": "Песочные камешки"
+  },
+  {
+   "file": "gallery-sun-circles.jpg",
+   "title": "Солнечные круги"
+  },
+  {
+   "file": "gallery-зима-snow.jpg",
+   "title": "Зимний снег"
+  }
+ ]
+}

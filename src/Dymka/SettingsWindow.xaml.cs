@@ -11,8 +11,8 @@ public partial class SettingsWindow : Window
 
     public bool UpdateListsRequested { get; private set; }
 
-    /// <summary>Папка ui с текущими обоями (для предпросмотра).</summary>
-    public string? UiDir { get; init; }
+    /// <summary>Файл текущего фона новой вкладки (для предпросмотра), null - фон выключен.</summary>
+    public string? WallpaperPreviewPath { get; init; }
     /// <summary>Выбор обоев: null - не меняли, "" - убрать, иначе путь к новому файлу.</summary>
     public string? WallpaperChoice { get; private set; }
     public bool VideoTranslationChanged { get; private set; }
@@ -29,7 +29,7 @@ public partial class SettingsWindow : Window
     {
         _s = settings;
         InitializeComponent();
-        Loaded += (_, _) => ShowWallpaperPreview(!string.IsNullOrEmpty(_s.Wallpaper) && UiDir != null ? Path.Combine(UiDir, _s.Wallpaper) : null);
+        Loaded += (_, _) => ShowWallpaperPreview(WallpaperPreviewPath);
         Loaded += (_, _) =>
         {
             if (StartSection == "video") VideoCard.BringIntoView();

@@ -1001,24 +1001,71 @@ sealed class SelfTest
                 }
             wb.WritePixels(new Int32Rect(0, 0, 640, 360), px, 640 * 4, 0);
             Native.SavePng(wb, file);
-            _w.ApplyWallpaper(file);
-            Check(_w.Settings.Wallpaper.StartsWith("wallpaper-") && File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper)),
-                "обои скопированы в папку браузера: " + _w.Settings.Wallpaper);
+            var wallDir = Path.Combine(_w.DataDir, "ui", "wallpapers");
+            Check(Directory.Exists(wallDir) && Directory.GetFiles(wallDir, "dymka-*.jpg").Length == 5, "стандартные фоны распакованы (5 шт.)");
             var tab = await _w.NewTabAsync(null, activate: true);
             await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
-            bool shown = false;
-            for (int i = 0; i < 20 && !shown; i++)
+            var core = tab.Core!;
+            async Task<string> Js(string js) => await core.ExecuteScriptAsync(js);
+            async Task<bool> JsWait(string js, int seconds = 8)
             {
-                await Task.Delay(300);
-                var bg = await tab.Core!.ExecuteScriptAsync("getComputedStyle(document.body).backgroundImage");
-                shown = bg.Contains("wallpaper-");
+                for (int i = 0; i < seconds * 4; i++) { if (await Js(js) == "true") return true; await Task.Delay(250); }
+                return false;
             }
-            Check(shown, "на новой вкладке показаны обои");
-            await Task.Delay(600);
-            Capture(_w, "48-wallpaper");
-            _w.ApplyWallpaper("");
-            Check(_w.Settings.Wallpaper == "" && !Directory.GetFiles(Path.Combine(_w.DataDir, "ui"), "wallpaper-*").Any(), "обои убраны, файл удалён");
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-1')>=0"), "по умолчанию на новой вкладке стандартный фон");
+            Check(await JsWait("document.body.classList.contains('clock-on')&&document.getElementById('time').textContent.length>=4"), "на новой вкладке часы и дата");
+            await Js("document.getElementById('ntpBtn').click()");
+            Check(await JsWait("!document.getElementById('ntp').hidden"), "кнопка внизу справа открывает меню новой вкладки");
+            await Task.Delay(500);
+            Capture(_w, "48-ntp-menu");
+            await Js("document.getElementById('nextBg').click()");
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-2')>=0&&!document.getElementById('ntp').hidden"),
+                "стрелка меняет фон на вкладке и в миниатюре, меню не закрывается");
+            Check(_w.Settings.Wallpaper.StartsWith("wallpapers/dymka-2"), "выбранный фон запомнен: " + _w.Settings.Wallpaper);
+            await Js("document.getElementById('prevBg').click()");
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-1')>=0"), "стрелка назад возвращает предыдущий фон");
+            await Js("document.getElementById('optClock').click()");
+            Check(await JsWait("!document.body.classList.contains('clock-on')") && !_w.Settings.ShowClock, "часы выключаются переключателем");
+            await Js("document.getElementById('optClock').click()");
+            await Js("document.getElementById('optBg').click()");
+            Check(await JsWait("!document.body.classList.contains('wp')") && !_w.Settings.WallpaperOn, "фон выключается переключателем");
+            await Js("document.getElementById('optBg').click()");
+            Check(await JsWait("document.body.classList.contains('wp')") && _w.Settings.WallpaperOn, "и включается обратно");
+            await Js("document.getElementById('optDaily').click()");
+            Check(await JsWait("document.getElementById('optDaily').checked&&!document.getElementById('optSeasonal').disabled") && _w.Settings.WallpaperDaily,
+                "«Новый фон каждый день» включается, становится доступен переключатель времён года");
+            await Js("document.getElementById('optDaily').click()");
+
+            _w.AddCustomWallpaper(file);
+            Check(_w.Settings.Wallpaper.StartsWith("wallpapers/custom-") && File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper.Replace('/', '\\'))),
+                "свой фон скопирован в папку фонов: " + _w.Settings.Wallpaper);
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('custom-')>=0"), "свой фон сразу показан на новой вкладке");
+            await Js("document.getElementById('ntpBtn').click()");
             _w.CloseTab(tab, remember: false);
+
+            // галерея фонов (каталог в репозитории «Дымки»)
+            _w.OpenGallery();
+            var g = _w.Tabs.FirstOrDefault(t => Dymka.Core.UrlTools.IsGalleryPage(t.Url));
+            Check(g != null, "галерея фонов открылась во вкладке");
+            if (g != null)
+            {
+                await WaitFor(() => g.Core != null && !g.IsLoading, 20);
+                var gc = g.Core!;
+                bool loaded = false;
+                for (int i = 0; i < 60 && !loaded; i++) { await Task.Delay(500); loaded = await gc.ExecuteScriptAsync("document.querySelectorAll('#catalog .card').length>5") == "true"; }
+                var msg = await gc.ExecuteScriptAsync("document.getElementById('msg').hidden?'':document.getElementById('msg').textContent");
+                Check(loaded, "в галерее показан каталог фонов " + msg);
+                if (loaded)
+                {
+                    await Task.Delay(1500);
+                    Capture(_w, "49-gallery");
+                    await gc.ExecuteScriptAsync("var c=[...document.querySelectorAll('#catalog .card')].find(x=>x.dataset.local.indexOf('gallery-')===0);c.querySelector('.btn.primary').click()");
+                    Check(await WaitFor(() => _w.Settings.Wallpaper.StartsWith("wallpapers/gallery-") &&
+                                              File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper.Replace('/', '\\'))), 30),
+                        "фон из галереи скачан в папку фонов и поставлен: " + _w.Settings.Wallpaper);
+                }
+                _w.CloseTab(g, remember: false);
+            }
 
             // перетаскивание: первая вкладка встаёт на место третьей
             var order = _w.VisibleTabOrderForTest;

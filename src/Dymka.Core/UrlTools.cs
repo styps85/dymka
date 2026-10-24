@@ -108,8 +108,22 @@ public static class UrlTools
         return Uri.TryCreate(url, UriKind.Absolute, out var u) ? u.Host.ToLowerInvariant() : "";
     }
 
-    public static bool IsStartPage(string? url) =>
-        !string.IsNullOrEmpty(url) && HostOf(url) == StartHost;
+    public const string GalleryUrl = "https://dymka.start/gallery.html";
+
+    /// <summary>Стартовая страница (новая вкладка). Другие страницы того же служебного адреса (галерея фонов) - не она.</summary>
+    public static bool IsStartPage(string? url)
+    {
+        if (string.IsNullOrEmpty(url) || HostOf(url) != StartHost) return false;
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var u)) return true;
+        return u.AbsolutePath is "/" or "" or "/start.html";
+    }
+
+    /// <summary>Галерея фонов (служебная страница браузера).</summary>
+    public static bool IsGalleryPage(string? url) =>
+        !string.IsNullOrEmpty(url) && HostOf(url) == StartHost && Uri.TryCreate(url, UriKind.Absolute, out var u) && u.AbsolutePath == "/gallery.html";
+
+    /// <summary>Любая служебная страница браузера (стартовая, галерея фонов).</summary>
+    public static bool IsInternalPage(string? url) => !string.IsNullOrEmpty(url) && HostOf(url) == StartHost;
 
     /// <summary>Делит адрес на «домен» и «остальное» для красивого показа в адресной строке.</summary>
     public static (string host, string rest) SplitForDisplay(string? url)

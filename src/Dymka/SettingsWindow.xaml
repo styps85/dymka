@@ -203,22 +203,22 @@
 
         <Border Style="{StaticResource Card}">
           <StackPanel>
-            <TextBlock Text="Обои новой вкладки" Style="{StaticResource CardTitle}"/>
+            <TextBlock Text="Фон новой вкладки" Style="{StaticResource CardTitle}"/>
             <DockPanel>
               <Border DockPanel.Dock="Left" Width="128" Height="72" CornerRadius="10" Background="#F1F4F8" ClipToBounds="True"
                       BorderBrush="{StaticResource Line}" BorderThickness="1" Margin="0,0,16,0">
                 <Grid>
-                  <TextBlock x:Name="WallpaperNone" Text="Без обоев" HorizontalAlignment="Center" VerticalAlignment="Center"
+                  <TextBlock x:Name="WallpaperNone" Text="Без фона" HorizontalAlignment="Center" VerticalAlignment="Center"
                              Foreground="{StaticResource Muted}" FontSize="12"/>
                   <Image x:Name="WallpaperPreview" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Grid>
               </Border>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,8"
-                           Text="Картинка (JPG, PNG, WebP) растягивается на всю новую вкладку. Лучше всего подходят светлые изображения 16:9, например 2560×1440, без важных деталей в центре и по краям."/>
+                           Text="Свой фон - картинка JPG, PNG или WebP, лучше светлая 16:9 (например, 2560×1440). Переключать фоны, включать часы и смену фона каждый день удобнее на самой новой вкладке: кнопка с шестерёнкой внизу справа."/>
                 <StackPanel Orientation="Horizontal">
-                  <Button Content="Выбрать изображение…" Style="{StaticResource SecondaryButton}" Click="WallpaperPick_Click" Padding="14,0"/>
-                  <Button x:Name="WallpaperRemoveBtn" Content="Убрать" Style="{StaticResource SecondaryButton}" Click="WallpaperRemove_Click" Margin="8,0,0,0" Padding="14,0"/>
+                  <Button Content="Свой фон…" Style="{StaticResource SecondaryButton}" Click="WallpaperPick_Click" Padding="14,0"/>
+                  <Button x:Name="WallpaperRemoveBtn" Content="Без фона" Style="{StaticResource SecondaryButton}" Click="WallpaperRemove_Click" Margin="8,0,0,0" Padding="14,0"/>
                 </StackPanel>
               </StackPanel>
             </DockPanel>

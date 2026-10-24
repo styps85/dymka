@@ -79,8 +79,18 @@ public sealed class AppSettings
     /// <summary>Видео со звуком при переходе на другую вкладку продолжается в мини-окне поверх всех окон («картинка в картинке»).</summary>
     public bool AutoPip { get; set; } = true;
 
-    /// <summary>Файл обоев новой вкладки в папке ui (пусто - без обоев).</summary>
+    /// <summary>Фон новой вкладки: путь внутри папки ui, например "wallpapers/dymka-1-sky-waves.jpg" (пусто - первый стандартный).</summary>
     public string Wallpaper { get; set; } = "";
+    /// <summary>Показывать фон на новой вкладке.</summary>
+    public bool WallpaperOn { get; set; } = true;
+    /// <summary>Каждый день новый фон.</summary>
+    public bool WallpaperDaily { get; set; }
+    /// <summary>Фоны по временам года и к праздникам (для фона дня).</summary>
+    public bool WallpaperSeasonal { get; set; }
+    /// <summary>День, когда фон дня выбирался последний раз (yyyy-MM-dd).</summary>
+    public string WallpaperDay { get; set; } = "";
+    /// <summary>Часы и дата на новой вкладке.</summary>
+    public bool ShowClock { get; set; } = true;
 
     /// <summary>Доверять российским сертификатам Минцифры (встроены в браузер) - только для .ru, .рф, .su, .рус и сайтов из списка ниже.</summary>
     public bool TrustRussianCa { get; set; } = true;

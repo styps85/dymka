@@ -173,6 +173,7 @@ public partial class MainWindow : Window
         {
             Directory.CreateDirectory(_uiDir);
             WriteStartPage();
+            EnsureBuiltinWallpapers();
             await AcquireEnvAsync();
         }
         catch (WebView2RuntimeNotFoundException)
@@ -1007,10 +1008,18 @@ public partial class MainWindow : Window
                 }
                 return;
             }
+            if (UrlTools.IsGalleryPage(e.Source))
+            {
+                OnGalleryMessage(core, root.Clone());
+                return;
+            }
             if (!UrlTools.IsStartPage(e.Source)) return;
             var type = root.TryGetProperty("type", out var t) ? t.GetString() : null;
             switch (type)
             {
+                case "ntp":
+                    OnNtpCommand(tab, root);
+                    break;
                 case "container":
                     var cid = root.GetProperty("id").GetString();
                     if (cid != null) Dispatcher.BeginInvoke(new Action(() => _ = MoveStartTabAsync(tab, cid)));
@@ -1055,34 +1064,17 @@ public partial class MainWindow : Window
         }
     }
 
-    /// <summary>Обои новой вкладки: "" - убрать, иначе путь к картинке (копируется в папку ui браузера).</summary>
+    /// <summary>Обои новой вкладки из окна настроек: "" - выключить фон, иначе путь к картинке (копируется в папку фонов).</summary>
     public void ApplyWallpaper(string choice)
     {
-        try
+        if (choice.Length == 0)
         {
-            Directory.CreateDirectory(_uiDir);
-            string name = "";
-            if (choice.Length > 0)
-            {
-                var ext = Path.GetExtension(choice).ToLowerInvariant();
-                if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp" or ".bmp")) ext = ".jpg";
-                name = $"wallpaper-{DateTime.Now:yyyyMMddHHmmss}{ext}";
-                File.Copy(choice, Path.Combine(_uiDir, name), true);
-            }
-            foreach (var f in Directory.GetFiles(_uiDir, "wallpaper-*"))
-                if (Path.GetFileName(f) != name) try { File.Delete(f); } catch { }
-            _settings.Wallpaper = name;
+            _settings.WallpaperOn = false;
             _settings.Save();
-            App.Log(name.Length > 0 ? "Обои новой вкладки: " + Path.GetFileName(choice) : "Обои новой вкладки убраны");
-            foreach (var win in Shared.Windows.ToList())
-                foreach (var t in win._tabs.Where(t => t.IsStart && t.Core != null).ToList())
-                    try { win.SendStartData(t, t.Core!); } catch { }
+            BroadcastStartData();
+            return;
         }
-        catch (Exception ex)
-        {
-            App.Log("Обои: " + ex.Message);
-            Dialogs.Show(this, "Не удалось установить обои", ex.Message, new[] { "Понятно" });
-        }
+        AddCustomWallpaper(choice);
     }
 
     void SendStartData(BrowserTab owner, CoreWebView2 core)
@@ -1109,7 +1101,9 @@ public partial class MainWindow : Window
             sleeping = _tabs.Count(t => t.IsSleeping),
             clearOnExit = _settings.ClearCookiesOnExit,
             engine = _settings.Engine.Name,
-            wallpaper = _settings.Wallpaper,
+            wallpaper = CurrentWallpaper(),
+            wp = WallpaperInfo(),
+            clock = _settings.ShowClock,
         };
         core.PostWebMessageAsJson(JsonSerializer.Serialize(data));
     }
@@ -1610,7 +1604,12 @@ public partial class MainWindow : Window
     {
         ClosePopups();
         base.Activate();
-        var w = new SettingsWindow(_settings, _blocklist.Count) { Owner = this, StartSection = section, UiDir = _uiDir };
+        var cw = CurrentWallpaper();
+        var w = new SettingsWindow(_settings, _blocklist.Count)
+        {
+            Owner = this, StartSection = section,
+            WallpaperPreviewPath = cw.Length > 0 ? Path.Combine(_uiDir, cw.Replace('/', Path.DirectorySeparatorChar)) : null,
+        };
         if (w.ShowDialog() == true)
         {
             if (w.WallpaperChoice != null) ApplyWallpaper(w.WallpaperChoice);

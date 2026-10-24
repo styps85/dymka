@@ -85,6 +85,43 @@
   body.wp .empty { background: rgba(255,255,255,.7); border-radius: 10px; padding: 6px 10px; }
   body.wp .chip { background: rgba(255,255,255,.85); border-color: transparent; backdrop-filter: blur(6px); }
   body.wp .tile.add .ic { background: rgba(255,255,255,.6); }
+  /* часы и дата */
+  .clock { display: none; flex-direction: column; align-items: center; gap: 2px; margin-bottom: -6px; }
+  body.clock-on .clock { display: flex; }
+  body.clock-on .brand { display: none; }
+  .clock .time { font-size: 76px; font-weight: 300; letter-spacing: -0.02em; line-height: 1; font-variant-numeric: tabular-nums; }
+  .clock .date { font-size: 17px; color: var(--ink2); }
+  body.wp .clock .time, body.wp .clock .date { text-shadow: 0 1px 14px rgba(255,255,255,.95); }
+  /* кнопка настроек новой вкладки и её меню */
+  .ntp-btn { position: fixed; right: 20px; bottom: 20px; width: 44px; height: 44px; border-radius: 22px; border: 0; cursor: pointer;
+    background: rgba(255,255,255,.85); box-shadow: 0 1px 3px rgba(27,34,48,.12), 0 6px 18px rgba(27,34,48,.10); display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(8px); transition: transform .15s ease; }
+  .ntp-btn:hover { background: #fff; transform: rotate(30deg); }
+  .ntp-btn.on { background: #fff; }
+  .ntp { position: fixed; right: 20px; bottom: 76px; width: 320px; background: #fff; border-radius: 18px; padding: 14px;
+    box-shadow: 0 1px 2px rgba(27,34,48,.06), 0 18px 46px rgba(27,34,48,.18); border: 1px solid #E3E7EE; z-index: 10; }
+  .ntp[hidden] { display: none; }
+  .ntp h3 { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+  .ntp .row2 { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 36px; font-size: 13.5px; }
+  .ntp .row2 small { display: block; color: var(--muted); font-size: 11.5px; }
+  .ntp .row2.off { opacity: .45; }
+  .sw { position: relative; width: 38px; height: 22px; flex: none; }
+  .sw input { opacity: 0; width: 0; height: 0; position: absolute; }
+  .sw span { position: absolute; inset: 0; border-radius: 11px; background: #CDD4DE; cursor: pointer; transition: background .15s; }
+  .sw span::after { content: ""; position: absolute; left: 3px; top: 3px; width: 16px; height: 16px; border-radius: 8px; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.2); transition: transform .15s; }
+  .sw input:checked + span { background: var(--accent); }
+  .sw input:checked + span::after { transform: translateX(16px); }
+  .thumb { position: relative; width: 100%; aspect-ratio: 16 / 9; border-radius: 12px; margin: 8px 0 10px; background: #EEF1F5 center / cover no-repeat; overflow: hidden; border: 1px solid #E3E7EE; }
+  .thumb.none::before { content: "Фон выключен"; position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 12.5px; }
+  .thumb .nav { position: absolute; right: 8px; bottom: 8px; display: flex; gap: 6px; }
+  .thumb .nav button { width: 30px; height: 30px; border-radius: 15px; border: 0; background: rgba(255,255,255,.92); box-shadow: 0 1px 4px rgba(27,34,48,.2); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .thumb .nav button:hover { background: #fff; }
+  .thumb .cnt { position: absolute; left: 8px; bottom: 8px; background: rgba(255,255,255,.88); border-radius: 9px; padding: 2px 8px; font-size: 11.5px; color: var(--ink2); }
+  .ntp .btns { display: flex; gap: 8px; margin-bottom: 6px; }
+  .ntp .btns .btn { flex: 1; height: 34px; font-size: 12.5px; padding: 0 8px; }
+  .ntp .sep { height: 1px; background: var(--line); margin: 6px 0; }
+  .ntp a.all { display: block; text-align: center; color: var(--accent); font-size: 13px; text-decoration: none; padding: 8px 0 2px; cursor: pointer; }
+  .ntp a.all:hover { text-decoration: underline; }
   dialog { border: 1px solid var(--line); border-radius: 18px; padding: 22px; width: 380px; box-shadow: 0 20px 50px rgba(27,34,48,.18); color: var(--ink); }
   dialog::backdrop { background: rgba(27,34,48,.25); }
   dialog h2 { margin: 0 0 14px; font-size: 17px; }
@@ -98,6 +135,7 @@
 </head>
 <body>
 <main>
+  <div class="clock" id="clock"><div class="time" id="time"></div><div class="date" id="date"></div></div>
   <div class="brand">
     <svg width="46" height="46" viewBox="0 0 120 120" aria-hidden="true"><rect width="120" height="120" rx="30" fill="#3D63DD"/><g fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"><path d="M28 48 q8 -8 16 0 t16 0 t16 0 t16 0"/><path d="M36 64 q8 -8 16 0 t16 0 t16 0" opacity=".8"/><path d="M44 80 q8 -8 16 0 t16 0" opacity=".6"/></g></svg>
     <h1>Дымка</h1>
@@ -120,6 +158,30 @@
   </div>
 </main>
 
+<button class="ntp-btn" id="ntpBtn" type="button" title="Настройки новой вкладки" aria-label="Настройки новой вкладки">
+  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#3D4656" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+</button>
+<div class="ntp" id="ntp" hidden role="dialog" aria-label="Настройки новой вкладки">
+  <h3>Новая вкладка</h3>
+  <label class="row2"><span>Часы и дата</span><span class="sw"><input type="checkbox" id="optClock"><span></span></span></label>
+  <label class="row2"><span>Фон</span><span class="sw"><input type="checkbox" id="optBg"><span></span></span></label>
+  <div class="thumb" id="thumb">
+    <span class="cnt" id="thumbCnt"></span>
+    <div class="nav">
+      <button type="button" id="prevBg" title="Предыдущий фон" aria-label="Предыдущий фон"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B2230" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button type="button" id="nextBg" title="Следующий фон" aria-label="Следующий фон"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#1B2230" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg></button>
+    </div>
+  </div>
+  <div class="btns">
+    <button type="button" class="btn" id="uploadBg">Загрузить свой</button>
+    <button type="button" class="btn" id="galleryBg">Галерея фонов</button>
+  </div>
+  <label class="row2"><span>Новый фон каждый день</span><span class="sw"><input type="checkbox" id="optDaily"><span></span></span></label>
+  <label class="row2" id="rowSeasonal"><span>Времена года и праздники<small>для фона дня</small></span><span class="sw"><input type="checkbox" id="optSeasonal"><span></span></span></label>
+  <div class="sep"></div>
+  <a class="all" id="allSettings">Все настройки браузера</a>
+</div>
+
 <dialog id="addDlg">
   <form method="dialog" id="addForm">
     <h2>Добавить сайт</h2>
@@ -139,6 +201,51 @@
   const wv = window.chrome && window.chrome.webview;
   const send = (m) => { if (wv) wv.postMessage(m); };
 
+  // ---- часы, дата и меню новой вкладки
+  try { if (localStorage.getItem('dymka-clock') !== '0') document.body.classList.add('clock-on'); } catch (e) { document.body.classList.add('clock-on'); }
+  function tick() {
+    const now = new Date();
+    document.getElementById('time').textContent = now.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+    const dt = now.toLocaleDateString('ru-RU', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.getElementById('date').textContent = dt.charAt(0).toUpperCase() + dt.slice(1);
+  }
+  tick(); setInterval(tick, 1000);
+  const ntp = document.getElementById('ntp'), ntpBtn = document.getElementById('ntpBtn');
+  function ntpShow(show) { ntp.hidden = !show; ntpBtn.classList.toggle('on', show); }
+  ntpBtn.addEventListener('click', (e) => { e.stopPropagation(); ntpShow(ntp.hidden); });
+  document.addEventListener('mousedown', (e) => { if (!ntp.hidden && !ntp.contains(e.target) && !ntpBtn.contains(e.target)) ntpShow(false); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !ntp.hidden) ntpShow(false); });
+  const ntpCmd = (action, extra) => send(Object.assign({ type: 'ntp', action: action }, extra || {}));
+  document.getElementById('optClock').addEventListener('change', (e) => {
+    document.body.classList.toggle('clock-on', e.target.checked);
+    try { localStorage.setItem('dymka-clock', e.target.checked ? '1' : '0'); } catch (x) {}
+    ntpCmd('clock', { on: e.target.checked });
+  });
+  document.getElementById('optBg').addEventListener('change', (e) => ntpCmd('bg', { on: e.target.checked }));
+  document.getElementById('optDaily').addEventListener('change', (e) => ntpCmd('daily', { on: e.target.checked }));
+  document.getElementById('optSeasonal').addEventListener('change', (e) => ntpCmd('seasonal', { on: e.target.checked }));
+  document.getElementById('prevBg').addEventListener('click', (e) => { e.preventDefault(); ntpCmd('step', { dir: -1 }); });
+  document.getElementById('nextBg').addEventListener('click', (e) => { e.preventDefault(); ntpCmd('step', { dir: 1 }); });
+  document.getElementById('uploadBg').addEventListener('click', () => ntpCmd('upload'));
+  document.getElementById('galleryBg').addEventListener('click', () => { ntpShow(false); ntpCmd('gallery'); });
+  document.getElementById('allSettings').addEventListener('click', () => { ntpShow(false); ntpCmd('settings'); });
+  function renderNtp(d) {
+    const clockOn = d.clock !== false;
+    document.body.classList.toggle('clock-on', clockOn);
+    try { localStorage.setItem('dymka-clock', clockOn ? '1' : '0'); } catch (e) {}
+    document.getElementById('optClock').checked = clockOn;
+    const wp = d.wp || {};
+    document.getElementById('optBg').checked = !!wp.on;
+    document.getElementById('optDaily').checked = !!wp.daily;
+    document.getElementById('optSeasonal').checked = !!wp.seasonal;
+    document.getElementById('optSeasonal').disabled = !wp.daily;
+    document.getElementById('rowSeasonal').classList.toggle('off', !wp.daily);
+    const th = document.getElementById('thumb');
+    th.style.backgroundImage = wp.on && wp.preview ? 'url("' + encodeURI(wp.preview) + '")' : '';
+    th.classList.toggle('none', !wp.on);
+    document.getElementById('thumbCnt').textContent = wp.count ? ((wp.index || 1) + ' из ' + wp.count) : 'Фонов нет';
+  }
+
   function plural(n, one, few, many) {
     const m10 = n % 10, m100 = n % 100;
     if (m10 === 1 && m100 !== 11) return one;
@@ -147,6 +254,7 @@
   }
 
   function render(d) {
+    renderNtp(d);
     if (d.wallpaper) {
       document.body.classList.add('wp');
       document.body.style.backgroundImage = 'url("' + encodeURI(d.wallpaper) + '")';

@@ -37,11 +37,13 @@
     <Resource Include="Assets\dymka.ico" />
     <Resource Include="Assets\dymka-256.png" />
     <EmbeddedResource Include="Web\start.html" LogicalName="Dymka.Web.start.html" />
+    <EmbeddedResource Include="Web\gallery.html" LogicalName="Dymka.Web.gallery.html" />
     <EmbeddedResource Include="Web\translate.js" LogicalName="Dymka.Web.translate.js" />
     <EmbeddedResource Include="Web\forms.js" LogicalName="Dymka.Web.forms.js" />
     <EmbeddedResource Include="Bundled\russian_trusted_root_ca.crt" LogicalName="Dymka.ru-root.crt" />
     <EmbeddedResource Include="Bundled\russian_trusted_sub_ca.crt" LogicalName="Dymka.ru-sub.crt" />
     <EmbeddedResource Include="Bundled\russian_trusted_sub_ca_2024.crt" LogicalName="Dymka.ru-sub-2024.crt" />
+    <EmbeddedResource Include="Bundled\Wallpapers\*.jpg" LogicalName="Dymka.Wallpapers.%(Filename)%(Extension)" />
     <EmbeddedResource Include="Bundled\vot-extension.zip" LogicalName="Dymka.vot.zip" Condition="Exists('Bundled\vot-extension.zip')" />
   </ItemGroup>
 
