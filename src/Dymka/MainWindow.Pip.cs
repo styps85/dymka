@@ -18,7 +18,8 @@ if(!vs.length)return 'none';
 vs.sort(function(a,b){return b.clientWidth*b.clientHeight-a.clientWidth*a.clientHeight;});
 var v=vs[0];
 if(!v.__dymkaPip){v.__dymkaPip=1;v.addEventListener('leavepictureinpicture',function(){
- try{chrome.webview.postMessage({__dymka:'pip',on:false});}catch(e){}});}
+ // «Вернуться на вкладку» оставляет видео играть, а крестик ставит его на паузу
+ setTimeout(function(){try{chrome.webview.postMessage({__dymka:'pip',on:false,back:!v.paused&&!v.ended});}catch(e){}},200);});}
 await v.requestPictureInPicture();
 return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()";
 
@@ -84,6 +85,21 @@ return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()";
     /// <summary>Сообщение страницы: мини-окно закрыли.</summary>
     void OnPipMessage(BrowserTab tab, JsonElement root)
     {
-        if (root.TryGetProperty("on", out var on) && on.ValueKind == JsonValueKind.False) tab.InPip = false;
+        if (!root.TryGetProperty("on", out var on) || on.ValueKind != JsonValueKind.False) return;
+        bool wasInPip = tab.InPip;
+        tab.InPip = false;
+        // кнопка «Вернуться на вкладку» в мини-окне: показываем окно браузера и эту вкладку
+        if (wasInPip && root.TryGetProperty("back", out var back) && back.ValueKind == JsonValueKind.True)
+            Dispatcher.BeginInvoke(new Action(() => ReturnToTab(tab)));
+    }
+
+    /// <summary>Выводит окно браузера на передний план и открывает вкладку.</summary>
+    public void ReturnToTab(BrowserTab tab)
+    {
+        if (!_tabs.Contains(tab)) return;
+        if (WindowState == System.Windows.WindowState.Minimized) WindowState = System.Windows.WindowState.Normal;
+        base.Activate();
+        Activate(tab);
+        App.Log("Возврат из мини-окна на вкладку " + UrlTools.HostOf(tab.Url));
     }
 }

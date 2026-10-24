@@ -10,6 +10,11 @@ public partial class SettingsWindow : Window
     bool _resetPermissions;
 
     public bool UpdateListsRequested { get; private set; }
+
+    /// <summary>Папка ui с текущими обоями (для предпросмотра).</summary>
+    public string? UiDir { get; init; }
+    /// <summary>Выбор обоев: null - не меняли, "" - убрать, иначе путь к новому файлу.</summary>
+    public string? WallpaperChoice { get; private set; }
     public bool VideoTranslationChanged { get; private set; }
 
     static readonly (int minutes, string text)[] SleepChoices =
@@ -24,6 +29,7 @@ public partial class SettingsWindow : Window
     {
         _s = settings;
         InitializeComponent();
+        Loaded += (_, _) => ShowWallpaperPreview(!string.IsNullOrEmpty(_s.Wallpaper) && UiDir != null ? Path.Combine(UiDir, _s.Wallpaper) : null);
         Loaded += (_, _) =>
         {
             if (StartSection == "video") VideoCard.BringIntoView();
@@ -88,6 +94,47 @@ public partial class SettingsWindow : Window
             .Where(d => d.Length > 0)
             .Distinct()
             .ToList();
+
+    void ShowWallpaperPreview(string? file)
+    {
+        WallpaperPreview.Source = null;
+        if (file != null && File.Exists(file))
+        {
+            try
+            {
+                var img = new System.Windows.Media.Imaging.BitmapImage();
+                img.BeginInit();
+                img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+                img.DecodePixelWidth = 256;
+                img.UriSource = new Uri(file);
+                img.EndInit();
+                img.Freeze();
+                WallpaperPreview.Source = img;
+            }
+            catch { }
+        }
+        bool has = WallpaperPreview.Source != null;
+        WallpaperNone.Visibility = has ? Visibility.Collapsed : Visibility.Visible;
+        WallpaperRemoveBtn.IsEnabled = has || (file != null && WallpaperChoice != "");
+    }
+
+    void WallpaperPick_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFileDialog
+        {
+            Title = "Обои новой вкладки",
+            Filter = "Изображения (*.jpg;*.jpeg;*.png;*.webp;*.bmp)|*.jpg;*.jpeg;*.png;*.webp;*.bmp",
+        };
+        if (dlg.ShowDialog(this) != true) return;
+        WallpaperChoice = dlg.FileName;
+        ShowWallpaperPreview(dlg.FileName);
+    }
+
+    void WallpaperRemove_Click(object sender, RoutedEventArgs e)
+    {
+        WallpaperChoice = "";
+        ShowWallpaperPreview(null);
+    }
 
     void Save_Click(object sender, RoutedEventArgs e)
     {

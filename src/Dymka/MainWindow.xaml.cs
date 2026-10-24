@@ -1055,6 +1055,36 @@ public partial class MainWindow : Window
         }
     }
 
+    /// <summary>Обои новой вкладки: "" - убрать, иначе путь к картинке (копируется в папку ui браузера).</summary>
+    public void ApplyWallpaper(string choice)
+    {
+        try
+        {
+            Directory.CreateDirectory(_uiDir);
+            string name = "";
+            if (choice.Length > 0)
+            {
+                var ext = Path.GetExtension(choice).ToLowerInvariant();
+                if (ext is not (".jpg" or ".jpeg" or ".png" or ".webp" or ".bmp")) ext = ".jpg";
+                name = $"wallpaper-{DateTime.Now:yyyyMMddHHmmss}{ext}";
+                File.Copy(choice, Path.Combine(_uiDir, name), true);
+            }
+            foreach (var f in Directory.GetFiles(_uiDir, "wallpaper-*"))
+                if (Path.GetFileName(f) != name) try { File.Delete(f); } catch { }
+            _settings.Wallpaper = name;
+            _settings.Save();
+            App.Log(name.Length > 0 ? "Обои новой вкладки: " + Path.GetFileName(choice) : "Обои новой вкладки убраны");
+            foreach (var win in Shared.Windows.ToList())
+                foreach (var t in win._tabs.Where(t => t.IsStart && t.Core != null).ToList())
+                    try { win.SendStartData(t, t.Core!); } catch { }
+        }
+        catch (Exception ex)
+        {
+            App.Log("Обои: " + ex.Message);
+            Dialogs.Show(this, "Не удалось установить обои", ex.Message, new[] { "Понятно" });
+        }
+    }
+
     void SendStartData(BrowserTab owner, CoreWebView2 core)
     {
         var info = AppSettings.ContainerById(owner.Container);
@@ -1079,6 +1109,7 @@ public partial class MainWindow : Window
             sleeping = _tabs.Count(t => t.IsSleeping),
             clearOnExit = _settings.ClearCookiesOnExit,
             engine = _settings.Engine.Name,
+            wallpaper = _settings.Wallpaper,
         };
         core.PostWebMessageAsJson(JsonSerializer.Serialize(data));
     }
@@ -1251,6 +1282,7 @@ public partial class MainWindow : Window
         if (IsInsideButton(e.OriginalSource)) return;
         if ((sender as FrameworkElement)?.Tag is BrowserTab tab)
         {
+            BeginTabDrag(tab, sender, e);   // до Activate: список может перестроиться
             Activate(tab);
             e.Handled = true;
         }
@@ -1578,9 +1610,10 @@ public partial class MainWindow : Window
     {
         ClosePopups();
         base.Activate();
-        var w = new SettingsWindow(_settings, _blocklist.Count) { Owner = this, StartSection = section };
+        var w = new SettingsWindow(_settings, _blocklist.Count) { Owner = this, StartSection = section, UiDir = _uiDir };
         if (w.ShowDialog() == true)
         {
+            if (w.WallpaperChoice != null) ApplyWallpaper(w.WallpaperChoice);
             _settings.Save();
             ApplyLayout();
             UpdateToolbar();

@@ -915,7 +915,9 @@ sealed class SelfTest
             foreach (var sw2 in Application.Current.Windows.OfType<SettingsWindow>().ToList()) sw2.Close();
             Check(_w.Tabs.Count == tabsBefore, "служебная страница Edge не открывается отдельной вкладкой или окном");
 
-            _w.Activate(tab);
+            // «Вернуться на вкладку» в мини-окне: окно закрывается, а видео продолжает играть
+            await core.ExecuteScriptAsync("document.exitPictureInPicture()");
+            Check(await WaitFor(() => _w.ActiveTab == tab, 8), "кнопка «Вернуться на вкладку» в мини-окне открывает вкладку с видео");
             await Task.Delay(1500);
             var inPip = await core.ExecuteScriptAsync("!!document.pictureInPictureElement");
             Check(!tab.InPip && inPip == "false", "при возвращении на вкладку видео вернулось на страницу");
@@ -979,6 +981,62 @@ sealed class SelfTest
         {
             try { w2?.Close(); } catch { }
             await Task.Delay(800);
+        }
+    }
+
+    /// <summary>Обои новой вкладки и перетаскивание вкладок.</summary>
+    async Task TestWallpaperAndDragAsync()
+    {
+        try
+        {
+            // картинка-градиент для обоев
+            var file = Path.Combine(_dir, "test-wallpaper.png");
+            var wb = new System.Windows.Media.Imaging.WriteableBitmap(640, 360, 96, 96, System.Windows.Media.PixelFormats.Bgra32, null);
+            var px = new byte[640 * 360 * 4];
+            for (int y = 0; y < 360; y++)
+                for (int x = 0; x < 640; x++)
+                {
+                    int i = (y * 640 + x) * 4;
+                    px[i] = (byte)(230 + x * 25 / 640); px[i + 1] = (byte)(205 + y * 40 / 360); px[i + 2] = (byte)(245 - x * 20 / 640); px[i + 3] = 255;
+                }
+            wb.WritePixels(new Int32Rect(0, 0, 640, 360), px, 640 * 4, 0);
+            Native.SavePng(wb, file);
+            _w.ApplyWallpaper(file);
+            Check(_w.Settings.Wallpaper.StartsWith("wallpaper-") && File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper)),
+                "обои скопированы в папку браузера: " + _w.Settings.Wallpaper);
+            var tab = await _w.NewTabAsync(null, activate: true);
+            await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
+            bool shown = false;
+            for (int i = 0; i < 20 && !shown; i++)
+            {
+                await Task.Delay(300);
+                var bg = await tab.Core!.ExecuteScriptAsync("getComputedStyle(document.body).backgroundImage");
+                shown = bg.Contains("wallpaper-");
+            }
+            Check(shown, "на новой вкладке показаны обои");
+            await Task.Delay(600);
+            Capture(_w, "48-wallpaper");
+            _w.ApplyWallpaper("");
+            Check(_w.Settings.Wallpaper == "" && !Directory.GetFiles(Path.Combine(_w.DataDir, "ui"), "wallpaper-*").Any(), "обои убраны, файл удалён");
+            _w.CloseTab(tab, remember: false);
+
+            // перетаскивание: первая вкладка встаёт на место третьей
+            var order = _w.VisibleTabOrderForTest;
+            if (order.Count >= 3)
+            {
+                var a = order[0]; var c = order[2];
+                _w.MoveTabTo(a, c);
+                var after = _w.VisibleTabOrderForTest;
+                Check(after.IndexOf(a) == 2 && after.IndexOf(c) == 1, "перетаскивание вкладки меняет порядок вкладок");
+                _w.MoveTabTo(a, after[0]);
+                Check(_w.VisibleTabOrderForTest[0] == a, "вкладку можно вернуть на прежнее место");
+            }
+            else Line("ИНФО для проверки перетаскивания мало вкладок: " + order.Count);
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке обоев и перетаскивания: " + ex);
+            _failed++;
         }
     }
 
@@ -1365,6 +1423,7 @@ sealed class SelfTest
             await TestDownloadsAsync();
             await TestAudioAndPipAsync();
             await TestTabMenuAsync();
+            await TestWallpaperAndDragAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();

@@ -79,6 +79,9 @@ public sealed class AppSettings
     /// <summary>Видео со звуком при переходе на другую вкладку продолжается в мини-окне поверх всех окон («картинка в картинке»).</summary>
     public bool AutoPip { get; set; } = true;
 
+    /// <summary>Файл обоев новой вкладки в папке ui (пусто - без обоев).</summary>
+    public string Wallpaper { get; set; } = "";
+
     /// <summary>Доверять российским сертификатам Минцифры (встроены в браузер) - только для .ru, .рф, .su, .рус и сайтов из списка ниже.</summary>
     public bool TrustRussianCa { get; set; } = true;
     public List<string> RussianCaSites { get; set; } = new();

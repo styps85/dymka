@@ -77,6 +77,14 @@
   .tile.add { cursor: pointer; background: none; border: 0; font: inherit; font-size: 12px; font-weight: 500; color: var(--ink2); }
   .stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; margin-top: 6px; }
   .chip { display: flex; align-items: center; gap: 8px; padding: 9px 14px; background: #fff; border: 1px solid var(--line); border-radius: 14px; font-size: 12.5px; color: var(--ink2); }
+  /* обои новой вкладки */
+  body.wp { background: var(--ground) center / cover no-repeat fixed; }
+  body.wp .brand h1 { text-shadow: 0 1px 12px rgba(255,255,255,.9); }
+  body.wp .seg { background: rgba(255,255,255,.55); backdrop-filter: blur(8px); }
+  body.wp .tile .name { background: rgba(255,255,255,.78); padding: 2px 7px; border-radius: 8px; }
+  body.wp .empty { background: rgba(255,255,255,.7); border-radius: 10px; padding: 6px 10px; }
+  body.wp .chip { background: rgba(255,255,255,.85); border-color: transparent; backdrop-filter: blur(6px); }
+  body.wp .tile.add .ic { background: rgba(255,255,255,.6); }
   dialog { border: 1px solid var(--line); border-radius: 18px; padding: 22px; width: 380px; box-shadow: 0 20px 50px rgba(27,34,48,.18); color: var(--ink); }
   dialog::backdrop { background: rgba(27,34,48,.25); }
   dialog h2 { margin: 0 0 14px; font-size: 17px; }
@@ -127,6 +135,7 @@
 </dialog>
 
 <script>
+  try { const w0 = localStorage.getItem('dymka-wp'); if (w0) { document.body.classList.add('wp'); document.body.style.backgroundImage = 'url("' + encodeURI(w0) + '")'; } } catch (e) {}
   const wv = window.chrome && window.chrome.webview;
   const send = (m) => { if (wv) wv.postMessage(m); };
 
@@ -138,6 +147,15 @@
   }
 
   function render(d) {
+    if (d.wallpaper) {
+      document.body.classList.add('wp');
+      document.body.style.backgroundImage = 'url("' + encodeURI(d.wallpaper) + '")';
+      try { localStorage.setItem('dymka-wp', d.wallpaper); } catch (e) {}
+    } else {
+      document.body.classList.remove('wp');
+      document.body.style.backgroundImage = '';
+      try { localStorage.removeItem('dymka-wp'); } catch (e) {}
+    }
     const seg = document.getElementById('seg');
     seg.textContent = '';
     for (const c of (d.containers || [])) {
