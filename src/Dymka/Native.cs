@@ -166,7 +166,6 @@ static class Native
     }
 
     /// <summary>Снимок области экрана, занятой окном (вместе с содержимым WebView2 и всплывающими панелями).</summary>
-    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
 
     /// <summary>Снимок всего основного экрана (для самопроверки окон движка поверх «Дымки»).</summary>
     public static BitmapSource? CaptureScreen()
