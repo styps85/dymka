@@ -201,7 +201,7 @@
           </StackPanel>
         </Border>
 
-        <Border Style="{StaticResource Card}">
+        <Border x:Name="VideoCard" Style="{StaticResource Card}">
           <StackPanel>
             <TextBlock Text="Видео" Style="{StaticResource CardTitle}"/>
             <DockPanel>

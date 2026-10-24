@@ -904,6 +904,17 @@ sealed class SelfTest
                 if (shot != null) { Native.SavePng(shot, Path.Combine(_dir, "46-pip-screen.png")); Line("снимок 46-pip-screen.png"); }
             }
             catch (Exception ex) { Line("снимок экрана: " + ex.Message); }
+            // служебная страница Edge (так открывает настройки шестерёнка мини-окна) - вместо неё настройки «Дымки»
+            int tabsBefore = _w.Tabs.Count;
+            await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", System.Text.Json.JsonSerializer.Serialize(new
+            {
+                expression = "window.open('edge://settings/appearance/browserBehavior','_blank');1", userGesture = true, returnByValue = true,
+            }));
+            bool settingsOpened = await WaitFor(() => Application.Current.Windows.OfType<SettingsWindow>().Any(), 5);
+            Line($"ИНФО ссылка на настройки Edge: окно настроек «Дымки» {(settingsOpened ? "открылось" : "не открылось")}, вкладок {tabsBefore} -> {_w.Tabs.Count}");
+            foreach (var sw2 in Application.Current.Windows.OfType<SettingsWindow>().ToList()) sw2.Close();
+            Check(_w.Tabs.Count == tabsBefore, "служебная страница Edge не открывается отдельной вкладкой или окном");
+
             _w.Activate(tab);
             await Task.Delay(1500);
             var inPip = await core.ExecuteScriptAsync("!!document.pictureInPictureElement");

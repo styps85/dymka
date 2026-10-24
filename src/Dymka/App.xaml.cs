@@ -28,7 +28,33 @@ public partial class App : Application
             if (fi.Exists && fi.Length > 512 * 1024) fi.Delete();
             File.AppendAllText(_logPath, $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}");
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // папка данных недоступна для записи - пишем во временную папку Windows, чтобы было что разбирать
+            LastWriteError = ex.Message;
+            try { File.AppendAllText(Path.Combine(Path.GetTempPath(), "Dymka-log.txt"), $"{DateTime.Now:yyyy-MM-dd HH:mm:ss} {message}{Environment.NewLine}"); }
+            catch { }
+        }
+    }
+
+    /// <summary>Последняя ошибка записи в папку данных (пусто - запись работает).</summary>
+    public static string LastWriteError { get; private set; } = "";
+
+    /// <summary>Проверяет, что в папку данных можно писать; возвращает текст ошибки или пусто.</summary>
+    public static string CheckDataFolderWritable(string dataDir)
+    {
+        try
+        {
+            var probe = Path.Combine(dataDir, "write-test.tmp");
+            File.WriteAllText(probe, DateTime.Now.ToString("O"));
+            File.Delete(probe);
+            return "";
+        }
+        catch (Exception ex)
+        {
+            LastWriteError = ex.Message;
+            return ex.Message;
+        }
     }
 
     protected override void OnStartup(StartupEventArgs e)
@@ -64,7 +90,9 @@ public partial class App : Application
             }
             catch { }
         }
-        Log($"Запуск Дымки {VersionText}, движок {EngineVersionSafe()}");
+        Log($"Запуск Дымки {VersionText}, движок {EngineVersionSafe()}, папка данных {dataDir}, процесс {Environment.ProcessId}, файл {Environment.ProcessPath}");
+        DataWriteError = CheckDataFolderWritable(dataDir);
+        if (DataWriteError.Length > 0) Log("Папка данных недоступна для записи: " + DataWriteError);
         TaskScheduler.UnobservedTaskException += (_, ev) => { Log("Фоновая ошибка: " + ev.Exception); ev.SetObserved(); };
 
         var settings = AppSettings.Load(Path.Combine(dataDir, "settings.json"));
@@ -83,6 +111,9 @@ public partial class App : Application
     }
 
     static string _runFlag = "";
+
+    /// <summary>Ошибка записи в папку данных при запуске (пусто - всё в порядке).</summary>
+    public static string DataWriteError { get; private set; } = "";
 
     static string EngineVersionSafe()
     {

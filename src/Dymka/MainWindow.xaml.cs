@@ -220,6 +220,12 @@ public partial class MainWindow : Window
 
         _sessionReady = true;
         ScheduleSessionSave();
+        if (first && App.DataWriteError.Length > 0 && _selfTestDir == null)
+            Dialogs.Show(this, "Данные не сохраняются",
+                "«Дымка» не может записывать в свою папку данных:\n" + _dataDir + "\n\n" + App.DataWriteError + "\n\n" +
+                "Настройки, пароли, карты и открытые вкладки не сохранятся после закрытия. Обычно запись блокирует антивирус " +
+                "или «Контролируемый доступ к папкам» в Защитнике Windows - разрешите «Дымке» запись в эту папку.",
+                new[] { "Понятно" });
         _sleepTimer.Start();
         _memTimer.Start();
         UpdateMemory();
@@ -875,6 +881,15 @@ public partial class MainWindow : Window
 
     async void OnNewWindowRequested(BrowserTab source, CoreWebView2NewWindowRequestedEventArgs e)
     {
+        var uri = e.Uri ?? "";
+        if (uri.StartsWith("edge:", StringComparison.OrdinalIgnoreCase) || uri.StartsWith("chrome:", StringComparison.OrdinalIgnoreCase))
+        {
+            // служебные страницы Edge (например, шестерёнка в мини-окне с видео) - в «Дымке» вместо них её настройки
+            e.Handled = true;
+            App.Log("Служебная страница движка: " + uri);
+            Dispatcher.BeginInvoke(new Action(() => OpenSettings(uri.Contains("appearance", StringComparison.OrdinalIgnoreCase) ? "video" : null)));
+            return;
+        }
         var deferral = e.GetDeferral();
         try
         {
@@ -1545,10 +1560,14 @@ public partial class MainWindow : Window
             try { t.Core?.Reload(); } catch { }
     }
 
-    void Settings_Click(object sender, RoutedEventArgs e)
+    void Settings_Click(object sender, RoutedEventArgs e) => OpenSettings(null);
+
+    /// <summary>Окно настроек; section - раздел, к которому прокрутить (например, "video").</summary>
+    public void OpenSettings(string? section)
     {
         ClosePopups();
-        var w = new SettingsWindow(_settings, _blocklist.Count) { Owner = this };
+        base.Activate();
+        var w = new SettingsWindow(_settings, _blocklist.Count) { Owner = this, StartSection = section };
         if (w.ShowDialog() == true)
         {
             _settings.Save();
@@ -1582,7 +1601,11 @@ public partial class MainWindow : Window
             $"Движок: Microsoft Edge WebView2 {engine}.\n" +
             $"В списке блокировки доменов: {_blocklist.Count:N0}.\n" +
             $"Заблокировано сегодня: {_settings.BlockedToday:N0}.\n\n" +
-            "Данные браузера хранятся в папке:\n" + _dataDir,
+            "Данные браузера хранятся в папке:\n" + _dataDir + "\n" +
+            (App.LastWriteError.Length == 0 && App.CheckDataFolderWritable(_dataDir).Length == 0
+                ? "Запись в папку работает."
+                : "Запись в папку НЕ работает: " + App.LastWriteError + "\nНастройки, пароли и вкладки не сохраняются. Возможно, запись блокирует антивирус " +
+                  "или «Контролируемый доступ к папкам» Windows."),
             new[] { "Закрыть" });
     }
 

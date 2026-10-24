@@ -17,10 +17,17 @@ public partial class SettingsWindow : Window
         (5, "5 минут"), (15, "15 минут"), (30, "30 минут"), (60, "1 час"), (0, "Никогда"),
     };
 
+    /// <summary>Раздел, к которому прокрутить при открытии ("video").</summary>
+    public string? StartSection { get; init; }
+
     public SettingsWindow(AppSettings settings, int blocklistCount)
     {
         _s = settings;
         InitializeComponent();
+        Loaded += (_, _) =>
+        {
+            if (StartSection == "video") VideoCard.BringIntoView();
+        };
 
         LayoutTop.IsChecked = _s.Layout != "side";
         LayoutSide.IsChecked = _s.Layout == "side";
