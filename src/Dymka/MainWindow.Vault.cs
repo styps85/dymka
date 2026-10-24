@@ -70,14 +70,21 @@ public partial class MainWindow
         public required string Source { get; init; }
         public required Func<string, Task<string>> Exec { get; init; }
         public bool InFrame { get; init; }
+        public CoreWebView2Frame? Frame { get; init; }
         public string Host => UrlTools.HostOf(Source);
     }
+
+    /// <summary>Встроенные окна (фреймы) каждой вкладки, включая вложенные, - чтобы заполнять формы оплаты,
+    /// у которых поля разнесены по разным окнам.</summary>
+    readonly Dictionary<BrowserTab, List<CoreWebView2Frame>> _frames = new();
+    static bool? _nestedFrames;
 
     readonly DispatcherTimer _fillBlurTimer = new() { Interval = TimeSpan.FromMilliseconds(350) };
     bool _fillBlurHooked;
     List<FieldInfo>? _fillFields;
 
-    sealed record FillRow(string Title, string Sub, Action Act, List<(string label, Action act)>? Chips = null, bool Muted = false);
+    sealed record FillRow(string Title, string Sub, Action Act, List<(string label, Action act)>? Chips = null, bool Muted = false,
+        string? Badge = null, string? BadgeColor = null, string? Right = null);
 
     readonly List<FillRow> _fillRows = new();
 
@@ -88,10 +95,28 @@ public partial class MainWindow
             MaxLength = f.TryGetProperty("ml", out var ml) && ml.ValueKind == JsonValueKind.Number ? ml.GetInt32() : 0,
         }).ToList();
 
-    void HookFrame(BrowserTab tab, CoreWebView2Frame frame)
+    void HookFrame(BrowserTab tab, CoreWebView2Frame frame, int depth = 1)
     {
         try
         {
+            if (!_frames.TryGetValue(tab, out var list)) _frames[tab] = list = new List<CoreWebView2Frame>();
+            list.Add(frame);
+            frame.Destroyed += (_, _) => { if (_frames.TryGetValue(tab, out var l)) l.Remove(frame); };
+            frame.NavigationStarting += (_, e) =>
+            {
+                var h = UrlTools.HostOf(e.Uri);
+                if (h.Length > 0 && h != "about") App.Log($"Фрейм (уровень {depth}): {h}");
+            };
+            // вложенные фреймы (окно в окне - так устроены формы оплаты Яндекс Пэй и банков);
+            // событие есть не во всех версиях движка, поэтому подписка через отражение
+            var ev = typeof(CoreWebView2Frame).GetEvent("FrameCreated");
+            if (_nestedFrames == null)
+            {
+                _nestedFrames = ev != null;
+                App.Log("Вложенные фреймы: " + (ev != null ? "поддерживаются" : "не поддерживаются этой версией движка"));
+            }
+            if (ev != null && depth < 4)
+                ev.AddEventHandler(frame, new EventHandler<CoreWebView2FrameCreatedEventArgs>((_, fe) => HookFrame(tab, fe.Frame, depth + 1)));
             frame.WebMessageReceived += (_, e) =>
             {
                 try
@@ -100,8 +125,8 @@ public partial class MainWindow
                     var root = doc.RootElement;
                     if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("__dymka", out var k)) return;
                     var kind = k.GetString();
-                    if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit")
-                        OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = frame.ExecuteScriptAsync, InFrame = true }, kind, root);
+                    if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit")
+                        OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = frame.ExecuteScriptAsync, InFrame = true, Frame = frame }, kind, root);
                 }
                 catch (Exception ex) { App.Log("Сообщение из фрейма: " + ex.Message); }
             };
@@ -136,6 +161,11 @@ public partial class MainWindow
                 break;
             case "pw-submit":
                 OnPasswordSubmitted(tab, target, Str(root, "user"), Str(root, "pass"));
+                break;
+            case "card-submit":
+                var fl = ParseFields(root);
+                var vals = root.GetProperty("fields").EnumerateArray().Select(f => Str(f, "v")).ToList();
+                OnCardSubmitted(target, fl, vals);
                 break;
         }
     }
@@ -259,7 +289,8 @@ public partial class MainWindow
             foreach (var c in cards)
             {
                 var card = c;
-                _fillRows.Add(new FillRow(card.Title, card.Summary, () => FillBankCard(target, card)));
+                _fillRows.Add(new FillRow(card.Title, card.Sub, () => FillBankCard(tab, target, card),
+                    Badge: card.BadgeText, BadgeColor: card.BadgeColor, Right: "•• " + card.Last4));
             }
         }
         _fillRows.Add(new FillRow("Управление банковскими картами…", "", () => OpenVaultWindow("bankcards"), Muted: true));
@@ -285,7 +316,30 @@ public partial class MainWindow
                 panel.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line"), Margin = new Thickness(10, 4, 10, 4) });
             else if (r.Muted)
                 panel.Children.Add(new Border { Height = 1, Background = (Brush)FindResource("Line"), Margin = new Thickness(10, 4, 10, 2) });
-            var btn = new Button { Style = (Style)FindResource("MenuRow"), Height = double.NaN, MinHeight = 40, Padding = new Thickness(0, 8, 0, 8), Content = content, Focusable = false };
+            object rowContent = content;
+            if (r.Badge != null)
+            {
+                // значок карты: буквы банка на цветной плашке и последние цифры справа
+                var dock = new DockPanel();
+                var badge = new Border
+                {
+                    Width = 34, Height = 34, CornerRadius = new CornerRadius(9), Background = BrushCache.Get(r.BadgeColor ?? "#3D63DD"),
+                    Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
+                    Child = new TextBlock { Text = r.Badge, Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 11.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+                };
+                DockPanel.SetDock(badge, Dock.Left);
+                dock.Children.Add(badge);
+                if (r.Right != null)
+                {
+                    var right = new TextBlock { Text = r.Right, FontWeight = FontWeights.SemiBold, FontSize = 13.5, VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(10, 0, 0, 0) };
+                    DockPanel.SetDock(right, Dock.Right);
+                    dock.Children.Add(right);
+                }
+                content.VerticalAlignment = VerticalAlignment.Center;
+                dock.Children.Add(content);
+                rowContent = dock;
+            }
+            var btn = new Button { Style = (Style)FindResource("MenuRow"), Height = double.NaN, MinHeight = 40, Padding = new Thickness(0, 8, 0, 8), Content = rowContent, Focusable = false };
             btn.Click += (_, _) => { FillPopup.IsOpen = false; r.Act(); };
             panel.Children.Add(btn);
             if (r.Chips != null)
@@ -349,16 +403,49 @@ public partial class MainWindow
         catch (Exception ex) { App.Log("Автозаполнение: " + ex.Message); }
     }
 
-    void FillBankCard(FormTarget target, BankCard card)
+    void FillBankCard(BrowserTab tab, FormTarget target, BankCard card)
     {
         if (_fillFields == null) return;
         var pairs = FormFill.BuildBankCard(card, _fillFields).Select(x => new { i = x.Index, v = x.Value }).ToList();
-        if (pairs.Count == 0) return;
         int cvc = FormFill.CvcIndex(_fillFields);
-        try { _ = target.Exec($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)},{cvc})"); }
-        catch (Exception ex) { App.Log("Банковская карта: " + ex.Message); }
+        if (pairs.Count > 0)
+        {
+            try { _ = target.Exec($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)},{cvc})"); }
+            catch (Exception ex) { App.Log("Банковская карта: " + ex.Message); }
+        }
         App.Log($"Банковская карта •••• {card.Last4} подставлена на {target.Host}" + (target.InFrame ? " (форма оплаты во фрейме)" : ""));
-        ShowToast(cvc >= 0 ? "Введите код CVC с обратной стороны карты - он не хранится" : "Данные карты подставлены. Код CVC не хранится", seconds: 4);
+        // остальные поля оплаты могут быть в других встроенных окнах - заполняем и их
+        _ = FillCardInOtherDocumentsAsync(tab, target, card, cvc < 0);
+        ShowToast("Введите код CVC с обратной стороны карты - он не хранится", seconds: 4);
+    }
+
+    async Task FillCardInOtherDocumentsAsync(BrowserTab tab, FormTarget origin, BankCard card, bool focusCvc)
+    {
+        var docs = new List<(string name, Func<string, Task<string>> exec)>();
+        if (origin.InFrame && tab.Core is { } top) docs.Add(("страница", top.ExecuteScriptAsync));
+        if (_frames.TryGetValue(tab, out var frames))
+            foreach (var f in frames.ToList())
+                if (f != origin.Frame) docs.Add(("фрейм", f.ExecuteScriptAsync));
+        int filled = 0;
+        foreach (var (name, exec) in docs)
+        {
+            try
+            {
+                var raw = await exec("window.__dymkaForms ? window.__dymkaForms.describeAll() : ''");
+                var json = raw.Length > 2 ? JsonSerializer.Deserialize<string>(raw) : null;
+                if (string.IsNullOrEmpty(json)) continue;
+                using var doc = JsonDocument.Parse(json);
+                var fields = ParseFields(doc.RootElement);
+                var pairs = FormFill.BuildBankCard(card, fields).Select(x => new { i = x.Index, v = x.Value }).ToList();
+                int cvc = focusCvc ? FormFill.CvcIndex(fields) : -1;
+                if (pairs.Count == 0 && cvc < 0) continue;
+                await exec($"window.__dymkaForms && window.__dymkaForms.fill({JsonSerializer.Serialize(pairs)},{cvc})");
+                if (cvc >= 0) focusCvc = false;
+                filled += pairs.Count;
+            }
+            catch (Exception ex) { App.Log($"Карта в другом окне ({name}): {ex.Message}"); }
+        }
+        if (filled > 0) App.Log($"Банковская карта: заполнено полей в других окнах формы - {filled}");
     }
 
     /// <summary>«Заполнить карточкой» из меню правой кнопки - даже если поле не распознано.</summary>
@@ -439,6 +526,62 @@ public partial class MainWindow
         if (!TheVault.Data!.NeverSave.Contains(host)) TheVault.Data!.NeverSave.Add(host);
         TheVault.Save();
         ShowToast("Для " + host + " пароль больше предлагаться не будет");
+    }
+
+    // ===================================================================== сохранить карту?
+
+    BankCard? _pendingCard;
+
+    void OnCardSubmitted(FormTarget target, List<FieldInfo> fields, List<string> values)
+    {
+        if (!_settings.OfferSaveCards) return;
+        var card = FormFill.CardFromForm(fields, values);
+        if (card == null) return;
+        var v = TheVault;
+        if (v.Exists && (v.IsUnlocked || !v.HasMasterPassword) && v.Data!.BankCards.Any(c => c.Number == card.Number)) return;
+        _pendingCard = card;
+        ScTitle.Text = "Сохранить карту в «Дымке»?";
+        ScCard.Text = card.Summary + (card.Holder.Length > 0 ? " · " + card.Holder : "");
+        ScName.Text = card.Title;
+        ScBank.Items.Clear();
+        ScBank.Items.Add("Банк не указан");
+        foreach (var b in CardTools.Banks) ScBank.Items.Add(b.Name);
+        ScBank.SelectedIndex = 0;
+        SaveCardPopup.IsOpen = true;
+        App.Log($"Предложено сохранить карту •••• {card.Last4} ({target.Host})");
+    }
+
+    public bool SaveCardPromptOpen => SaveCardPopup.IsOpen;
+
+    void ScSave_Click(object sender, RoutedEventArgs e) => ConfirmSaveCard();
+
+    public void ConfirmSaveCard()
+    {
+        SaveCardPopup.IsOpen = false;
+        var c = _pendingCard;
+        _pendingCard = null;
+        if (c == null || !EnsureVaultOpen()) return;
+        var bank = ScBank.SelectedItem as string;
+        c.Bank = bank == null || bank == "Банк не указан" ? "" : bank;
+        c.Title = string.IsNullOrWhiteSpace(ScName.Text) ? (c.Bank.Length > 0 ? c.Bank : c.Title) : ScName.Text.Trim();
+        TheVault.Data!.BankCards.Add(c);
+        TheVault.Save();
+        ShowToast("Карта сохранена (без кода CVC)");
+    }
+
+    void ScLater_Click(object sender, RoutedEventArgs e)
+    {
+        SaveCardPopup.IsOpen = false;
+        _pendingCard = null;
+    }
+
+    void ScNever_Click(object sender, RoutedEventArgs e)
+    {
+        SaveCardPopup.IsOpen = false;
+        _pendingCard = null;
+        _settings.OfferSaveCards = false;
+        _settings.Save();
+        ShowToast("Больше не буду предлагать. Включить снова: «Пароли и автозаполнение» - «Защита»", seconds: 5);
     }
 
     // ===================================================================== окно паролей и карточек

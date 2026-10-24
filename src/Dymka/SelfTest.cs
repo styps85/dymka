@@ -822,14 +822,16 @@ sealed class SelfTest
             if (vw != null)
             {
                 vw.Topmost = true;
-                vw.FillBankEditorForTest("Сбер зарплатная", "2202 2000 1234 5672", "ivan ivanov", "05/28");
+                vw.FillBankEditorForTest("Сбер зарплатная", "2202200012345672", "ivan ivanov", "0528", "СберБанк");
+                Check(vw.BankNumberTextForTest == "2202 2000 1234 5672", "номер карты при вводе сразу разбивается по 4 цифры: " + vw.BankNumberTextForTest);
+                Check(vw.BankExpTextForTest == "05/28", "в сроке косая черта ставится сама: " + vw.BankExpTextForTest);
                 Check(vw.SaveBankFromEditor(askOnTypo: false), "банковская карта сохранена");
                 await Task.Delay(700);
                 Capture(vw, "38-vault-bank");
                 vw.Close();
             }
             var bc = Shared.Vault.Data?.BankCards.FirstOrDefault();
-            Check(bc != null && bc.Number == "2202200012345672" && bc.ExpYear == 2028 && bc.Holder == "IVAN IVANOV", "данные карты: номер, срок, владелец (CVC не хранится)");
+            Check(bc != null && bc.Number == "2202200012345672" && bc.ExpYear == 2028 && bc.Holder == "IVAN IVANOV" && bc.Bank == "СберБанк", "данные карты: номер, срок, владелец, банк (CVC не хранится)");
             var vaultFile = File.ReadAllText(Path.Combine(_w.DataDir, "vault.dat"));
             Check(!vaultFile.Contains("2202200012345672") && !vaultFile.Contains("5672"), "номер карты в файле зашифрован");
 
@@ -889,6 +891,81 @@ sealed class SelfTest
                 Check(core.DocumentTitle.StartsWith("pay:2202200012345672|05/28|IVAN IVANOV|"), "форма оплаты во фрейме заполнена (CVC - нет)");
                 Check(core.DocumentTitle.EndsWith("|"), "CVC во фрейме не подставлен");
             }
+            _w.ClosePopups();
+
+            // окно в окне (как у Яндекс Пэй): магазин -> фрейм платёжного сервиса -> фрейм банка с полями
+            File.WriteAllText(Path.Combine(_testDir, "payouter.html"),
+                "<!doctype html><meta charset=\"utf-8\"><style>body{margin:0}iframe{position:absolute;left:10px;top:10px;width:420px;height:300px;border:0}</style>" +
+                "<iframe src=\"https://third.dymka-test.org/payframe.html\"></iframe><script>window.addEventListener('message',function(e){parent.postMessage(e.data,'*');});</script>");
+            File.WriteAllText(Path.Combine(_testDir, "payhost2.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Магазин 2</title><style>body{margin:0;font:15px Segoe UI}iframe{position:absolute;left:40px;top:60px;width:460px;height:340px;border:1px solid #ccc}</style>" +
+                "<h3 style=\"margin:20px 40px\">Окно в окне: платёжный сервис и банк</h3><iframe src=\"https://other.dymka-test.net/payouter.html\"></iframe>" +
+                "<script>window.addEventListener('message',function(e){if(typeof e.data==='string'&&e.data.indexOf('pay:')===0)document.title=e.data;});</script></html>");
+            core.SetVirtualHostNameToFolderMapping("third.dymka-test.org", _testDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            _w.Navigate(pt, "https://trackers.dymka-test.org/payhost2.html");
+            await WaitFor(() => pt.Url.Contains("payhost2.html") && !pt.IsLoading, 20);
+            await Task.Delay(2000);
+            Native.ClickAt(pt.View!.PointToScreen(new Point((51 + 170) * zoom, (71 + 52) * zoom)));
+            bool nested = await WaitFor(() => _w.FillRowsForTest.Contains("Сбер зарплатная"), 6);
+            Check(nested, "форма оплаты во вложенном фрейме (окно в окне): подсказка с картой");
+            await Task.Delay(300);
+            Capture(_w, "42-fill-bankcard-nested");
+            if (nested)
+            {
+                _w.ClickFillRowForTest(0);
+                await WaitFor(() => core.DocumentTitle.StartsWith("pay:2202"), 6);
+                Check(core.DocumentTitle.StartsWith("pay:2202200012345672|05/28|IVAN IVANOV|"), "вложенная форма оплаты заполнена: " + core.DocumentTitle);
+            }
+            _w.ClosePopups();
+
+            // каждое поле - в своём встроенном окне (так делают многие банки)
+            string One(string id, string label, string type, string extra = "") =>
+                "<!doctype html><meta charset=\"utf-8\"><style>body{margin:0;font:14px Segoe UI;padding:4px}input{width:260px;padding:6px}</style>" +
+                $"<label for=\"{id}\">{label}</label><br><input id=\"{id}\" type=\"{type}\" {extra}>" +
+                $"<script>document.addEventListener('input',function(){{parent.postMessage('f:{id}='+document.getElementById('{id}').value,'*');}},true);</script>";
+            File.WriteAllText(Path.Combine(_testDir, "f-num.html"), One("num", "Номер карты", "tel"));
+            File.WriteAllText(Path.Combine(_testDir, "f-exp.html"), One("exp", "Действует до", "text", "placeholder=\"ММ/ГГ\""));
+            File.WriteAllText(Path.Combine(_testDir, "f-cvc.html"), One("cvc", "Код", "password", "maxlength=\"3\""));
+            File.WriteAllText(Path.Combine(_testDir, "payhosted.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>-</title><style>body{margin:0;font:15px Segoe UI}iframe{position:absolute;left:40px;width:300px;height:64px;border:0}</style>" +
+                "<h3 style=\"margin:16px 40px\">Поля карты в отдельных окнах</h3>" +
+                "<iframe style=\"top:60px\" src=\"https://other.dymka-test.net/f-num.html\"></iframe>" +
+                "<iframe style=\"top:130px\" src=\"https://other.dymka-test.net/f-exp.html\"></iframe>" +
+                "<iframe style=\"top:200px\" src=\"https://other.dymka-test.net/f-cvc.html\"></iframe>" +
+                "<script>var v={num:'',exp:'',cvc:''};window.addEventListener('message',function(e){if(typeof e.data==='string'&&e.data.indexOf('f:')===0){var p=e.data.slice(2).split('=');v[p[0]]=p[1];document.title='h:'+v.num+'|'+v.exp+'|'+v.cvc;}});</script></html>");
+            _w.Navigate(pt, "https://trackers.dymka-test.org/payhosted.html");
+            await WaitFor(() => pt.Url.Contains("payhosted.html") && !pt.IsLoading, 20);
+            await Task.Delay(2000);
+            Native.ClickAt(pt.View!.PointToScreen(new Point((40 + 4 + 130) * zoom, (60 + 4 + 20 + 14) * zoom)));
+            bool hosted = await WaitFor(() => _w.FillRowsForTest.Contains("Сбер зарплатная"), 6);
+            Check(hosted, "поле номера в отдельном окне: подсказка с картой");
+            if (hosted)
+            {
+                _w.ClickFillRowForTest(0);
+                await WaitFor(() => core.DocumentTitle.Contains("05/28"), 6);
+                Line("ИНФО поля в отдельных окнах: " + core.DocumentTitle);
+                Check(core.DocumentTitle == "h:2202200012345672|05/28|", "срок заполнен и в соседнем окне, CVC пустой");
+            }
+            await Task.Delay(300);
+            Capture(_w, "43-bankcard-hosted");
+            _w.ClosePopups();
+
+            // новая карта, введённая на сайте: «Сохранить карту?»
+            File.WriteAllText(Path.Combine(_testDir, "paynew.html"),
+                "<!doctype html><html lang=\"ru\"><meta charset=\"utf-8\"><title>Новая карта</title><style>body{font:15px Segoe UI;margin:30px}label{display:block;margin-top:10px}input{width:300px;padding:6px}</style>" +
+                "<form onsubmit=\"event.preventDefault();document.title='paid'\">" + payFields + "<button id=\"go\">Оплатить</button></form></html>");
+            _w.Navigate(pt, "https://trackers.dymka-test.org/paynew.html");
+            await WaitFor(() => pt.Url.Contains("paynew.html") && !pt.IsLoading, 20);
+            await Task.Delay(500);
+            await core.ExecuteScriptAsync("document.getElementById('num').value='4111 1111 1111 1111';document.getElementById('exp').value='12/29';document.getElementById('holder').value='PETR PETROV';document.getElementById('cvc').value='123';document.getElementById('go').click();");
+            Check(await WaitFor(() => _w.SaveCardPromptOpen, 6), "после оплаты новой картой - предложение сохранить карту");
+            await Task.Delay(400);
+            Capture(_w, "44-save-card");
+            _w.ConfirmSaveCard();
+            var nc = Shared.Vault.Data?.BankCards.FirstOrDefault(c => c.Number == "4111111111111111");
+            Check(nc != null && nc.ExpMonth == 12 && nc.ExpYear == 2029 && nc.Holder == "PETR PETROV", "новая карта сохранена: номер, срок, владелец");
+            Check(!File.ReadAllText(Path.Combine(_w.DataDir, "vault.dat")).Contains("4111"), "сохранённая карта зашифрована");
+            Check(!System.Text.Json.JsonSerializer.Serialize(Shared.Vault.Data!.BankCards).Contains("\"123\""), "код CVC не сохранён");
             _w.ClosePopups();
         }
         catch (Exception ex)

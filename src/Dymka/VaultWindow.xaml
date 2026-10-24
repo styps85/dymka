@@ -7,6 +7,7 @@
         Background="{StaticResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
         Foreground="{StaticResource Ink}" UseLayoutRounding="True">
   <Window.Resources>
+    <local:HexBrushConverter x:Key="HexBrush"/>
     <Style x:Key="Tab" TargetType="RadioButton">
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
@@ -134,13 +135,13 @@
               <TextBox x:Name="PwUrl" Style="{StaticResource FieldBox}"/>
               <TextBlock Text="Логин" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
               <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Скопировать" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwCopyUser_Click"/>
+                <Button DockPanel.Dock="Right" Content="Скопировать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwCopyUser_Click"/>
                 <TextBox x:Name="PwUser" Style="{StaticResource FieldBox}"/>
               </DockPanel>
               <TextBlock Text="Пароль" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
               <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Скопировать" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwCopyPass_Click"/>
-                <Button x:Name="PwShowBtn" DockPanel.Dock="Right" Content="Показать" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwShow_Click"/>
+                <Button DockPanel.Dock="Right" Content="Скопировать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwCopyPass_Click"/>
+                <Button x:Name="PwShowBtn" DockPanel.Dock="Right" Content="Показать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwShow_Click"/>
                 <Grid>
                   <PasswordBox x:Name="PwPass" FontSize="14" Height="38" Padding="10,0" VerticalContentAlignment="Center"
                                Background="{StaticResource Field}" BorderBrush="{StaticResource LineStrong}" BorderThickness="1.5"/>
@@ -225,10 +226,17 @@
                      SelectionChanged="BcList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
               <ListBox.ItemTemplate>
                 <DataTemplate>
-                  <StackPanel>
-                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding Summary}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
-                  </StackPanel>
+                  <DockPanel>
+                    <Border DockPanel.Dock="Left" Width="34" Height="34" CornerRadius="9" Background="{Binding BadgeColor, Converter={StaticResource HexBrush}}"
+                            Margin="0,0,12,0" VerticalAlignment="Center">
+                      <TextBlock Text="{Binding BadgeText}" Foreground="White" FontWeight="Bold" FontSize="11.5" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    </Border>
+                    <TextBlock DockPanel.Dock="Right" Text="{Binding Last4, StringFormat='•• {0}'}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
+                    <StackPanel VerticalAlignment="Center">
+                      <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding Sub}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                    </StackPanel>
+                  </DockPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
             </ListBox>
@@ -238,12 +246,25 @@
           <Grid>
             <TextBlock x:Name="BcNone" Text="Выберите или добавьте карту" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <StackPanel x:Name="BcEditor" Visibility="Collapsed">
-              <TextBlock Text="Название (например: Сбер зарплатная)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
-              <TextBox x:Name="BcTitle" Style="{StaticResource FieldBox}"/>
+              <Grid>
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*"/>
+                  <ColumnDefinition Width="14"/>
+                  <ColumnDefinition Width="200"/>
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock Text="Название (например: Сбер зарплатная)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBox x:Name="BcTitle" Style="{StaticResource FieldBox}"/>
+                </StackPanel>
+                <StackPanel Grid.Column="2">
+                  <TextBlock Text="Банк" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <ComboBox x:Name="BcBank" Height="38" FontSize="13.5" VerticalContentAlignment="Center"/>
+                </StackPanel>
+              </Grid>
               <TextBlock Text="Номер карты" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
               <DockPanel>
-                <Button DockPanel.Dock="Right" Content="Скопировать" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="BcCopy_Click"/>
-                <TextBox x:Name="BcNumber" Style="{StaticResource FieldBox}" LostFocus="BcNumber_LostFocus"/>
+                <Button DockPanel.Dock="Right" Content="Скопировать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="BcCopy_Click"/>
+                <TextBox x:Name="BcNumber" Style="{StaticResource FieldBox}" LostFocus="BcNumber_LostFocus" TextChanged="BcNumber_TextChanged" MaxLength="23"/>
               </DockPanel>
               <TextBlock x:Name="BcNumberInfo" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
               <Grid Margin="0,12,0,0">
@@ -258,7 +279,7 @@
                 </StackPanel>
                 <StackPanel Grid.Column="2">
                   <TextBlock Text="Срок (ММ/ГГ)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
-                  <TextBox x:Name="BcExp" Style="{StaticResource FieldBox}" MaxLength="7"/>
+                  <TextBox x:Name="BcExp" Style="{StaticResource FieldBox}" MaxLength="7" TextChanged="BcExp_TextChanged"/>
                 </StackPanel>
               </Grid>
               <TextBlock Text="Примечание" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
@@ -305,6 +326,14 @@
               <DockPanel Margin="0,0,0,12">
                 <CheckBox x:Name="OfferSaveBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Offer_Click"/>
                 <TextBlock Text="Предлагать сохранить пароль после входа на сайт" VerticalAlignment="Center"/>
+              </DockPanel>
+              <DockPanel Margin="0,0,0,12">
+                <CheckBox x:Name="OfferCardsBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Offer_Click"/>
+                <StackPanel Margin="0,0,16,0">
+                  <TextBlock Text="Предлагать сохранить банковскую карту, введённую на сайте"/>
+                  <TextBlock Text="После оплаты или привязки новой карты «Дымка» спросит, сохранить ли её. Код CVC не сохраняется." FontSize="12"
+                             Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                </StackPanel>
               </DockPanel>
               <DockPanel>
                 <CheckBox x:Name="OfferFillBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center" Click="Offer_Click"/>

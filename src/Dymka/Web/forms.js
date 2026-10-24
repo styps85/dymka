@@ -114,19 +114,23 @@
     el.setAttribute('data-dymka-filled', '1');
   }
 
+  // область поиска полей: форма, иначе корень (документ или теневой DOM, в котором поле)
+  function scopeOf(el) { return el.form || (el.getRootNode && el.getRootNode()) || document; }
+
   document.addEventListener('focusin', function (e) {
     if (filling) return;
-    var el = e.target;
+    // поле может быть внутри теневого DOM (веб-компоненты) - берём настоящий элемент
+    var el = e.composedPath ? e.composedPath()[0] : e.target;
     if (!(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement)) return;
     lastFocus = el;
     var t = typeOf(el);
-    var pws = pwFields(el.form || document);
+    var pws = pwFields(scopeOf(el));
     if ((t === 'password' && !isCvc(el)) || (pws.length > 0 && userFor(pws[0]) === el)) {
       post({ __dymka: 'pw-focus', rect: rectOf(el) });
       return;
     }
     if (SKIP[t] || isSearch(el)) return;
-    var list = fieldsOf(el.form || document);
+    var list = fieldsOf(scopeOf(el));
     var idx = list.indexOf(el);
     if (idx < 0) return;
     post({ __dymka: 'card-focus', rect: rectOf(el), focus: idx, fields: describe(list) });
@@ -146,8 +150,26 @@
     lastSent = key; lastSentAt = Date.now();
     post({ __dymka: 'pw-submit', user: u ? u.value : '', pass: pw.value });
   }
-  var SUBMIT_TEXT = /войти|вход|log\s?in|sign\s?in|продолжить|далее|отправить|submit|continue|next|ok\b|авториз/i;
-  document.addEventListener('submit', function (e) { capture(e.target); }, true);
+  // карта, введённая на сайте: предложить сохранить (номер с верной контрольной суммой)
+  function luhn(d) {
+    if (d.length < 13 || d.length > 19) return false;
+    var s = 0, dbl = false;
+    for (var i = d.length - 1; i >= 0; i--) { var n = +d[i]; if (dbl) { n *= 2; if (n > 9) n -= 9; } s += n; dbl = !dbl; }
+    return s % 10 === 0;
+  }
+  var lastCard = '';
+  function captureCard(scope) {
+    var list = fieldsOf(scope);
+    var hasCard = list.some(function (el) { var d = (el.value || '').replace(/[\s-]/g, ''); return /^\d+$/.test(d) && luhn(d); });
+    if (!hasCard) return;
+    var desc = describe(list).map(function (f, i) { var el = list[i]; f.v = el.tagName === 'SELECT' ? ((el.options[el.selectedIndex] || {}).value || '') : (el.value || ''); return f; });
+    var key = desc.map(function (f) { return f.v; }).join('|');
+    if (key === lastCard) return;
+    lastCard = key;
+    post({ __dymka: 'card-submit', fields: desc });
+  }
+  var SUBMIT_TEXT = /войти|вход|log\s?in|sign\s?in|продолжить|далее|отправить|submit|continue|next|ok\b|авториз|оплатить|оплата|заплатить|добавить карту|привязать|сохранить|pay\b/i;
+  document.addEventListener('submit', function (e) { capture(e.target); captureCard(e.target); }, true);
   document.addEventListener('click', function (e) {
     var b = e.target && e.target.closest && e.target.closest('button,input[type=submit],input[type=image],[role=button],a');
     if (!b) return;
@@ -155,12 +177,18 @@
     if (!isSubmit && !SUBMIT_TEXT.test(text(b) || b.value || '')) return;
     var f = b.form || b.closest('form');
     if (f || pwFields(document).length) capture(f || document);
+    captureCard(f || document);
   }, true);
   document.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') capture(e.target.form || document);
+    if (e.key === 'Enter' && e.target && e.target.tagName === 'INPUT') { capture(e.target.form || document); captureCard(e.target.form || document); }
   }, true);
 
   window.__dymkaForms = {
+    // все поля документа - для форм оплаты, где каждое поле в своём встроенном окне
+    describeAll: function () {
+      var list = fieldsOf(document);
+      return JSON.stringify({ focus: -1, rect: { x: 0, y: 0 }, fields: describe(list) });
+    },
     // «Заполнить карточкой» из меню правой кнопки: поля формы, в которой стоит курсор
     describeFocused: function () {
       var el = document.activeElement;

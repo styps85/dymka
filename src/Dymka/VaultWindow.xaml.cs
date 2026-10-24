@@ -35,6 +35,9 @@ public partial class VaultWindow : Window
         }
         OfferSaveBox.IsChecked = _s.OfferSavePasswords;
         OfferFillBox.IsChecked = _s.OfferAutofill;
+        OfferCardsBox.IsChecked = _s.OfferSaveCards;
+        BcBank.Items.Add("Не указан");
+        foreach (var b in CardTools.Banks) BcBank.Items.Add(b.Name);
         RefreshPasswords();
         RefreshCards();
         RefreshSecurity();
@@ -433,6 +436,7 @@ public partial class VaultWindow : Window
         BcNone.Visibility = c == null ? Visibility.Visible : Visibility.Collapsed;
         if (c == null) return;
         BcTitle.Text = c.Title;
+        BcBank.SelectedItem = CardTools.Banks.Any(b => b.Name == c.Bank) ? c.Bank : "Не указан";
         BcNumber.Text = CardTools.Format(c.Number);
         BcHolder.Text = c.Holder;
         BcExp.Text = c.ExpText;
@@ -449,6 +453,53 @@ public partial class VaultWindow : Window
         BcNumberInfo.Foreground = d.Length > 0 && !CardTools.Luhn(d) ? new SolidColorBrush(Color.FromRgb(0xC2, 0x35, 0x2E)) : (Brush)FindResource("Muted");
     }
 
+    bool _formatting;
+    int _expLen;
+
+    /// <summary>Пробелы после каждых четырёх цифр - сразу при вводе; курсор остаётся после той же цифры.</summary>
+    void BcNumber_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_formatting) return;
+        var text = BcNumber.Text;
+        int caret = BcNumber.CaretIndex;
+        int digitsBefore = text[..Math.Min(caret, text.Length)].Count(char.IsDigit);
+        var d = CardTools.Digits(text);
+        if (d.Length > 19) d = d[..19];
+        var f = CardTools.Format(d);
+        if (f != text)
+        {
+            _formatting = true;
+            BcNumber.Text = f;
+            int pos = 0, seen = 0;
+            while (pos < f.Length && seen < digitsBefore) { if (char.IsDigit(f[pos])) seen++; pos++; }
+            BcNumber.CaretIndex = pos;
+            _formatting = false;
+        }
+        UpdateNumberInfo();
+    }
+
+    /// <summary>Косая черта в сроке ставится сама: «0128» -> «01/28».</summary>
+    void BcExp_TextChanged(object sender, TextChangedEventArgs e)
+    {
+        if (_formatting) return;
+        var text = BcExp.Text;
+        bool deleting = text.Length < _expLen;
+        _expLen = text.Length;
+        if (deleting) return;
+        var d = CardTools.Digits(text);
+        if (d.Length > 6) d = d[..6];
+        if (d.Length == 1 && d[0] > '1') d = "0" + d;   // «5» -> «05/»
+        string f = d.Length < 2 ? d : d.Length == 2 ? d + "/" : d[..2] + "/" + d[2..];
+        if (f != text)
+        {
+            _formatting = true;
+            BcExp.Text = f;
+            BcExp.CaretIndex = f.Length;
+            _expLen = f.Length;
+            _formatting = false;
+        }
+    }
+
     void BcNumber_LostFocus(object sender, RoutedEventArgs e)
     {
         var d = CardTools.Digits(BcNumber.Text);
@@ -459,6 +510,7 @@ public partial class VaultWindow : Window
     void BcNew_Click(object sender, RoutedEventArgs e)
     {
         var c = new BankCard { Title = "Карта" };
+        _expLen = 0;
         BcList.SelectedItem = null;
         ShowBank(c);
         BcTitle.Focus();
@@ -486,7 +538,11 @@ public partial class VaultWindow : Window
             Dialogs.Show(this, "Срок действия", "Укажите срок как на карте, например 05/28.", new[] { "Хорошо" });
             return false;
         }
-        _bc.Title = string.IsNullOrWhiteSpace(BcTitle.Text) ? (CardTools.Brand(d) + " •••• " + d[^4..]).Trim() : BcTitle.Text.Trim();
+        var bank = BcBank.SelectedItem as string;
+        _bc.Bank = bank == null || bank == "Не указан" ? "" : bank;
+        _bc.Title = string.IsNullOrWhiteSpace(BcTitle.Text) || BcTitle.Text.Trim() == "Карта"
+            ? (_bc.Bank.Length > 0 ? _bc.Bank : (CardTools.Brand(d) + " •••• " + d[^4..]).Trim())
+            : BcTitle.Text.Trim();
         _bc.Number = d;
         _bc.Holder = BcHolder.Text.Trim().ToUpperInvariant();
         _bc.ExpMonth = m;
@@ -518,14 +574,19 @@ public partial class VaultWindow : Window
     }
 
     /// <summary>Для самопроверки: заполнить редактор карты.</summary>
-    public void FillBankEditorForTest(string title, string number, string holder, string exp)
+    public void FillBankEditorForTest(string title, string number, string holder, string exp, string bank = "")
     {
         BcNew_Click(this, new RoutedEventArgs());
         BcTitle.Text = title;
         BcNumber.Text = number;
         BcHolder.Text = holder;
-        BcExp.Text = exp;
+        BcExp.Text = "";
+        foreach (var ch in exp) { BcExp.Text += ch; }   // как при наборе: по одному символу
+        if (bank.Length > 0) BcBank.SelectedItem = bank;
     }
+
+    public string BankNumberTextForTest => BcNumber.Text;
+    public string BankExpTextForTest => BcExp.Text;
 
     // ===================================================================== защита
 
@@ -582,6 +643,7 @@ public partial class VaultWindow : Window
     {
         _s.OfferSavePasswords = OfferSaveBox.IsChecked == true;
         _s.OfferAutofill = OfferFillBox.IsChecked == true;
+        _s.OfferSaveCards = OfferCardsBox.IsChecked == true;
         _s.Save();
     }
 }

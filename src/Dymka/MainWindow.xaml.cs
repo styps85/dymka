@@ -613,6 +613,7 @@ public partial class MainWindow : Window
 
     void DisposeView(BrowserTab tab)
     {
+        _frames.Remove(tab);
         var v = tab.View;
         tab.View = null;
         if (v == null) return;
@@ -892,7 +893,7 @@ public partial class MainWindow : Window
                 var kind = dm.GetString();
                 if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
                 else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
-                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit")
+                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit")
                     OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = core.ExecuteScriptAsync }, kind, root);
                 else if (kind == "tr" && tab.TranslateState != TranslateState.None)
                 {

@@ -78,17 +78,57 @@ public sealed class BankCard
     /// <summary>Год окончания, четыре цифры.</summary>
     public int ExpYear { get; set; }
     public string Note { get; set; } = "";
+    /// <summary>Банк, выпустивший карту (из списка CardTools.Banks или пусто).</summary>
+    public string Bank { get; set; } = "";
 
+    [JsonIgnore] public string BadgeText => CardTools.BadgeFor(Bank, Title).text;
+    [JsonIgnore] public string BadgeColor => CardTools.BadgeFor(Bank, Title).color;
     [JsonIgnore] public string Last4 => Number.Length >= 4 ? Number[^4..] : Number;
     [JsonIgnore] public string Brand => CardTools.Brand(Number);
     [JsonIgnore] public string Masked => (Brand.Length > 0 ? Brand + " " : "") + "•••• " + Last4;
     [JsonIgnore] public string ExpText => ExpMonth > 0 && ExpYear > 0 ? $"{ExpMonth:00}/{ExpYear % 100:00}" : "";
     [JsonIgnore] public string Summary => Masked + (ExpText.Length > 0 ? " · до " + ExpText : "");
+    /// <summary>Подпись под названием в подсказке: платёжная система и срок.</summary>
+    [JsonIgnore] public string Sub => string.Join(" · ", new[] { Brand, ExpText.Length > 0 ? "до " + ExpText : "" }.Where(s => s.Length > 0));
 }
 
 public static class CardTools
 {
     public static string Digits(string? s) => new((s ?? "").Where(char.IsDigit).ToArray());
+
+    /// <summary>Банки для выбора в карте: название и короткая надпись на значке. Значки - собственные
+    /// (буквы на цветной плашке в палитре «Дымки»), это не логотипы банков.</summary>
+    public static readonly (string Name, string Short, string Color)[] Banks =
+    {
+        ("СберБанк", "СБ", "#5B43C4"),
+        ("Альфа-Банк", "АБ", "#1C7F6E"),
+        ("Т-Банк", "ТБ", "#3D63DD"),
+        ("Яндекс Пэй", "ЯП", "#1E6FA8"),
+        ("ВТБ", "ВТБ", "#C2552E"),
+        ("Совкомбанк", "СКБ", "#1C7F6E"),
+        ("МТС Банк", "МТС", "#2F4FB8"),
+        ("ВБ Банк", "ВБ", "#8A5A00"),
+        ("Озон Банк", "ОЗ", "#A5401F"),
+        ("ПСБ", "ПСБ", "#5B43C4"),
+        ("Россельхозбанк", "РСХ", "#3D63DD"),
+        ("УБРиР", "УБР", "#1C7F6E"),
+        ("Синара Банк", "СИН", "#8A5A00"),
+        ("МКБ", "МКБ", "#1E6FA8"),
+    };
+
+    static readonly string[] Palette = { "#3D63DD", "#1C7F6E", "#C2552E", "#5B43C4", "#1E6FA8", "#8A5A00" };
+
+    /// <summary>Надпись и цвет значка карты: по банку, иначе первая буква названия карты.</summary>
+    public static (string text, string color) BadgeFor(string bank, string title)
+    {
+        var b = Banks.FirstOrDefault(x => x.Name.Equals(bank, StringComparison.OrdinalIgnoreCase));
+        if (b.Name != null) return (b.Short, b.Color);
+        var t = (title ?? "").Trim();
+        if (t.Length == 0) return ("₽", Palette[0]);
+        int h = 0;
+        foreach (var ch in t) h = unchecked(h * 31 + ch);
+        return (char.ToUpper(t[0]).ToString(), Palette[(h & 0x7fffffff) % Palette.Length]);
+    }
 
     /// <summary>Контрольная сумма номера карты (алгоритм Луна) - ловит опечатки.</summary>
     public static bool Luhn(string digits)

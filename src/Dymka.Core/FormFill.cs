@@ -36,7 +36,7 @@ public static class FormFill
         (FieldKind.CardHolder, R(@"владел\w*\s*карт|держател\w*|имя\s*(на|владельца)\s*карт|имя\s*и\s*фамилия\s*на\s*карт|cardholder|card\s*holder|name\s*on\s*card|cc-?name|holder")),
         (FieldKind.CardExpMonth, R(@"exp\w*\s*month|cc-?exp-?month|месяц\s*(окончания|действия)|^мм$|^mm$")),
         (FieldKind.CardExpYear, R(@"exp\w*\s*year|cc-?exp-?year|год\s*(окончания|действия)|^гг(гг)?$|^yy(yy)?$")),
-        (FieldKind.CardExp, R(@"срок\s*действ|действительна\s*до|дата\s*окончания|expir|exp\s*date|cc-?exp|valid\s*(thru|until|to)|мм\s*/\s*гг|mm\s*/\s*yy")),
+        (FieldKind.CardExp, R(@"срок\s*действ|действительн\w*\s*до|действует\s*до|годна\s*до|дата\s*окончания|expir|exp\s*date|cc-?exp|valid\s*(thru|until|to)|мм\s*/\s*гг|mm\s*/\s*yy")),
         (FieldKind.Email, R(@"e-?mail|электронн\w*\s*почт|эл\.?\s*почт|\bпочта\b(?!\w)")),
         (FieldKind.Snils, R(@"снилс|snils")),
         (FieldKind.Inn, R(@"(^|[^а-яa-z])инн([^а-яa-z]|$)|(^|[^a-z])inn([^a-z]|$)")),
@@ -113,6 +113,14 @@ public static class FormFill
     public static FieldKind[] ClassifyAll(IReadOnlyList<FieldInfo> fields)
     {
         var kinds = fields.Select(Classify).ToArray();
+        // в форме карты поле, подписанное просто «Код», - это CVC
+        if (kinds.Any(k => k is FieldKind.CardNumber or FieldKind.CardExp))
+            for (int i = 0; i < kinds.Length; i++)
+            {
+                if (kinds[i] != FieldKind.None) continue;
+                var lbl = ((fields[i].Label ?? "") + " " + (fields[i].Placeholder ?? "")).Trim().ToLowerInvariant();
+                if (Regex.IsMatch(lbl, @"^(код|code|cvc2?|cvv2?)$")) kinds[i] = FieldKind.CardCvc;
+            }
         for (int i = 1; i < kinds.Length; i++)
         {
             if (kinds[i] != FieldKind.None || kinds[i - 1] != FieldKind.PassportSeries) continue;
@@ -227,6 +235,39 @@ public static class FormFill
             if (v.Length > 0) result.Add(new FillValue(f.Index, v));
         }
         return result;
+    }
+
+    /// <summary>Карта, которую вы ввели на сайте (для предложения сохранить). Код CVC не берётся.</summary>
+    public static BankCard? CardFromForm(IReadOnlyList<FieldInfo> fields, IReadOnlyList<string> values)
+    {
+        var kinds = ClassifyAll(fields);
+        string number = "", holder = "";
+        int month = 0, year = 0;
+        for (int i = 0; i < fields.Count && i < values.Count; i++)
+        {
+            var v = (values[i] ?? "").Trim();
+            if (v.Length == 0) continue;
+            switch (kinds[i])
+            {
+                case FieldKind.CardNumber: number = CardTools.Digits(v); break;
+                case FieldKind.CardHolder: holder = v.ToUpperInvariant(); break;
+                case FieldKind.CardExp: CardTools.TryParseExp(v.Length == 4 && v.All(char.IsDigit) ? v[..2] + "/" + v[2..] : v, out month, out year); break;
+                case FieldKind.CardExpMonth: int.TryParse(v, out month); break;
+                case FieldKind.CardExpYear: if (int.TryParse(v, out var y)) year = y < 100 ? 2000 + y : y; break;
+            }
+        }
+        if (number.Length == 0)
+        {
+            // поле номера не распознано по подписи: берём значение с верной контрольной суммой
+            for (int i = 0; i < values.Count; i++)
+            {
+                var d = CardTools.Digits(values[i]);
+                if (kinds.ElementAtOrDefault(i) != FieldKind.CardCvc && d.Length >= 13 && (values[i] ?? "").Trim().All(c => char.IsDigit(c) || c == ' ' || c == '-') && CardTools.Luhn(d)) { number = d; break; }
+            }
+        }
+        if (!CardTools.Luhn(number)) return null;
+        if (month < 1 || month > 12) month = 0;
+        return new BankCard { Number = number, Holder = holder, ExpMonth = month, ExpYear = month > 0 ? year : 0, Title = (CardTools.Brand(number) + " •••• " + number[^4..]).Trim() };
     }
 
     /// <summary>Поле кода CVC (после подстановки карты курсор ставится туда).</summary>

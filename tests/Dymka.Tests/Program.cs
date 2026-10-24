@@ -421,6 +421,15 @@ Eq(FormFill.Build(new Card { LastName = "Иванов" }, pay).Count, 0, "кар
 
 Eq(FormFill.Classify(new FieldInfo(0, "password", "cvc", "", "", "CVC", "")), FieldKind.CardCvc, "CVC в виде поля пароля - это CVC");
 Eq(FormFill.Classify(new FieldInfo(0, "password", "password", "", "", "Пароль", "")), FieldKind.None, "обычный пароль - не поле анкеты");
+Eq(K("Действует до"), FieldKind.CardExp, "«Действует до» - срок карты (как у Яндекс Пэй)");
+Eq(FormFill.ClassifyAll(new[] { F(0, "Номер карты"), F(1, "Действует до"), F(2, "Код") })[2], FieldKind.CardCvc, "«Код» в форме карты - CVC");
+Eq(FormFill.ClassifyAll(new[] { F(0, "Фамилия"), F(1, "Код") })[1], FieldKind.None, "«Код» в анкете - не CVC");
+var saved = FormFill.CardFromForm(new[] { F(0, "Номер карты"), F(1, "Действует до"), F(2, "Код"), F(3, "Имя владельца карты") },
+    new[] { "4111 1111 1111 1111", "1229", "123", "petr petrov" });
+Eq(saved != null && saved.Number == "4111111111111111" && saved.ExpMonth == 12 && saved.ExpYear == 2029 && saved.Holder == "PETR PETROV", true, "карта, введённая на сайте: номер, срок, владелец");
+Eq(FormFill.CardFromForm(new[] { F(0, "Номер карты") }, new[] { "4111 1111 1111 1112" }), null, "номер с ошибкой - не предлагается");
+var noLabel = FormFill.CardFromForm(new[] { F(0, ""), F(1, "") }, new[] { "2202 2000 1234 5672", "что-то" });
+Eq(noLabel?.Number, "2202200012345672", "номер без подписи узнаётся по контрольной сумме");
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
 

@@ -797,6 +797,46 @@
         </Border>
       </Popup>
 
+      <!-- ===== Сохранить карту? ===== -->
+      <Popup x:Name="SaveCardPopup" PlacementTarget="{Binding ElementName=AddressBorder}" Placement="Bottom" StaysOpen="True"
+             AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-14">
+        <Border Style="{StaticResource PopupCard}" Width="390" Padding="18,14,18,16">
+          <StackPanel>
+            <DockPanel>
+              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcCard}" Size="18" Foreground="{StaticResource Accent}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+              <TextBlock x:Name="ScTitle" FontSize="14.5" FontWeight="Bold" TextWrapping="Wrap"/>
+            </DockPanel>
+            <TextBlock x:Name="ScCard" FontSize="13.5" Margin="0,10,0,0" TextWrapping="Wrap"/>
+            <Grid Margin="0,10,0,0">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*"/>
+                <ColumnDefinition Width="10"/>
+                <ColumnDefinition Width="150"/>
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock Text="Название" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                <TextBox x:Name="ScName" Style="{StaticResource FieldBox}"/>
+              </StackPanel>
+              <StackPanel Grid.Column="2">
+                <TextBlock Text="Банк" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                <ComboBox x:Name="ScBank" Height="38" FontSize="13" VerticalContentAlignment="Center"/>
+              </StackPanel>
+            </Grid>
+            <TextBlock Text="Карта хранится в зашифрованном виде на этом компьютере. Код CVC не сохраняется." TextWrapping="Wrap"
+                       FontSize="12" Foreground="{StaticResource Muted}" Margin="0,10,0,0"/>
+            <DockPanel Margin="0,14,0,0">
+              <Button DockPanel.Dock="Left" Style="{StaticResource PlainButton}" Click="ScNever_Click" Cursor="Hand" VerticalAlignment="Center">
+                <TextBlock Text="Не предлагать" FontSize="12.5" Foreground="{StaticResource Muted}"/>
+              </Button>
+              <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button Content="Не сейчас" Style="{StaticResource SecondaryButton}" Click="ScLater_Click"/>
+                <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" Margin="8,0,0,0" Click="ScSave_Click"/>
+              </StackPanel>
+            </DockPanel>
+          </StackPanel>
+        </Border>
+      </Popup>
+
       <!-- ===== Перевод выделенного ===== -->
       <Popup x:Name="SelTrPopup" Placement="MousePoint" StaysOpen="False" AllowsTransparency="True" PopupAnimation="Fade">
         <Border Style="{StaticResource PopupCard}" Width="400" Padding="16,12,16,14">
