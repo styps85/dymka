@@ -10,6 +10,7 @@ jobs:
       - name: Скачать Sub CA 2024 из разных источников
         shell: bash
         run: |
+          set +e +o pipefail
           mkdir -p certs && cd certs
           ua="Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
           # ссылки со страницы Госуслуг (если они есть в HTML)
@@ -38,6 +39,7 @@ jobs:
       - name: Отобрать и проверить
         shell: bash
         run: |
+          set +e +o pipefail
           cd certs
           root=../src/Dymka/Bundled/russian_trusted_root_ca.crt
           : > report.txt
@@ -56,6 +58,7 @@ jobs:
           cat report.txt
           while read -r l; do echo "::notice::$l"; done < report.txt
       - name: Опубликовать
+        if: always()
         env:
           GH_TOKEN: ${{ github.token }}
         shell: bash
