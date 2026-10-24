@@ -314,6 +314,7 @@ public partial class MainWindow : Window
     // ===================================================================== вкладки
 
     public BrowserTab? ActiveTab => _active;
+    public void ActivateForTest(BrowserTab tab) => Activate(tab);
     public IReadOnlyList<BrowserTab> Tabs => _tabs;
     public AppSettings Settings => _settings;
 
@@ -481,6 +482,8 @@ public partial class MainWindow : Window
         catch (Exception ex) { App.Log("Фреймы: " + ex.Message); }
         try { core.ServerCertificateErrorDetected += (_, e) => OnServerCertificateError(tab, e); }
         catch (Exception ex) { App.Log("Проверка сертификатов недоступна: " + ex.Message); }
+        try { core.DownloadStarting += (_, e) => OnDownloadStarting(tab, e); }
+        catch (Exception ex) { App.Log("Скачивания: " + ex.Message); }
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
@@ -795,6 +798,32 @@ public partial class MainWindow : Window
             tab.Favicon = null;
         }
     }
+
+    /// <summary>Скачивания идут штатно (окно загрузок движка), здесь только запись в журнал - чтобы разбирать сбои.</summary>
+    void OnDownloadStarting(BrowserTab tab, CoreWebView2DownloadStartingEventArgs e)
+    {
+        try
+        {
+            var op = e.DownloadOperation;
+            string name = Path.GetFileName(e.ResultFilePath ?? "");
+            App.Log($"Скачивание: {name} ({op.MimeType}, {UrlTools.HostOf(op.Uri)}) - вкладка {tab.Container}");
+            op.StateChanged += (_, _) =>
+            {
+                try
+                {
+                    App.Log(op.State == CoreWebView2DownloadState.Interrupted
+                        ? $"Скачивание {name}: прервано ({op.InterruptReason})"
+                        : $"Скачивание {name}: {(op.State == CoreWebView2DownloadState.Completed ? "готово" : op.State.ToString())}");
+                    if (op.State == CoreWebView2DownloadState.Completed) Downloads++;
+                }
+                catch { }
+            };
+        }
+        catch (Exception ex) { App.Log("Скачивание: " + ex.Message); }
+    }
+
+    /// <summary>Сколько файлов скачано за сеанс (для самопроверки).</summary>
+    public int Downloads { get; private set; }
 
     async void OnNewWindowRequested(BrowserTab source, CoreWebView2NewWindowRequestedEventArgs e)
     {

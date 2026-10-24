@@ -41,6 +41,7 @@
     <EmbeddedResource Include="Web\forms.js" LogicalName="Dymka.Web.forms.js" />
     <EmbeddedResource Include="Bundled\russian_trusted_root_ca.crt" LogicalName="Dymka.ru-root.crt" />
     <EmbeddedResource Include="Bundled\russian_trusted_sub_ca.crt" LogicalName="Dymka.ru-sub.crt" />
+    <EmbeddedResource Include="Bundled\russian_trusted_sub_ca_2024.crt" LogicalName="Dymka.ru-sub-2024.crt" />
     <EmbeddedResource Include="Bundled\vot-extension.zip" LogicalName="Dymka.vot.zip" Condition="Exists('Bundled\vot-extension.zip')" />
   </ItemGroup>
 

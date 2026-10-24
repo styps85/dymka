@@ -403,6 +403,9 @@ Eq(CardTools.TryParseExp("05/28", out var em, out var ey) && em == 5 && ey == 20
 Eq(CardTools.TryParseExp("13/28", out _, out _), false, "13-й месяц - ошибка");
 var bc = new BankCard { Title = "Сбер", Number = "2202200012345678", Holder = "Ivan Ivanov", ExpMonth = 5, ExpYear = 2028 };
 Eq(bc.Summary, "Мир •••• 5678 · до 05/28", "карта в подсказке: только последние цифры");
+Eq(new BankCard { Bank = "Т-Банк" }.BadgeColor + new BankCard { Bank = "Т-Банк" }.BadgeFore, "#FFDD2D#333333", "значок Т-Банка: жёлтый, буквы тёмные");
+Eq(new BankCard { Bank = "СберБанк" }.BadgeColor, "#21A038", "значок Сбера зелёный");
+Eq(CardTools.Banks.Select(b => b.Color + b.Fore).Distinct().Count(), CardTools.Banks.Length, "значки банков не повторяются по цвету");
 Eq(K("Номер карты", "tel"), FieldKind.CardNumber, "«Номер карты» (type=tel) - номер карты, не телефон");
 Eq(K("", ac: "cc-number"), FieldKind.CardNumber, "autocomplete=cc-number");
 Eq(K("Срок действия", ph: "ММ/ГГ"), FieldKind.CardExp, "срок действия");

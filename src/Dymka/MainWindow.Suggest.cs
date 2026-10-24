@@ -42,7 +42,7 @@ static class RussianRoots
     }
 
     public static List<X509Certificate2> Intermediates =>
-        _subs ??= new[] { Load("Dymka.ru-sub.crt") }.Where(c => c != null).Cast<X509Certificate2>().ToList();
+        _subs ??= new[] { Load("Dymka.ru-sub.crt"), Load("Dymka.ru-sub-2024.crt") }.Where(c => c != null).Cast<X509Certificate2>().ToList();
 }
 
 /// <summary>Российские сертификаты и подсказки при вводе в адресную строку.</summary>

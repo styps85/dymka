@@ -740,6 +740,9 @@ sealed class SelfTest
                 leafWithKey.Export(System.Security.Cryptography.X509Certificates.X509ContentType.Pfx), (string?)null,
                 System.Security.Cryptography.X509Certificates.X509KeyStorageFlags.Exportable);
             RussianRoots.ExtraRootsForTest.Add(new System.Security.Cryptography.X509Certificates.X509Certificate2(root.RawData));
+            Check(RussianRoots.Roots.Count >= 2 && RussianRoots.Intermediates.Count == 2 &&
+                  RussianRoots.Intermediates.All(c => c.Issuer.Contains("Russian Trusted Root CA")),
+                "встроены корневой и оба выпускающих сертификата Минцифры (Sub CA и Sub CA 2024)");
 
             listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
             listener.Start();
@@ -785,6 +788,103 @@ sealed class SelfTest
             cts.Cancel();
             try { listener?.Stop(); } catch { }
             RussianRoots.ExtraRootsForTest.Clear();
+        }
+    }
+
+    /// <summary>Скачивание файлов сертификатов (.cer/.crt): обычной ссылкой, ссылкой в новое окно, через скрытый фрейм
+    /// и с заголовком «вложение». Браузер не должен закрываться.</summary>
+    async Task TestDownloadsAsync()
+    {
+        System.Net.Sockets.TcpListener? listener = null;
+        var cts = new CancellationTokenSource();
+        try
+        {
+            byte[] cert;
+            using (var rs = typeof(App).Assembly.GetManifestResourceStream("Dymka.ru-root.crt")!)
+            using (var ms = new MemoryStream()) { rs.CopyTo(ms); cert = ms.ToArray(); }
+            listener = new System.Net.Sockets.TcpListener(System.Net.IPAddress.Loopback, 0);
+            listener.Start();
+            int port = ((System.Net.IPEndPoint)listener.LocalEndpoint).Port;
+            var l = listener;
+            _ = Task.Run(async () =>
+            {
+                while (!cts.IsCancellationRequested)
+                {
+                    System.Net.Sockets.TcpClient c;
+                    try { c = await l.AcceptTcpClientAsync(cts.Token); } catch { break; }
+                    _ = Task.Run(() => ServeDownload(c, cert));
+                }
+            });
+
+            var tab = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
+            var core = tab.Core!;
+            _w.Navigate(tab, $"http://127.0.0.1:{port}/");
+            Check(await WaitFor(() => core.DocumentTitle == "Скачать сертификаты", 20), "страница со ссылками на сертификаты открылась");
+            var cases = new (string id, string what)[]
+            {
+                ("direct", "обычной ссылкой"), ("blank", "ссылкой в новом окне"), ("frame", "через скрытый фрейм"), ("attach", "как вложение"),
+            };
+            foreach (var (id, what) in cases)
+            {
+                int before = _w.Downloads, tabs = _w.Tabs.Count;
+                if (_w.ActiveTab != tab) _w.ActivateForTest(tab);
+                await core.ExecuteScriptAsync($"document.getElementById('{id}').click()");
+                bool done = await WaitFor(() => _w.Downloads > before, 20);
+                await Task.Delay(1500);
+                Check(done, $"файл сертификата скачался {what}");
+                Check(Shared.Windows.Contains(_w) && _w.IsLoaded, $"браузер не закрылся после скачивания {what}");
+                Line($"ИНФО вкладок до {tabs}, после {_w.Tabs.Count}");
+            }
+            await Task.Delay(500);
+            Capture(_w, "39-downloads");
+            _w.CloseTab(tab, remember: false);
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке скачивания: " + ex);
+            _failed++;
+        }
+        finally
+        {
+            cts.Cancel();
+            try { listener?.Stop(); } catch { }
+        }
+    }
+
+    static async Task ServeDownload(System.Net.Sockets.TcpClient client, byte[] cert)
+    {
+        using (client)
+        {
+            try
+            {
+                var st = client.GetStream();
+                var buf = new byte[8192];
+                int n = await st.ReadAsync(buf);
+                var req = Encoding.ASCII.GetString(buf, 0, n);
+                var path = req.Split(' ').Length > 1 ? req.Split(' ')[1] : "/";
+                byte[] body;
+                string head;
+                if (path == "/" || path.StartsWith("/?"))
+                {
+                    body = Encoding.UTF8.GetBytes("<!doctype html><meta charset=\"utf-8\"><title>Скачать сертификаты</title><body style=\"font:16px Segoe UI;margin:40px\">" +
+                        "<p><a id=\"direct\" href=\"/russian_trusted_root_ca.cer\">Корневой</a></p>" +
+                        "<p><a id=\"blank\" target=\"_blank\" href=\"/russian_trusted_sub_ca.cer\">Выпускающий (в новом окне)</a></p>" +
+                        "<p><button id=\"frame\" onclick=\"var f=document.createElement('iframe');f.style.display='none';f.src='/sub_2024.crt';document.body.appendChild(f)\">Через фрейм</button></p>" +
+                        "<p><a id=\"attach\" href=\"/attach.crt\">Вложение</a></p></body>");
+                    head = $"HTTP/1.1 200 OK\r\nContent-Type: text/html; charset=utf-8\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+                }
+                else
+                {
+                    body = cert;
+                    string disp = path.StartsWith("/attach") ? "Content-Disposition: attachment; filename=\"russian_trusted_sub_ca_2024.crt\"\r\n" : "";
+                    head = $"HTTP/1.1 200 OK\r\nContent-Type: application/x-x509-ca-cert\r\n{disp}Content-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+                }
+                await st.WriteAsync(Encoding.ASCII.GetBytes(head));
+                await st.WriteAsync(body);
+                await st.FlushAsync();
+            }
+            catch { }
         }
     }
 
@@ -1132,6 +1232,7 @@ sealed class SelfTest
             await TestBankCardsAsync();
             await TestSuggestionsAsync();
             await TestRussianCaAsync();
+            await TestDownloadsAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();

@@ -84,7 +84,7 @@ public partial class MainWindow
     List<FieldInfo>? _fillFields;
 
     sealed record FillRow(string Title, string Sub, Action Act, List<(string label, Action act)>? Chips = null, bool Muted = false,
-        string? Badge = null, string? BadgeColor = null, string? Right = null);
+        string? Badge = null, string? BadgeColor = null, string? Right = null, string? BadgeFore = null);
 
     readonly List<FillRow> _fillRows = new();
 
@@ -290,7 +290,7 @@ public partial class MainWindow
             {
                 var card = c;
                 _fillRows.Add(new FillRow(card.Title, card.Sub, () => FillBankCard(tab, target, card),
-                    Badge: card.BadgeText, BadgeColor: card.BadgeColor, Right: "•• " + card.Last4));
+                    Badge: card.BadgeText, BadgeColor: card.BadgeColor, Right: "•• " + card.Last4, BadgeFore: card.BadgeFore));
             }
         }
         _fillRows.Add(new FillRow("Управление банковскими картами…", "", () => OpenVaultWindow("bankcards"), Muted: true));
@@ -325,7 +325,7 @@ public partial class MainWindow
                 {
                     Width = 34, Height = 34, CornerRadius = new CornerRadius(9), Background = BrushCache.Get(r.BadgeColor ?? "#3D63DD"),
                     Margin = new Thickness(0, 0, 12, 0), VerticalAlignment = VerticalAlignment.Center,
-                    Child = new TextBlock { Text = r.Badge, Foreground = Brushes.White, FontWeight = FontWeights.Bold, FontSize = 11.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
+                    Child = new TextBlock { Text = r.Badge, Foreground = BrushCache.Get(r.BadgeFore ?? "#FFFFFF"), FontWeight = FontWeights.Bold, FontSize = 11.5, HorizontalAlignment = HorizontalAlignment.Center, VerticalAlignment = VerticalAlignment.Center },
                 };
                 DockPanel.SetDock(badge, Dock.Left);
                 dock.Children.Add(badge);

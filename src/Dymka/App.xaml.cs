@@ -1,3 +1,4 @@
+using System.IO;
 using System.Reflection;
 using System.Windows;
 using System.Windows.Threading;
@@ -49,6 +50,21 @@ public partial class App : Application
         _logPath = Path.Combine(dataDir, "log.txt");
 
         DispatcherUnhandledException += OnUnhandled;
+        // ошибки вне окна (фоновые потоки, обратные вызовы движка) - иначе браузер закрывается молча
+        AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
+            Log("Аварийное завершение: " + ev.ExceptionObject);
+        _runFlag = Path.Combine(dataDir, "running.flag");
+        if (selfTest == null && memTest == null)
+        {
+            try
+            {
+                if (File.Exists(_runFlag))
+                    Log("Предыдущий запуск завершился аварийно (браузер закрылся без выхода). Начат: " + File.ReadAllText(_runFlag));
+                File.WriteAllText(_runFlag, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
+            }
+            catch { }
+        }
+        Log($"Запуск Дымки {VersionText}, движок {EngineVersionSafe()}");
         TaskScheduler.UnobservedTaskException += (_, ev) => { Log("Фоновая ошибка: " + ev.Exception); ev.SetObserved(); };
 
         var settings = AppSettings.Load(Path.Combine(dataDir, "settings.json"));
@@ -64,6 +80,21 @@ public partial class App : Application
         var w = new MainWindow(settings, dataDir, selfTest, url) { MemTestFile = memTest };
         MainWindow = w;
         w.Show();
+    }
+
+    static string _runFlag = "";
+
+    static string EngineVersionSafe()
+    {
+        try { return Microsoft.Web.WebView2.Core.CoreWebView2Environment.GetAvailableBrowserVersionString(); }
+        catch { return "?"; }
+    }
+
+    protected override void OnExit(ExitEventArgs e)
+    {
+        Log("Выход из браузера");
+        try { if (_runFlag.Length > 0) File.Delete(_runFlag); } catch { }
+        base.OnExit(e);
     }
 
     void OnUnhandled(object sender, DispatcherUnhandledExceptionEventArgs e)
