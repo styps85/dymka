@@ -1059,6 +1059,12 @@ sealed class SelfTest
                 {
                     await Task.Delay(1500);
                     Capture(_w, "49-gallery");
+                    await gc.ExecuteScriptAsync("[...document.querySelectorAll('#chips button')].find(b=>b.textContent==='Зима').click()");
+                    await Task.Delay(400);
+                    var winter = await gc.ExecuteScriptAsync("(()=>{var c=[...document.querySelectorAll('#catalog .card')];return c.length>0&&c.every(x=>x.querySelector('.tag')&&x.querySelector('.tag').textContent==='Зима');})()");
+                    Check(winter == "true", "фильтр «Зима» в галерее оставляет только зимние фоны");
+                    await gc.ExecuteScriptAsync("document.querySelector('#chips button').click()");
+                    await Task.Delay(300);
                     await gc.ExecuteScriptAsync("var c=[...document.querySelectorAll('#catalog .card')].find(x=>x.dataset.local.indexOf('gallery-')===0);c.querySelector('.btn.primary').click()");
                     Check(await WaitFor(() => _w.Settings.Wallpaper.StartsWith("wallpapers/gallery-") &&
                                               File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper.Replace('/', '\\'))), 30),

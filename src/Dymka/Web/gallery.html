@@ -26,6 +26,9 @@
   .card .state { font-size: 12px; color: var(--muted); }
   .card .del { width: 30px; height: 30px; border-radius: 10px; border: 0; background: transparent; cursor: pointer; color: var(--muted); }
   .card .del:hover { background: #F1F4F8; color: #B3261E; }
+  .chips { max-width: 1180px; margin: 14px auto 0; padding: 0 24px; display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips button { height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #D7DDE6; background: #fff; font: inherit; font-size: 13px; color: var(--ink2); cursor: pointer; }
+  .chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
   .msg { max-width: 1180px; margin: 30px auto; padding: 0 24px; color: var(--muted); font-size: 14px; }
 </style>
 </head>
@@ -37,6 +40,7 @@
   </div>
   <button class="btn" id="upload" type="button">Загрузить свой фон</button>
 </header>
+<div class="chips" id="chips"></div>
 <div class="msg" id="msg">Загружаю каталог…</div>
 <h2 id="hCatalog" hidden>Фоны «Дымки»</h2>
 <div class="grid" id="catalog"></div>
@@ -73,12 +77,24 @@
     c.append(img, body);
     return c;
   }
-  let data = null;
+  let data = null, filter = 'all';
+  function drawChips() {
+    const box = document.getElementById('chips'); box.textContent = '';
+    const present = new Set(data.items.map(i => i.theme || ''));
+    const list = [['all', 'Все'], ['', 'Круглый год']].concat(Object.entries(themes)).filter(([k]) => k === 'all' || present.has(k));
+    for (const [k, label] of list) {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+      if (k === filter) b.className = 'on';
+      b.addEventListener('click', () => { filter = k; draw(); });
+      box.append(b);
+    }
+  }
   function draw() {
     if (!data) return;
+    drawChips();
     const cat = document.getElementById('catalog'), cus = document.getElementById('custom');
     cat.textContent = ''; cus.textContent = '';
-    for (const it of data.items) cat.append(card(it, !it.local.startsWith('dymka-')));
+    for (const it of data.items) if (filter === 'all' || (it.theme || '') === filter) cat.append(card(it, !it.local.startsWith('dymka-')));
     for (const it of data.custom) cus.append(card(it, true));
     document.getElementById('hCatalog').hidden = data.items.length === 0;
     document.getElementById('hCustom').hidden = data.custom.length === 0;

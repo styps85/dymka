@@ -27,36 +27,128 @@
    "builtin": true
   },
   {
-   "file": "gallery-blue-waves.jpg",
-   "title": "Голубые волны"
+   "file": "gallery-strelitzia-shadows.jpg",
+   "title": "Стрелиция и тени"
   },
   {
-   "file": "gallery-lilac-ribbons.jpg",
-   "title": "Сиреневые ленты"
+   "file": "gallery-monstera-shadows.jpg",
+   "title": "Монстера и тени"
   },
   {
-   "file": "gallery-mint-blobs.jpg",
-   "title": "Мятные пятна"
+   "file": "gallery-palm-fern-blue-paper.jpg",
+   "title": "Пальмовый лист на голубой бумаге"
   },
   {
-   "file": "gallery-peach-sunrise.jpg",
-   "title": "Персиковый рассвет"
+   "file": "gallery-vase-olive-curtain.jpg",
+   "title": "Ваза с веткой у окна"
   },
   {
-   "file": "gallery-rose-arcs.jpg",
-   "title": "Розовые дуги"
+   "file": "gallery-vase-olive-sunlight.jpg",
+   "title": "Ваза и солнечные тени"
   },
   {
-   "file": "gallery-sand-pebbles.jpg",
-   "title": "Песочные камешки"
+   "file": "gallery-paper-shapes.jpg",
+   "title": "Бумажные формы"
   },
   {
-   "file": "gallery-sun-circles.jpg",
-   "title": "Солнечные круги"
+   "file": "gallery-pastel-waves-gold.jpg",
+   "title": "Пастельные волны с золотом"
   },
   {
-   "file": "gallery-зима-snow.jpg",
-   "title": "Зимний снег"
+   "file": "gallery-watercolor-waves-leaf.jpg",
+   "title": "Акварельные волны и лист"
+  },
+  {
+   "file": "gallery-silk-waves.jpg",
+   "title": "Шёлковые волны"
+  },
+  {
+   "file": "gallery-pastel-sky.jpg",
+   "title": "Пастельное небо"
+  },
+  {
+   "file": "gallery-eucalyptus-pampas.jpg",
+   "title": "Эвкалипт и пампасная трава"
+  },
+  {
+   "file": "gallery-eucalyptus-cotton.jpg",
+   "title": "Эвкалипт и хлопок"
+  },
+  {
+   "file": "gallery-watercolor-peach-1.jpg",
+   "title": "Персиковая акварель"
+  },
+  {
+   "file": "gallery-watercolor-peach-2.jpg",
+   "title": "Персиковая акварель 2"
+  },
+  {
+   "file": "gallery-весна-cherry-blossom.jpg",
+   "title": "Цветущая вишня"
+  },
+  {
+   "file": "gallery-весна-vase-blossom.jpg",
+   "title": "Ваза с цветущими ветками"
+  },
+  {
+   "file": "gallery-весна-snowdrops-1.jpg",
+   "title": "Подснежники"
+  },
+  {
+   "file": "gallery-весна-snowdrops-2.jpg",
+   "title": "Подснежники 2"
+  },
+  {
+   "file": "gallery-лето-lemon-palm.jpg",
+   "title": "Лимон под зонтиком"
+  },
+  {
+   "file": "gallery-лето-lemon-turquoise.jpg",
+   "title": "Лимон на бирюзовом"
+  },
+  {
+   "file": "gallery-лето-paper-beach.jpg",
+   "title": "Пляж из бумаги"
+  },
+  {
+   "file": "gallery-лето-palm-hat-shells.jpg",
+   "title": "Пальмовый лист и ракушки"
+  },
+  {
+   "file": "gallery-осень-leaves-colorblock.jpg",
+   "title": "Осенние листья"
+  },
+  {
+   "file": "gallery-зима-frost-cones.jpg",
+   "title": "Иней и шишки"
+  },
+  {
+   "file": "gallery-зима-snow-field.jpg",
+   "title": "Зимнее поле"
+  },
+  {
+   "file": "gallery-зима-knitted-blanket.jpg",
+   "title": "Вязаный плед и шишка"
+  },
+  {
+   "file": "gallery-зима-frosted-fir.jpg",
+   "title": "Ель в инее"
+  },
+  {
+   "file": "gallery-новый-год-frosted-branches.jpg",
+   "title": "Ветки в инее с игрушками"
+  },
+  {
+   "file": "gallery-новый-год-fir-baubles.jpg",
+   "title": "Ель с игрушками"
+  },
+  {
+   "file": "gallery-новый-год-snowflakes-1.jpg",
+   "title": "Снежинки и шары"
+  },
+  {
+   "file": "gallery-новый-год-snowflakes-2.jpg",
+   "title": "Снежинки и шары 2"
   }
  ]
 }
