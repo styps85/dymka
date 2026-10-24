@@ -105,7 +105,7 @@ public partial class MainWindow
         Row(G("IcClose"), "Закрыть вкладку", () => CloseTab(tab), "Ctrl+W");
         Row(G(side ? "IcChevronDown" : "IcChevronRight"), side ? $"Закрыть вкладки ниже ({after.Count})" : $"Закрыть вкладки справа ({after.Count})",
             () => CloseTabsGroup(after, tab), enabled: after.Count > 0);
-        Row(G("IcBack"), side ? $"Закрыть вкладки выше ({before.Count})" : $"Закрыть вкладки слева ({before.Count})",
+        Row(G(side ? "IcChevronUp" : "IcBack"), side ? $"Закрыть вкладки выше ({before.Count})" : $"Закрыть вкладки слева ({before.Count})",
             () => CloseTabsGroup(before, tab), enabled: before.Count > 0);
         Row(G("IcClose"), $"Закрыть другие вкладки ({others.Count})", () => CloseTabsGroup(others, tab), enabled: others.Count > 0);
         Row(G("IcUndo"), "Вернуть закрытую вкладку", ReopenClosed, "Ctrl+Shift+T", enabled: _closed.Count > 0);

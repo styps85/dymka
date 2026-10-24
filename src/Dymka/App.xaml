@@ -72,6 +72,7 @@
     <Geometry x:Key="IcTabSearch">M4 6 L14 6 M4 11 L10 11 M4 16 L8 16 M19 15 A4 4 0 1 1 11 15 A4 4 0 1 1 19 15 M18 18 L21 21</Geometry>
     <Geometry x:Key="IcBroom">M15 3 L11 11 M5 11 L17 11 L19 21 L3 21 Z M8 21 L9 16 M13 21 L13 16</Geometry>
     <Geometry x:Key="IcChevronDown">M6 9 L12 15 L18 9</Geometry>
+    <Geometry x:Key="IcChevronUp">M6 15 L12 9 L18 15</Geometry>
     <Geometry x:Key="IcChevronRight">M9 6 L15 12 L9 18</Geometry>
     <Geometry x:Key="IcDots">M5 12 A1.7 1.7 0 1 1 5 12.01 Z M12 12 A1.7 1.7 0 1 1 12 12.01 Z M19 12 A1.7 1.7 0 1 1 19 12.01 Z</Geometry>
 
