@@ -928,6 +928,60 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Меню вкладки: закрыть вкладки справа (ниже), слева (выше), другие; перенести в новое окно.</summary>
+    async Task TestTabMenuAsync()
+    {
+        MainWindow? w2 = null;
+        try
+        {
+            w2 = _w.OpenWindow(null, "personal");
+            await WaitFor(() => w2.IsLoaded && w2.Tabs.Count >= 1 && w2.Tabs[0].Core != null, 30);
+            for (int i = 0; i < 4; i++) await w2.NewTabAsync(null, activate: false, container: "personal");
+            await Task.Delay(800);
+            var order = w2.VisibleTabOrderForTest;
+            Check(order.Count == 5, "в новом окне 5 вкладок: " + order.Count);
+            var mid = order[2];
+            w2.ShowTabMenu(mid);
+            await Task.Delay(600);
+            Check(w2.TabMenuOpenForTest, "правый щелчок по вкладке открывает её меню");
+            Capture(w2, "47-tab-menu");
+            w2.ClosePopups();
+
+            w2.CloseTabsGroup(w2.VisibleTabOrderForTest.Skip(3).ToList(), mid);
+            await Task.Delay(500);
+            order = w2.VisibleTabOrderForTest;
+            Check(order.Count == 3 && order[^1] == mid && w2.ActiveTab == mid, "«Закрыть вкладки справа/ниже» закрыла две вкладки после выбранной");
+            w2.CloseTabsGroup(order.Take(2).ToList(), mid);
+            await Task.Delay(500);
+            order = w2.VisibleTabOrderForTest;
+            Check(order.Count == 1 && order[0] == mid, "«Закрыть вкладки слева/выше» закрыла вкладки до выбранной");
+            for (int i = 0; i < 2; i++) await w2.NewTabAsync(null, activate: false, container: "personal");
+            await Task.Delay(400);
+            w2.CloseTabsGroup(w2.VisibleTabOrderForTest.Where(t => t != mid).ToList(), mid);
+            await Task.Delay(500);
+            Check(w2.VisibleTabOrderForTest.Count == 1, "«Закрыть другие вкладки» оставила одну вкладку");
+
+            var extra = await w2.NewTabAsync(null, activate: false, container: "personal");
+            int windows = Shared.Windows.Count;
+            w2.MoveTabToNewWindow(extra);
+            Check(await WaitFor(() => Shared.Windows.Count == windows + 1, 15) && !w2.Tabs.Contains(extra),
+                "«Перенести в новое окно» открыла вкладку в отдельном окне");
+            var w3 = Shared.Windows.LastOrDefault(x => x != _w && x != w2);
+            await Task.Delay(800);
+            w3?.Close();
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке меню вкладки: " + ex);
+            _failed++;
+        }
+        finally
+        {
+            try { w2?.Close(); } catch { }
+            await Task.Delay(800);
+        }
+    }
+
     static async Task ServeDownload(System.Net.Sockets.TcpClient client, byte[] cert)
     {
         using (client)
@@ -1310,6 +1364,7 @@ sealed class SelfTest
             await TestRussianCaAsync();
             await TestDownloadsAsync();
             await TestAudioAndPipAsync();
+            await TestTabMenuAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();

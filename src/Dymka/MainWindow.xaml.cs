@@ -1426,6 +1426,7 @@ public partial class MainWindow : Window
     internal void ClosePopups(bool keepTabSearch = false)
     {
         AddressMenu.IsOpen = false;
+        CloseTabMenu();
         MainMenu.IsOpen = false;
         PrivacyPopup.IsOpen = false;
         ContainerMenu.IsOpen = false;

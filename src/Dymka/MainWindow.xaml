@@ -20,7 +20,7 @@
     <DataTemplate x:Key="TopTabTemplate" DataType="{x:Type local:BrowserTab}">
       <Border x:Name="Root" Height="32" Margin="0,0,3,4" CornerRadius="10" Background="Transparent"
               Padding="10,0,5,0" VerticalAlignment="Bottom" WindowChrome.IsHitTestVisibleInChrome="True"
-              MouseLeftButtonDown="Tab_MouseDown" MouseUp="Tab_MouseUp" Tag="{Binding}"
+              MouseLeftButtonDown="Tab_MouseDown" MouseUp="Tab_MouseUp" MouseRightButtonUp="Tab_RightUp" Tag="{Binding}"
               ToolTip="{Binding Title}" TextElement.Foreground="{StaticResource Ink2}">
         <DockPanel LastChildFill="True">
           <Button x:Name="CloseBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}"
@@ -95,7 +95,7 @@
     <!-- Вкладка в боковой панели -->
     <DataTemplate x:Key="SideTabTemplate" DataType="{x:Type local:BrowserTab}">
       <Border x:Name="Root" Height="38" Margin="0,1" CornerRadius="10" Background="Transparent" BorderThickness="1"
-              BorderBrush="Transparent" Padding="10,0,6,0" MouseLeftButtonDown="Tab_MouseDown" MouseUp="Tab_MouseUp"
+              BorderBrush="Transparent" Padding="10,0,6,0" MouseLeftButtonDown="Tab_MouseDown" MouseUp="Tab_MouseUp" MouseRightButtonUp="Tab_RightUp"
               Tag="{Binding}" ToolTip="{Binding Url}" TextElement.Foreground="{StaticResource Ink2}"
               WindowChrome.IsHitTestVisibleInChrome="True">
         <DockPanel LastChildFill="True">
