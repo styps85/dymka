@@ -56,7 +56,22 @@ public sealed class BrowserTab : INotifyPropertyChanged
 
     /// <summary>Для самопроверки: какие хосты запрашивала страница и какие из них заблокированы.</summary>
     public List<string>? SeenHosts { get; set; }
-    public bool IsPlayingAudio { get; set; }
+    bool _isPlayingAudio, _isMuted;
+    /// <summary>Страница сейчас воспроизводит звук (видео, музыка).</summary>
+    public bool IsPlayingAudio
+    {
+        get => _isPlayingAudio;
+        set { if (Set(ref _isPlayingAudio, value)) Raise(nameof(ShowAudio)); }
+    }
+    /// <summary>Звук вкладки выключен (значок динамика на вкладке).</summary>
+    public bool IsMuted
+    {
+        get => _isMuted;
+        set { if (Set(ref _isMuted, value)) Raise(nameof(ShowAudio)); }
+    }
+    public bool ShowAudio => _isPlayingAudio || _isMuted;
+    /// <summary>Видео этой вкладки сейчас в мини-окне («картинка в картинке»).</summary>
+    public bool InPip { get; set; }
 
     string _title = "Новая вкладка";
     public string Title

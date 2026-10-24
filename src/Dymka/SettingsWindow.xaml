@@ -203,6 +203,20 @@
 
         <Border Style="{StaticResource Card}">
           <StackPanel>
+            <TextBlock Text="Видео" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="AutoPipBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Мини-окно с видео при переходе на другую вкладку"/>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="Если на вкладке идёт видео со звуком, при переходе на другую вкладку оно продолжится в маленьком окне поверх всех окон. Окно можно перетаскивать и менять его размер. Вернётесь на вкладку - видео вернётся на страницу."/>
+              </StackPanel>
+            </DockPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
             <TextBlock Text="Перевод страниц" Style="{StaticResource CardTitle}"/>
             <DockPanel>
               <CheckBox x:Name="OfferTranslationBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>

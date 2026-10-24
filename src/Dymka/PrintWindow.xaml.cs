@@ -112,6 +112,8 @@ public partial class PrintWindow : Window
         PrinterBox.ItemsSource = names;
         var pick = names.Contains(_s.PrintPrinter) ? _s.PrintPrinter : names.Contains(def) ? def : names.FirstOrDefault();
         PrinterBox.SelectedItem = pick;
+        PrinterBox.SelectionChanged += (_, _) => UpdatePrintButtonText();
+        UpdatePrintButtonText();
         if (names.Count == 0)
         {
             ShowError("В Windows не найдено ни одного принтера.");
@@ -307,6 +309,27 @@ public partial class PrintWindow : Window
 
     void Cancel_Click(object sender, RoutedEventArgs e) => Close();
 
+    /// <summary>Принтер «в файл» (Microsoft Print to PDF и подобные): печать - это сохранение.</summary>
+    bool SavesToFile => PrinterBox.SelectedItem is string p &&
+        (p.Contains("PDF", StringComparison.OrdinalIgnoreCase) || p.Contains("XPS", StringComparison.OrdinalIgnoreCase) ||
+         p.Contains("OneNote", StringComparison.OrdinalIgnoreCase));
+
+    string PrintVerb => SavesToFile ? "Сохранить" : "Печать";
+
+    void UpdatePrintButtonText()
+    {
+        if (!_printing) PrintBtn.Content = PrintVerb;
+    }
+
+    /// <summary>Для самопроверки: надпись на кнопке и выбор принтера.</summary>
+    public string PrintButtonTextForTest => PrintBtn.Content as string ?? "";
+    public bool SelectPrinterForTest(string part)
+    {
+        foreach (var it in PrinterBox.Items)
+            if (it is string n && n.Contains(part, StringComparison.OrdinalIgnoreCase)) { PrinterBox.SelectedItem = n; return true; }
+        return false;
+    }
+
     async void Print_Click(object sender, RoutedEventArgs e)
     {
         var pages = SelectedPages();
@@ -338,7 +361,7 @@ public partial class PrintWindow : Window
 
         _printing = true;
         PrintBtn.IsEnabled = false;
-        PrintBtn.Content = "Отправляю…";
+        PrintBtn.Content = SavesToFile ? "Сохраняю…" : "Отправляю…";
         HideError();
         try
         {
@@ -358,7 +381,7 @@ public partial class PrintWindow : Window
             ShowError("Не удалось отправить документ на печать: " + ex.Message);
         }
         _printing = false;
-        PrintBtn.Content = "Печать";
+        PrintBtn.Content = PrintVerb;
         RebuildSheets();
     }
 }

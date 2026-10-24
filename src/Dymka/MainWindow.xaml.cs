@@ -509,6 +509,7 @@ public partial class MainWindow : Window
                 }));
         };
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+        try { if (tab.IsMuted) core.IsMuted = true; } catch { }
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
             if (tab == _active) SetFullscreen(core.ContainsFullScreenElement);
@@ -564,13 +565,14 @@ public partial class MainWindow : Window
             if (old.View != null && !InSplit(old))
             {
                 old.View.Visibility = Visibility.Hidden;
-                TrySetMemoryLevel(old.Core, low: true);
+                if (!old.IsPlayingAudio) TrySetMemoryLevel(old.Core, low: true);
             }
         }
 
         _active = tab;
         tab.IsActive = true;
         tab.LastActive = DateTime.Now;
+        try { PipOnSwitch(old, tab); } catch (Exception ex) { App.Log("Мини-окно с видео: " + ex.Message); }
 
         if (tab.Container != _container)
         {
@@ -641,6 +643,7 @@ public partial class MainWindow : Window
     void DisposeView(BrowserTab tab)
     {
         _frames.Remove(tab);
+        tab.IsPlayingAudio = false;
         var v = tab.View;
         tab.View = null;
         if (v == null) return;
@@ -662,7 +665,7 @@ public partial class MainWindow : Window
         if (_settings.SleepMinutes <= 0) return;
         var limit = TimeSpan.FromMinutes(_settings.SleepMinutes);
         foreach (var t in _tabs.ToList())
-            if (t != _active && t.View != null && !t.IsPlayingAudio && !t.IsPinned && DateTime.Now - t.LastActive > limit)
+            if (t != _active && t.View != null && !t.IsPlayingAudio && !t.InPip && !t.IsPinned && DateTime.Now - t.LastActive > limit)
                 SleepTab(t);
 
         if (_unsavedBlocked > 0)
@@ -967,6 +970,7 @@ public partial class MainWindow : Window
                 var kind = dm.GetString();
                 if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
                 else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
+                else if (kind == "pip") OnPipMessage(tab, root);
                 else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit")
                     OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = core.ExecuteScriptAsync }, kind, root);
                 else if (kind == "tr" && tab.TranslateState != TranslateState.None)
@@ -1240,6 +1244,19 @@ public partial class MainWindow : Window
     {
         if ((sender as FrameworkElement)?.Tag is BrowserTab tab) CloseTab(tab);
         e.Handled = true;
+    }
+
+    void TabAudio_Click(object sender, RoutedEventArgs e)
+    {
+        if ((sender as FrameworkElement)?.Tag is BrowserTab tab) ToggleMute(tab);
+        e.Handled = true;
+    }
+
+    /// <summary>Выключает или включает звук вкладки (значок динамика на вкладке).</summary>
+    public void ToggleMute(BrowserTab tab)
+    {
+        tab.IsMuted = !tab.IsMuted;
+        try { if (tab.Core != null) tab.Core.IsMuted = tab.IsMuted; } catch (Exception ex) { App.Log("Звук вкладки: " + ex.Message); }
     }
 
     // ===================================================================== панель защиты

@@ -27,6 +27,10 @@
                   Click="TabClose_Click" Tag="{Binding}" Visibility="Hidden" ToolTip="Закрыть вкладку (Ctrl+W)">
             <local:Glyph Data="{StaticResource IcClose}" Size="13" StrokeWidth="2.4"/>
           </Button>
+          <Button x:Name="AudioBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="TabAudio_Click"
+                  Tag="{Binding}" Visibility="Collapsed" ToolTip="Выключить звук вкладки" Margin="0,0,1,0">
+            <local:Glyph x:Name="AudioGl" Data="{StaticResource IcSpeaker}" Size="14"/>
+          </Button>
           <Grid DockPanel.Dock="Left" Width="16" Height="16" Margin="0,0,8,0" VerticalAlignment="Center">
             <Image x:Name="Fav" Source="{Binding Favicon}" Width="16" Height="16" Visibility="Collapsed"
                    RenderOptions.BitmapScalingMode="HighQuality"/>
@@ -44,6 +48,13 @@
         </DockPanel>
       </Border>
       <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding ShowAudio}" Value="True">
+          <Setter TargetName="AudioBtn" Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsMuted}" Value="True">
+          <Setter TargetName="AudioGl" Property="Data" Value="{StaticResource IcSpeakerOff}"/>
+          <Setter TargetName="AudioBtn" Property="ToolTip" Value="Включить звук вкладки"/>
+        </DataTrigger>
         <DataTrigger Binding="{Binding HasFavicon}" Value="True">
           <Setter TargetName="Fav" Property="Visibility" Value="Visible"/>
           <Setter TargetName="Letter" Property="Visibility" Value="Collapsed"/>
@@ -92,6 +103,10 @@
                   Click="TabClose_Click" Tag="{Binding}" Visibility="Hidden" ToolTip="Закрыть вкладку (Ctrl+W)">
             <local:Glyph Data="{StaticResource IcClose}" Size="13" StrokeWidth="2.4"/>
           </Button>
+          <Button x:Name="AudioBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="TabAudio_Click"
+                  Tag="{Binding}" Visibility="Collapsed" ToolTip="Выключить звук вкладки" Margin="0,0,1,0">
+            <local:Glyph x:Name="AudioGl" Data="{StaticResource IcSpeaker}" Size="14"/>
+          </Button>
           <Button x:Name="PinBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="Unpin_Click" Tag="{Binding}"
                   Visibility="Collapsed" ToolTip="Открепить">
             <local:Glyph Data="{StaticResource IcPin}" Size="14"/>
@@ -112,6 +127,13 @@
         </DockPanel>
       </Border>
       <DataTemplate.Triggers>
+        <DataTrigger Binding="{Binding ShowAudio}" Value="True">
+          <Setter TargetName="AudioBtn" Property="Visibility" Value="Visible"/>
+        </DataTrigger>
+        <DataTrigger Binding="{Binding IsMuted}" Value="True">
+          <Setter TargetName="AudioGl" Property="Data" Value="{StaticResource IcSpeakerOff}"/>
+          <Setter TargetName="AudioBtn" Property="ToolTip" Value="Включить звук вкладки"/>
+        </DataTrigger>
         <DataTrigger Binding="{Binding HasFavicon}" Value="True">
           <Setter TargetName="Fav" Property="Visibility" Value="Visible"/>
           <Setter TargetName="Letter" Property="Visibility" Value="Collapsed"/>

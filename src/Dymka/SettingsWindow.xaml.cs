@@ -51,6 +51,7 @@ public partial class SettingsWindow : Window
         StartNew.IsChecked = !_s.RestoreSession;
         VideoTranslationBox.IsChecked = _s.VideoTranslation;
         OfferTranslationBox.IsChecked = _s.OfferTranslation;
+        AutoPipBox.IsChecked = _s.AutoPip;
         SuggestBox.IsChecked = _s.SearchSuggestions;
         RuCaBox.IsChecked = _s.TrustRussianCa;
         RuCaSites.Text = string.Join(Environment.NewLine, _s.RussianCaSites);
@@ -95,6 +96,7 @@ public partial class SettingsWindow : Window
         VideoTranslationChanged = _s.VideoTranslation != (VideoTranslationBox.IsChecked == true);
         _s.VideoTranslation = VideoTranslationBox.IsChecked == true;
         _s.OfferTranslation = OfferTranslationBox.IsChecked == true;
+        _s.AutoPip = AutoPipBox.IsChecked == true;
         _s.SearchSuggestions = SuggestBox.IsChecked == true;
         _s.TrustRussianCa = RuCaBox.IsChecked == true;
         _s.RussianCaSites = ParseDomains(RuCaSites.Text);

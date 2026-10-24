@@ -166,6 +166,33 @@ static class Native
     }
 
     /// <summary>Снимок области экрана, занятой окном (вместе с содержимым WebView2 и всплывающими панелями).</summary>
+    [DllImport("user32.dll")] static extern int GetSystemMetrics(int index);
+
+    /// <summary>Снимок всего основного экрана (для самопроверки окон движка поверх «Дымки»).</summary>
+    public static BitmapSource? CaptureScreen()
+    {
+        int width = GetSystemMetrics(0), height = GetSystemMetrics(1);
+        if (width <= 0 || height <= 0) return null;
+        var screen = GetDC(IntPtr.Zero);
+        var mem = CreateCompatibleDC(screen);
+        var bmp = CreateCompatibleBitmap(screen, width, height);
+        var old = SelectObject(mem, bmp);
+        try
+        {
+            BitBlt(mem, 0, 0, width, height, screen, 0, 0, SRCCOPY | CAPTUREBLT);
+            var src = Imaging.CreateBitmapSourceFromHBitmap(bmp, IntPtr.Zero, Int32Rect.Empty, BitmapSizeOptions.FromEmptyOptions());
+            src.Freeze();
+            return src;
+        }
+        finally
+        {
+            SelectObject(mem, old);
+            DeleteObject(bmp);
+            DeleteDC(mem);
+            ReleaseDC(IntPtr.Zero, screen);
+        }
+    }
+
     public static BitmapSource? CaptureWindow(Window w, int extraBottom = 0)
     {
         var hwnd = new WindowInteropHelper(w).Handle;

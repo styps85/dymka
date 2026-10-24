@@ -76,6 +76,9 @@ public sealed class AppSettings
     /// <summary>Предлагать перевод страниц не на русском (кнопка «Перевести» в адресной строке). Перевод - Яндекс Переводчик.</summary>
     public bool OfferTranslation { get; set; } = true;
 
+    /// <summary>Видео со звуком при переходе на другую вкладку продолжается в мини-окне поверх всех окон («картинка в картинке»).</summary>
+    public bool AutoPip { get; set; } = true;
+
     /// <summary>Доверять российским сертификатам Минцифры (встроены в браузер) - только для .ru, .рф, .su, .рус и сайтов из списка ниже.</summary>
     public bool TrustRussianCa { get; set; } = true;
     public List<string> RussianCaSites { get; set; } = new();

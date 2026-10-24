@@ -110,6 +110,10 @@ sealed class SelfTest
         Check(sel != null && Dymka.Core.PageRanges.ToRangeString(sel) == "1-" + (expectedPages - 1),
             "«все, кроме последней»: " + (sel == null ? "ошибка" : Dymka.Core.PageRanges.ToRangeString(sel)));
         pw.SetPerSheetForTest(2);
+        if (pw.SelectPrinterForTest("Microsoft Print to PDF"))
+            Check(pw.PrintButtonTextForTest == "Сохранить", "для «Microsoft Print to PDF» кнопка называется «Сохранить»: " + pw.PrintButtonTextForTest);
+        else
+            Line("ИНФО принтера Microsoft Print to PDF нет в системе");
         await Task.Delay(1200);
         Capture(pw, shot);
         pw.Close();
@@ -859,6 +863,60 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Звук на вкладке: значок и выключение звука; мини-окно с видео при переходе на другую вкладку.</summary>
+    async Task TestAudioAndPipAsync()
+    {
+        try
+        {
+            var tab = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
+            var core = tab.Core!;
+            core.NavigateToString("<!doctype html><meta charset=\"utf-8\"><title>Видео со звуком</title><body style=\"margin:20px;font:15px Segoe UI\">" +
+                "<canvas id=\"c\" width=\"320\" height=\"180\" style=\"display:none\"></canvas><video id=\"v\" width=\"480\" height=\"270\" playsinline></video>" +
+                "<script>var c=document.getElementById('c'),x=c.getContext('2d'),n=0;setInterval(function(){n++;x.fillStyle='hsl('+(n*7%360)+',70%,50%)';" +
+                "x.fillRect(0,0,320,180);x.fillStyle='#fff';x.font='40px Segoe UI';x.fillText('Дымка '+n,40,100);},40);" +
+                "document.getElementById('v').srcObject=c.captureStream(25);</script></body>");
+            Check(await WaitFor(() => core.DocumentTitle == "Видео со звуком", 15), "страница с видео открылась");
+            // запуск видео и звука «нажатием пользователя»
+            await core.CallDevToolsProtocolMethodAsync("Runtime.evaluate", System.Text.Json.JsonSerializer.Serialize(new
+            {
+                expression = "(async()=>{var a=new AudioContext();var o=a.createOscillator();var g=a.createGain();g.gain.value=0.05;o.connect(g);g.connect(a.destination);o.start();" +
+                             "await a.resume();var v=document.getElementById('v');v.muted=false;await v.play();return 'ok';})()",
+                userGesture = true, awaitPromise = true, returnByValue = true,
+            }));
+            Check(await WaitFor(() => tab.IsPlayingAudio && tab.ShowAudio, 15), "на вкладке со звуком появился значок динамика");
+            _w.ToggleMute(tab);
+            Check(tab.IsMuted && core.IsMuted && tab.ShowAudio, "щелчок по значку выключает звук вкладки");
+            await Task.Delay(800);
+            Capture(_w, "45-tab-muted");
+            _w.ToggleMute(tab);
+            Check(!tab.IsMuted && !core.IsMuted, "повторный щелчок включает звук");
+
+            var other = _w.Tabs.First(t => t != tab && !t.IsSleeping);
+            _w.Activate(other);
+            await WaitFor(() => tab.InPip || _w.LastPipResult.Length > 0, 15);
+            Line("ИНФО мини-окно с видео: ответ страницы «" + _w.LastPipResult + "»");
+            Check(tab.InPip, "при переходе на другую вкладку видео со звуком ушло в мини-окно");
+            await Task.Delay(1500);
+            try
+            {
+                var shot = Native.CaptureScreen();
+                if (shot != null) { Native.SavePng(shot, Path.Combine(_dir, "46-pip-screen.png")); Line("снимок 46-pip-screen.png"); }
+            }
+            catch (Exception ex) { Line("снимок экрана: " + ex.Message); }
+            _w.Activate(tab);
+            await Task.Delay(1500);
+            var inPip = await core.ExecuteScriptAsync("!!document.pictureInPictureElement");
+            Check(!tab.InPip && inPip == "false", "при возвращении на вкладку видео вернулось на страницу");
+            _w.CloseTab(tab, remember: false);
+        }
+        catch (Exception ex)
+        {
+            Line("ИСКЛЮЧЕНИЕ в проверке звука и мини-окна: " + ex);
+            _failed++;
+        }
+    }
+
     static async Task ServeDownload(System.Net.Sockets.TcpClient client, byte[] cert)
     {
         using (client)
@@ -1240,6 +1298,7 @@ sealed class SelfTest
             await TestSuggestionsAsync();
             await TestRussianCaAsync();
             await TestDownloadsAsync();
+            await TestAudioAndPipAsync();
             await TestSessionAndRecoveryAsync();
 
             var sw = _w.OpenSettingsForTest();
