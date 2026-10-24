@@ -72,6 +72,9 @@ public sealed class BrowserTab : INotifyPropertyChanged
         set { if (Set(ref _url, value ?? "")) { Raise(nameof(Initial)); Raise(nameof(IsStart)); Raise(nameof(InitialBg)); Raise(nameof(InitialFg)); } }
     }
 
+    /// <summary>Вкладка открыта страницей (ссылка в новом окне, window.open) - её страница может сама её закрыть.</summary>
+    public bool OpenedByPage { get; set; }
+
     public bool IsStart => string.IsNullOrEmpty(_url) || UrlTools.IsStartPage(_url);
 
     public string Initial => IsStart ? "" : UrlTools.InitialFor(_title, _url);

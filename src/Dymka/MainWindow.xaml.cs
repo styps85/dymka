@@ -145,7 +145,17 @@ public partial class MainWindow : Window
         ApplyLayout();
         UpdateContainerUi();
 
-        SourceInitialized += (_, _) => Native.RoundCorners(this);
+        SourceInitialized += (_, _) =>
+        {
+            Native.RoundCorners(this);
+            // закрытие кнопкой окна, Alt+F4 или с панели задач - это решение пользователя
+            System.Windows.Interop.HwndSource.FromHwnd(new System.Windows.Interop.WindowInteropHelper(this).Handle)?.AddHook(
+                (IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) =>
+                {
+                    if (msg == 0x0112 && ((int)wParam & 0xFFF0) == 0xF060) _userClose = true;   // WM_SYSCOMMAND / SC_CLOSE
+                    return IntPtr.Zero;
+                });
+        };
         Loaded += OnLoaded;
         Closing += OnClosing;
         StateChanged += (_, _) => OnStateChanged();
@@ -484,6 +494,15 @@ public partial class MainWindow : Window
         catch (Exception ex) { App.Log("Проверка сертификатов недоступна: " + ex.Message); }
         try { core.DownloadStarting += (_, e) => OnDownloadStarting(tab, e); }
         catch (Exception ex) { App.Log("Скачивания: " + ex.Message); }
+        core.WindowCloseRequested += (_, _) =>
+        {
+            // страница просит закрыть своё окно (window.close() или окно, открытое ради скачивания файла):
+            // закрываем только вкладку, открытую самой страницей, как в Chrome; само окно браузера - никогда
+            _blockCloseUntil = DateTime.Now.AddSeconds(5);
+            App.Log($"Страница просит закрыть окно ({UrlTools.HostOf(tab.Url)}), вкладка открыта страницей: {tab.OpenedByPage}");
+            if (tab.OpenedByPage)
+                Dispatcher.BeginInvoke(new Action(() => { if (_tabs.Contains(tab)) CloseTab(tab, remember: false); }));
+        };
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
@@ -806,6 +825,8 @@ public partial class MainWindow : Window
         {
             var op = e.DownloadOperation;
             string name = Path.GetFileName(e.ResultFilePath ?? "");
+            // движок закрывает окно, открытое ради скачивания, и может задеть окно браузера - на время скачивания не даём
+            _blockCloseUntil = DateTime.Now.AddSeconds(5);
             App.Log($"Скачивание: {name} ({op.MimeType}, {UrlTools.HostOf(op.Uri)}) - вкладка {tab.Container}");
             op.StateChanged += (_, _) =>
             {
@@ -815,6 +836,7 @@ public partial class MainWindow : Window
                         ? $"Скачивание {name}: прервано ({op.InterruptReason})"
                         : $"Скачивание {name}: {(op.State == CoreWebView2DownloadState.Completed ? "готово" : op.State.ToString())}");
                     if (op.State == CoreWebView2DownloadState.Completed) Downloads++;
+                    if (op.State != CoreWebView2DownloadState.InProgress) _blockCloseUntil = DateTime.Now.AddSeconds(5);
                 }
                 catch { }
             };
@@ -831,7 +853,7 @@ public partial class MainWindow : Window
         try
         {
             bool background = Native.IsCtrlDown() && !(e.WindowFeatures?.HasSize ?? false);
-            var tab = new BrowserTab(source.Container) { Url = e.Uri ?? "" };
+            var tab = new BrowserTab(source.Container) { Url = e.Uri ?? "", OpenedByPage = true };
             tab.PropertyChanged += OnTabPropertyChanged;
             int idx = _tabs.IndexOf(source);
             if (idx >= 0 && idx < _tabs.Count - 1) _tabs.Insert(idx + 1, tab); else _tabs.Add(tab);
@@ -1705,8 +1727,19 @@ public partial class MainWindow : Window
         _settings.Save();
     }
 
+    bool _userClose;
+    DateTime _blockCloseUntil;
+
     async void OnClosing(object? sender, CancelEventArgs e)
     {
+        if (!_userClose && !_cleanupDone && DateTime.Now < _blockCloseUntil)
+        {
+            // окно пытается закрыть не пользователь, а движок сразу после скачивания - отменяем
+            e.Cancel = true;
+            App.Log("Закрытие окна сразу после скачивания отменено (команда шла не от пользователя)");
+            return;
+        }
+        App.Log("Закрытие окна" + (_userClose ? " пользователем" : ""));
         SaveWindowBounds();
         bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
         if (!othersOpen && !_cleanupDone)
@@ -1769,7 +1802,7 @@ public partial class MainWindow : Window
     void Maximize_Click(object sender, RoutedEventArgs e) =>
         WindowState = WindowState == WindowState.Maximized ? WindowState.Normal : WindowState.Maximized;
 
-    void Close_Click(object sender, RoutedEventArgs e) => Close();
+    void Close_Click(object sender, RoutedEventArgs e) { _userClose = true; Close(); }
 
     void SetFullscreen(bool on)
     {
