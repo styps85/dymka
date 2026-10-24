@@ -198,6 +198,12 @@ public partial class MainWindow : Window
         Shared.StartupDone = true;
         if (first)
         {
+            EdgePageWatcher.Start(title => Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (Application.Current.Windows.OfType<SettingsWindow>().Any()) return;
+                var w = Shared.Windows.FirstOrDefault(x => x.IsActive) ?? Shared.Windows.FirstOrDefault(x => x.IsVisible) ?? this;
+                w.OpenSettings(title.Contains("appearance", StringComparison.OrdinalIgnoreCase) ? "video" : null);
+            })));
             Shared.BlocklistLoading = true;
             _ = Task.Run(() => Blocklist.Build(_listsDir)).ContinueWith(t =>
             {
@@ -887,7 +893,11 @@ public partial class MainWindow : Window
             // служебные страницы Edge (например, шестерёнка в мини-окне с видео) - в «Дымке» вместо них её настройки
             e.Handled = true;
             App.Log("Служебная страница движка: " + uri);
-            Dispatcher.BeginInvoke(new Action(() => OpenSettings(uri.Contains("appearance", StringComparison.OrdinalIgnoreCase) ? "video" : null)));
+            Dispatcher.BeginInvoke(new Action(() =>
+            {
+                if (!Application.Current.Windows.OfType<SettingsWindow>().Any())
+                    OpenSettings(uri.Contains("appearance", StringComparison.OrdinalIgnoreCase) ? "video" : null);
+            }));
             return;
         }
         var deferral = e.GetDeferral();
