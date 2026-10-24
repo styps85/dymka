@@ -817,7 +817,7 @@ sealed class SelfTest
             });
 
             // нажатия из скрипта - не нажатия человека: разрешаем тестовой странице несколько скачиваний подряд без вопроса
-            _w.Settings.SitePermissions[AppSettings.PermissionKey("127.0.0.1", "downloads")] = true;
+            _w.Settings.SitePermissions[Dymka.Core.AppSettings.PermissionKey("127.0.0.1", "downloads")] = true;
             var tab = await _w.NewTabAsync(null, activate: true, container: "work");
             await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
             var core = tab.Core!;
