@@ -501,7 +501,12 @@ public partial class MainWindow : Window
             _blockCloseUntil = DateTime.Now.AddSeconds(5);
             App.Log($"Страница просит закрыть окно ({UrlTools.HostOf(tab.Url)}), вкладка открыта страницей: {tab.OpenedByPage}");
             if (tab.OpenedByPage)
-                Dispatcher.BeginInvoke(new Action(() => { if (_tabs.Contains(tab)) CloseTab(tab, remember: false); }));
+                Dispatcher.BeginInvoke(new Action(() =>
+                {
+                    if (!_tabs.Contains(tab)) return;
+                    if (tab.ActiveDownloads > 0) tab.CloseAfterDownloads = true;   // закрытие сразу оборвало бы скачивание
+                    else ClosePageOpenedTab(tab);
+                }));
         };
         core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
         core.ContainsFullScreenElementChanged += (_, _) =>
@@ -828,10 +833,19 @@ public partial class MainWindow : Window
             // движок закрывает окно, открытое ради скачивания, и может задеть окно браузера - на время скачивания не даём
             _blockCloseUntil = DateTime.Now.AddSeconds(5);
             App.Log($"Скачивание: {name} ({op.MimeType}, {UrlTools.HostOf(op.Uri)}) - вкладка {tab.Container}");
+            tab.ActiveDownloads++;
+            bool finished = false;
             op.StateChanged += (_, _) =>
             {
                 try
                 {
+                    if (!finished && op.State != CoreWebView2DownloadState.InProgress)
+                    {
+                        finished = true;
+                        tab.ActiveDownloads--;
+                        if (tab.ActiveDownloads <= 0 && tab.CloseAfterDownloads && _tabs.Contains(tab))
+                            Dispatcher.BeginInvoke(new Action(() => { if (_tabs.Contains(tab)) ClosePageOpenedTab(tab); }));
+                    }
                     App.Log(op.State == CoreWebView2DownloadState.Interrupted
                         ? $"Скачивание {name}: прервано ({op.InterruptReason})"
                         : $"Скачивание {name}: {(op.State == CoreWebView2DownloadState.Completed ? "готово" : op.State.ToString())}");
@@ -844,6 +858,15 @@ public partial class MainWindow : Window
         catch (Exception ex) { App.Log("Скачивание: " + ex.Message); }
     }
 
+    /// <summary>Закрывает вкладку, открытую страницей (например, ради скачивания файла), и возвращает на исходную.</summary>
+    void ClosePageOpenedTab(BrowserTab tab)
+    {
+        var opener = tab.Opener;
+        bool wasActive = tab == _active;
+        CloseTab(tab, remember: false);
+        if (wasActive && opener != null && _tabs.Contains(opener)) Activate(opener);
+    }
+
     /// <summary>Сколько файлов скачано за сеанс (для самопроверки).</summary>
     public int Downloads { get; private set; }
 
@@ -853,7 +876,7 @@ public partial class MainWindow : Window
         try
         {
             bool background = Native.IsCtrlDown() && !(e.WindowFeatures?.HasSize ?? false);
-            var tab = new BrowserTab(source.Container) { Url = e.Uri ?? "", OpenedByPage = true };
+            var tab = new BrowserTab(source.Container) { Url = e.Uri ?? "", OpenedByPage = true, Opener = source };
             tab.PropertyChanged += OnTabPropertyChanged;
             int idx = _tabs.IndexOf(source);
             if (idx >= 0 && idx < _tabs.Count - 1) _tabs.Insert(idx + 1, tab); else _tabs.Add(tab);

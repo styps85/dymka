@@ -816,6 +816,8 @@ sealed class SelfTest
                 }
             });
 
+            // нажатия из скрипта - не нажатия человека: разрешаем тестовой странице несколько скачиваний подряд без вопроса
+            _w.Settings.SitePermissions[AppSettings.PermissionKey("127.0.0.1", "downloads")] = true;
             var tab = await _w.NewTabAsync(null, activate: true, container: "work");
             await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
             var core = tab.Core!;
@@ -834,6 +836,11 @@ sealed class SelfTest
                 await Task.Delay(1500);
                 Check(done, $"файл сертификата скачался {what}");
                 Check(Shared.Windows.Contains(_w) && _w.IsLoaded, $"браузер не закрылся после скачивания {what}");
+                if (id == "blank")
+                {
+                    Check(await WaitFor(() => _w.Tabs.Count == tabs, 10) && _w.ActiveTab == tab,
+                        "вкладка, открытая ради скачивания, закрылась после него, вернулась исходная");
+                }
                 Line($"ИНФО вкладок до {tabs}, после {_w.Tabs.Count}");
             }
             await Task.Delay(500);

@@ -74,6 +74,12 @@ public sealed class BrowserTab : INotifyPropertyChanged
 
     /// <summary>Вкладка открыта страницей (ссылка в новом окне, window.open) - её страница может сама её закрыть.</summary>
     public bool OpenedByPage { get; set; }
+    /// <summary>Вкладка, со страницы которой открыта эта.</summary>
+    public BrowserTab? Opener { get; set; }
+    /// <summary>Сколько файлов сейчас скачивается со страницы этой вкладки.</summary>
+    public int ActiveDownloads { get; set; }
+    /// <summary>Страница попросила закрыть вкладку, но идёт скачивание - закроем, когда оно закончится.</summary>
+    public bool CloseAfterDownloads { get; set; }
 
     public bool IsStart => string.IsNullOrEmpty(_url) || UrlTools.IsStartPage(_url);
 
