@@ -168,9 +168,10 @@ window.__dymkaMedia=function(cmd){
         if (!MediaBar.IsOpen || MediaBar.Child is not FrameworkElement card) return;
         card.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
         var sz = card.DesiredSize;
-        double bottom = _active?.IsStart == true ? 64 : 4;   // кнопка настроек новой вкладки: 20 + 44 точки от низа
-        double x = Math.Max(0, ContentHost.ActualWidth - sz.Width - 8);
-        double y = Math.Max(0, ContentHost.ActualHeight - sz.Height - bottom);
+        // на новой вкладке - в нижнем ряду левее шестерёнки (она в 20 точках от края, шириной 44), чтобы не закрывать её и сведения о защите
+        bool start = _active?.IsStart == true;
+        double x = Math.Max(0, ContentHost.ActualWidth - sz.Width - (start ? 64 : 8));
+        double y = Math.Max(0, ContentHost.ActualHeight - sz.Height - (start ? 3 : 4));
         // при перемещении окна смещение не меняется - чуть сдвигаем, чтобы окно мини-плеера переехало вместе с браузером
         _mediaNudge = !_mediaNudge;
         MediaBar.HorizontalOffset = x + (_mediaNudge ? 0.01 : 0);
