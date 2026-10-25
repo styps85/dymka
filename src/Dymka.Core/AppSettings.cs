@@ -91,6 +91,8 @@ public sealed class AppSettings
     public string WallpaperDay { get; set; } = "";
     /// <summary>Часы и дата на новой вкладке.</summary>
     public bool ShowClock { get; set; } = true;
+    /// <summary>Сведения о защите на новой вкладке (трекеры, спящие вкладки, cookie).</summary>
+    public bool ShowStartStats { get; set; } = true;
 
     /// <summary>Доверять российским сертификатам Минцифры (встроены в браузер) - только для .ru, .рф, .su, .рус и сайтов из списка ниже.</summary>
     public bool TrustRussianCa { get; set; } = true;
@@ -148,6 +150,18 @@ public sealed class AppSettings
         new() { Title = "ЕФРСБ", Url = "https://fedresurs.ru/" },
         new() { Title = "Dropbox", Url = "https://www.dropbox.com/home" },
     };
+
+    /// <summary>Новый порядок плиток после перетаскивания: по списку адресов; плитки, которых нет в списке, - в конце.</summary>
+    public static void ReorderShortcuts(List<Shortcut> list, IList<string> urls)
+    {
+        var rank = new Dictionary<string, int>();
+        for (int i = 0; i < urls.Count; i++) rank.TryAdd(urls[i], i);
+        var sorted = list.Select((s, i) => (s, i))
+            .OrderBy(x => rank.TryGetValue(x.s.Url, out var r) ? r : urls.Count + x.i)
+            .Select(x => x.s).ToList();
+        list.Clear();
+        list.AddRange(sorted);
+    }
 
     public List<Shortcut> ShortcutsFor(string container)
     {

@@ -163,6 +163,7 @@ public partial class MainWindow : Window
         PreviewKeyDown += OnPreviewKeyDown;
         _sleepTimer.Tick += (_, _) => { SleepIdleTabs(); CheckVaultLock(); };
         _memTimer.Tick += (_, _) => UpdateMemory();
+        InitMediaBar();
     }
 
     // ===================================================================== запуск
@@ -474,6 +475,7 @@ public partial class MainWindow : Window
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(PrintScript);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(FocusScript);
         _ = core.AddScriptToExecuteOnDocumentCreatedAsync(FormsScript);
+        _ = core.AddScriptToExecuteOnDocumentCreatedAsync(MediaScript);
 
         core.WebResourceRequested += (_, e) => OnWebResourceRequested(tab, e);
         core.NavigationStarting += (_, e) => OnNavigationStarting(tab, core, e);
@@ -521,7 +523,11 @@ public partial class MainWindow : Window
                     else ClosePageOpenedTab(tab);
                 }));
         };
-        core.IsDocumentPlayingAudioChanged += (_, _) => tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+        core.IsDocumentPlayingAudioChanged += (_, _) =>
+        {
+            tab.IsPlayingAudio = core.IsDocumentPlayingAudio;
+            try { OnTabAudioChanged(tab); } catch (Exception ex) { App.Log("Мини-плеер: " + ex.Message); }
+        };
         try { if (tab.IsMuted) core.IsMuted = true; } catch { }
         core.ContainsFullScreenElementChanged += (_, _) =>
         {
@@ -1050,6 +1056,12 @@ public partial class MainWindow : Window
                     }
                     SendStartData(tab, core);
                     break;
+                case "reorder":
+                    var order = root.GetProperty("urls").EnumerateArray().Select(x => x.GetString() ?? "").ToList();
+                    AppSettings.ReorderShortcuts(_settings.ShortcutsFor(tab.Container), order);
+                    _settings.Save();
+                    BroadcastStartData();   // тот же порядок - на других новых вкладках
+                    break;
                 case "remove":
                     var ru = root.GetProperty("url").GetString();
                     _settings.ShortcutsFor(tab.Container).RemoveAll(s => s.Url == ru);
@@ -1104,6 +1116,7 @@ public partial class MainWindow : Window
             wallpaper = CurrentWallpaper(),
             wp = WallpaperInfo(),
             clock = _settings.ShowClock,
+            stats = _settings.ShowStartStats,
         };
         core.PostWebMessageAsJson(JsonSerializer.Serialize(data));
     }
@@ -1701,23 +1714,34 @@ public partial class MainWindow : Window
     {
         var u = _update;
         if (u == null || _updating) return;
+        bool admin = UpdateChecker.NeedsAdmin;
         var (i, _) = Dialogs.Show(this, $"Доступна версия {u.Version}",
             $"Сейчас установлена версия {App.VersionText}. Скачать обновление? Это займёт около минуты, " +
-            "потом браузер перезапустится" + (_settings.RestoreSession ? " и откроет ваши вкладки снова." : ". Открытые вкладки закроются."),
+            "потом браузер перезапустится" + (_settings.RestoreSession ? " и откроет ваши вкладки снова." : ". Открытые вкладки закроются.") +
+            (admin ? "\n\nБраузер установлен в защищённую папку (например, Program Files), поэтому Windows попросит разрешение на замену файлов - нажмите «Да»." : ""),
             new[] { "Обновить", "Позже" });
         if (i != 0) return;
         _updating = true;
         UpdateItemText.Text = "Скачиваю обновление…";
-        bool ready = false;
-        try { ready = await UpdateChecker.PrepareAsync(u); }
+        var result = UpdateChecker.PrepareResult.Failed;
+        try { result = await UpdateChecker.PrepareAsync(u); }
         catch (Exception ex) { App.Log("Обновление: " + ex.Message); }
         _updating = false;
-        if (ready)
+        if (result == UpdateChecker.PrepareResult.Ready)
         {
             Close();
             return;
         }
         UpdateItemText.Text = $"Обновить до версии {u.Version}";
+        if (result == UpdateChecker.PrepareResult.Cancelled)
+        {
+            var (j, _) = Dialogs.Show(this, "Обновление отменено",
+                "Без разрешения Windows браузер не может заменить свои файлы в защищённой папке. Можно попробовать ещё раз " +
+                "или перенести папку с «Дымкой» туда, где не нужны права администратора (например, на Рабочий стол или в «Документы»).",
+                new[] { "Попробовать ещё раз", "Позже" });
+            if (j == 0) await InstallUpdateAsync();
+            return;
+        }
         Dialogs.Show(this, "Не удалось обновить автоматически",
             "Откроется страница выпуска: скачайте новую версию и замените ею старый файл (или папку).",
             new[] { "Открыть" });

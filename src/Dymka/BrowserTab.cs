@@ -61,7 +61,12 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public bool IsPlayingAudio
     {
         get => _isPlayingAudio;
-        set { if (Set(ref _isPlayingAudio, value)) Raise(nameof(ShowAudio)); }
+        set
+        {
+            if (!Set(ref _isPlayingAudio, value)) return;
+            if (value) AudioSince = DateTime.Now; else AudioStoppedAt = DateTime.Now;
+            Raise(nameof(ShowAudio));
+        }
     }
     /// <summary>Звук вкладки выключен (значок динамика на вкладке).</summary>
     public bool IsMuted
@@ -72,6 +77,10 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public bool ShowAudio => _isPlayingAudio || _isMuted;
     /// <summary>Видео этой вкладки сейчас в мини-окне («картинка в картинке»).</summary>
     public bool InPip { get; set; }
+
+    /// <summary>Когда вкладка начала / перестала звучать (для мини-плеера).</summary>
+    public DateTime AudioSince { get; private set; }
+    public DateTime AudioStoppedAt { get; private set; }
 
     string _title = "Новая вкладка";
     public string Title

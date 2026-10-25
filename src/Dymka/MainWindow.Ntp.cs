@@ -106,6 +106,7 @@ public partial class MainWindow
         switch (action)
         {
             case "clock": _settings.ShowClock = on; break;
+            case "stats": _settings.ShowStartStats = on; break;
             case "bg": _settings.WallpaperOn = on; break;
             case "daily":
                 _settings.WallpaperDaily = on;

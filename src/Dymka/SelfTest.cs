@@ -1027,6 +1027,34 @@ sealed class SelfTest
             await Js("document.getElementById('optClock').click()");
             Check(await JsWait("!document.body.classList.contains('clock-on')") && !_w.Settings.ShowClock, "часы выключаются переключателем");
             await Js("document.getElementById('optClock').click()");
+            // сведения о защите скрываются кнопкой внизу слева
+            await Js("document.getElementById('ntpBtn').click()");
+            await Js("document.getElementById('statsBtn').click()");
+            Check(await JsWait("document.body.classList.contains('stats-off')&&getComputedStyle(document.querySelector('.stats')).display==='none'") && !_w.Settings.ShowStartStats,
+                "кнопка внизу слева скрывает сведения о трекерах, спящих вкладках и cookie");
+            await Task.Delay(400);
+            Capture(_w, "48b-stats-hidden");
+            await Js("document.getElementById('statsBtn').click()");
+            Check(await JsWait("!document.body.classList.contains('stats-off')") && _w.Settings.ShowStartStats, "и показывает их снова");
+            // плитки: неполный ряд по центру; перетаскивание меняет порядок
+            Check(await JsWait("(()=>{var g=document.getElementById('grid'),t=[...g.children];if(!t.length)return false;" +
+                "var gr=g.getBoundingClientRect(),a=t[0].getBoundingClientRect(),b=t[t.length-1].getBoundingClientRect();" +
+                "return getComputedStyle(g).justifyContent==='center'&&Math.abs((a.left-gr.left)-(gr.right-b.right))<4;})()"), "плитки сайтов стоят по центру");
+            var before = string.Join(",", _w.Settings.ShortcutsFor(tab.Container).Select(x => x.Url));
+            if (_w.Settings.ShortcutsFor(tab.Container).Count >= 3)
+            {
+                await Js("(()=>{var t=[...document.querySelectorAll('.tile[data-url]')],dt=new DataTransfer(),r=t[2].getBoundingClientRect();" +
+                    "t[0].dispatchEvent(new DragEvent('dragstart',{bubbles:true,dataTransfer:dt}));" +
+                    "t[2].dispatchEvent(new DragEvent('dragover',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:r.right-2,clientY:r.top+10}));" +
+                    "t[2].dispatchEvent(new DragEvent('drop',{bubbles:true,cancelable:true,dataTransfer:dt,clientX:r.right-2,clientY:r.top+10}));" +
+                    "t[0].dispatchEvent(new DragEvent('dragend',{bubbles:true,dataTransfer:dt}));})()");
+                var expected = before.Split(',');
+                var want = string.Join(",", new[] { expected[1], expected[2], expected[0] }.Concat(expected.Skip(3)));
+                bool moved = await WaitFor(() => string.Join(",", _w.Settings.ShortcutsFor(tab.Container).Select(x => x.Url)) == want, 5);
+                Check(moved, "перетаскивание плитки меняет порядок сайтов и сохраняет его");
+                Dymka.Core.AppSettings.ReorderShortcuts(_w.Settings.ShortcutsFor(tab.Container), expected);
+                _w.Settings.Save();
+            }
             await Js("document.getElementById('optBg').click()");
             Check(await JsWait("!document.body.classList.contains('wp')") && !_w.Settings.WallpaperOn, "фон выключается переключателем");
             await Js("document.getElementById('optBg').click()");
@@ -1354,6 +1382,47 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "проверка обновлений: " + ex.Message); }
     }
 
+    /// <summary>Мини-плеер: страница с Media Session в фоновой вкладке, команды «следующий» и «пауза».</summary>
+    async Task TestMediaBarAsync(string testDir, BrowserTab probe)
+    {
+        BrowserTab? other = null;
+        try
+        {
+            File.WriteAllText(Path.Combine(testDir, "music.html"),
+                "<!doctype html><meta charset=\"utf-8\"><title>Музыка</title><audio id=a></audio><script>" +
+                "navigator.mediaSession.metadata=new MediaMetadata({title:'Тестовый трек',artist:'Дымка'});" +
+                "navigator.mediaSession.playbackState='playing';" +
+                "['play','pause','nexttrack','previoustrack'].forEach(function(a){navigator.mediaSession.setActionHandler(a,function(){" +
+                "document.title='media:'+a;navigator.mediaSession.playbackState=a==='pause'?'paused':'playing';});});</script>");
+            _w.Navigate(probe, "https://trackers.dymka-test.org/music.html");
+            await WaitFor(() => probe.Url.Contains("music.html") && !probe.IsLoading, 20);
+            await Task.Delay(500);
+            var core = probe.Core!;
+            Check(await core.ExecuteScriptAsync("typeof window.__dymkaMedia") == "\"function\"", "на странице есть управление мини-плеером");
+            _w.MediaTestTab = probe;
+            other = await _w.NewTabAsync(null, activate: true);
+            bool shown = await WaitFor(() => _w.MediaBarShownForTest && _w.MediaBarTitleForTest == "Тестовый трек", 8);
+            Check(shown, "мини-плеер появился, когда музыкальная вкладка ушла в фон: " + _w.MediaBarTitleForTest);
+            await Task.Delay(600);
+            Capture(_w, "47-media-bar");
+            _w.MediaCommandForTest("next");
+            Check(await WaitFor(() => core.DocumentTitle == "media:nexttrack", 6), "кнопка «следующий трек» переключает трек на сайте");
+            _w.MediaCommandForTest("toggle");
+            Check(await WaitFor(() => core.DocumentTitle == "media:pause", 6), "кнопка «пауза» ставит музыку на паузу");
+            await Task.Delay(1500);
+            Check(_w.MediaBarShownForTest, "на паузе мини-плеер остаётся (можно продолжить)");
+            _w.Activate(probe);
+            Check(await WaitFor(() => !_w.MediaBarShownForTest, 4), "на самой музыкальной вкладке мини-плеер скрыт");
+        }
+        catch (Exception ex) { Check(false, "мини-плеер: " + ex.Message); }
+        finally
+        {
+            _w.MediaTestTab = null;
+            if (other != null) _w.CloseTab(other, remember: false);
+            _w.Activate(probe);
+        }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
@@ -1425,6 +1494,8 @@ sealed class SelfTest
             var ct = startCore.DocumentTitle;
             Check(ct.Contains("первая сторона: записан"), "cookie самого сайта сохраняются: " + ct);
             Check(ct.Contains("frame-cookie:заблокирован"), "сторонние cookie (во фрейме другого сайта) заблокированы");
+
+            await TestMediaBarAsync(testDir, probe);
 
             // расширения: тестовое расширение + тестовая «программа на компьютере» (как у плагинов подписи)
             await TestExtensionsAsync(testDir, probe, startCore);

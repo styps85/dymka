@@ -456,6 +456,22 @@ var d2 = Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 26), false);
 Eq(d1 != d2 && d1 == Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 25, 23, 0, 0), false), true, "фон дня меняется раз в сутки");
 Eq(Wallpapers.SafeName("gallery-", "../../evil name?.PNG"), "gallery-evil-name-.png", "безопасное имя файла фона");
 
+// --- порядок плиток после перетаскивания
+var sc = new List<Shortcut> { new() { Title = "A", Url = "a" }, new() { Title = "B", Url = "b" }, new() { Title = "C", Url = "c" }, new() { Title = "D", Url = "d" } };
+AppSettings.ReorderShortcuts(sc, new[] { "c", "a", "b", "d" });
+Eq(string.Join(",", sc.Select(x => x.Url)), "c,a,b,d", "перетаскивание: C на первое место");
+AppSettings.ReorderShortcuts(sc, new[] { "b", "zzz" });
+Eq(string.Join(",", sc.Select(x => x.Url)), "b,c,a,d", "неизвестный адрес не мешает, остальные сохраняют порядок");
+
+// --- мини-плеер: ответ страницы
+var ms1 = MediaState.Parse("{\"has\":true,\"playing\":true,\"title\":\" Трек \",\"artist\":\"Исполнитель\",\"art\":\"https://x.ru/a.jpg\",\"video\":false,\"prev\":true,\"next\":true}");
+Eq(ms1?.Title, "Трек", "мини-плеер: название без пробелов");
+Eq(ms1?.WantsBar, true, "мини-плеер: звук без видео - показываем");
+Eq(MediaState.Parse("\"{\\\"has\\\":true,\\\"video\\\":true}\"")?.WantsBar, false, "мини-плеер: строка в кавычках, видео - не показываем");
+Eq(MediaState.Parse("{\"has\":true,\"art\":\"data:image/png;base64,AAA\"}")?.Art, "", "мини-плеер: картинку data: не загружаем");
+Eq(MediaState.Parse("null"), null, "мини-плеер: пустой ответ");
+Eq(MediaState.Parse("{oops"), null, "мини-плеер: мусор");
+
 // --- проверка обновлений
 Eq(UpdateCheck.ParseTag("v1.0.54"), new Version(1, 0, 54), "тег v1.0.54");
 Eq(UpdateCheck.ParseTag("1.2"), new Version(1, 2, 0), "тег без третьей части");

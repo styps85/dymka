@@ -132,34 +132,47 @@ static class UpdateChecker
         _ => ex.Message,
     };
 
+    /// <summary>true, если папка с программой закрыта для записи (например, Program Files) -
+    /// тогда для замены файлов Windows спросит разрешение администратора.</summary>
+    public static bool NeedsAdmin
+    {
+        get
+        {
+            var exePath = Environment.ProcessPath;
+            return !string.IsNullOrEmpty(exePath) && !CanWrite(Path.GetDirectoryName(exePath)!);
+        }
+    }
+
+    public enum PrepareResult { Ready, Cancelled, Failed }
+
     /// <summary>Скачивает обновление и запускает замену файлов после закрытия браузера.
-    /// Возвращает false, если обновить автоматически нельзя (тогда открываем страницу выпуска).</summary>
-    public static async Task<bool> PrepareAsync(UpdateInfo u)
+    /// Если папка программы защищена (Program Files), файлы заменяет PowerShell с правами администратора
+    /// (окно разрешения Windows), а браузер после обновления запускается снова уже без этих прав.</summary>
+    public static async Task<PrepareResult> PrepareAsync(UpdateInfo u)
     {
         var exePath = Environment.ProcessPath;
-        if (string.IsNullOrEmpty(exePath)) return false;
+        if (string.IsNullOrEmpty(exePath)) return PrepareResult.Failed;
         var appDir = Path.GetDirectoryName(exePath)!;
-        if (!CanWrite(appDir)) return false;
+        bool admin = !CanWrite(appDir);
 
         var work = Path.Combine(Path.GetTempPath(), "dymka-update-" + u.Version);
         Directory.CreateDirectory(work);
+        var flag = Path.Combine(work, "done.flag");
+        try { File.Delete(flag); } catch { }
         using var http = NewClient(600);
-        string script;
+        string copy;
         int pid = Environment.ProcessId;
 
         if (IsSingleFile)
         {
-            if (u.ExeUrl == null) return false;
+            if (u.ExeUrl == null) return PrepareResult.Failed;
             var newExe = Path.Combine(work, "Dymka.exe");
             await Download(http, u.ExeUrl, newExe);
-            script =
-                $"Wait-Process -Id {pid} -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 700; " +
-                $"for ($i = 0; $i -lt 20; $i++) {{ try {{ Copy-Item -LiteralPath '{Esc(newExe)}' -Destination '{Esc(exePath)}' -Force -ErrorAction Stop; break }} catch {{ Start-Sleep -Milliseconds 500 }} }}; " +
-                $"Start-Process -FilePath '{Esc(exePath)}'";
+            copy = $"Copy-Item -LiteralPath '{Esc(newExe)}' -Destination '{Esc(exePath)}' -Force -ErrorAction Stop";
         }
         else
         {
-            if (u.ZipUrl == null) return false;
+            if (u.ZipUrl == null) return PrepareResult.Failed;
             var zip = Path.Combine(work, "Dymka-folder.zip");
             await Download(http, u.ZipUrl, zip);
             var unpacked = Path.Combine(work, "unpacked");
@@ -167,22 +180,62 @@ static class UpdateChecker
             System.IO.Compression.ZipFile.ExtractToDirectory(zip, unpacked);
             var src = Path.Combine(unpacked, "Dymka");
             if (!Directory.Exists(src)) src = unpacked;
-            script =
-                $"Wait-Process -Id {pid} -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 700; " +
-                $"for ($i = 0; $i -lt 20; $i++) {{ try {{ Copy-Item -Path '{Esc(src)}\\*' -Destination '{Esc(appDir)}' -Recurse -Force -ErrorAction Stop; break }} catch {{ Start-Sleep -Milliseconds 500 }} }}; " +
-                $"Start-Process -FilePath '{Esc(exePath)}'";
+            copy = $"Copy-Item -Path '{Esc(src)}\\*' -Destination '{Esc(appDir)}' -Recurse -Force -ErrorAction Stop";
         }
 
-        var ps1 = Path.Combine(work, "update.ps1");
-        await File.WriteAllTextAsync(ps1, script, new System.Text.UTF8Encoding(true));
+        // замена файлов: ждём закрытия браузера, пробуем до 20 раз (файл может быть ещё занят), потом - отметка «готово»
+        var copier =
+            $"Wait-Process -Id {pid} -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 700; " +
+            $"for ($i = 0; $i -lt 20; $i++) {{ try {{ {copy}; break }} catch {{ Start-Sleep -Milliseconds 500 }} }}; " +
+            $"Set-Content -LiteralPath '{Esc(flag)}' -Value 'ok'";
+        if (!admin) copier += $"; Start-Process -FilePath '{Esc(exePath)}'";
+        var copierPs1 = Path.Combine(work, "update.ps1");
+        await File.WriteAllTextAsync(copierPs1, copier, new System.Text.UTF8Encoding(true));
+
+        if (!admin)
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{copierPs1}\"",
+                UseShellExecute = false,
+                CreateNoWindow = true,
+            });
+            return PrepareResult.Ready;
+        }
+
+        // защищённая папка: замена - с правами администратора, запуск браузера - отдельно, с обычными правами
+        try
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = "powershell.exe",
+                Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{copierPs1}\"",
+                UseShellExecute = true,
+                Verb = "runas",
+                WindowStyle = ProcessWindowStyle.Hidden,
+            });
+        }
+        catch (System.ComponentModel.Win32Exception ex) when (ex.NativeErrorCode == 1223)
+        {
+            App.Log("Обновление: разрешение администратора не дано");
+            return PrepareResult.Cancelled;
+        }
+        var launcher =
+            $"$until = (Get-Date).AddMinutes(3); " +
+            $"while (-not (Test-Path -LiteralPath '{Esc(flag)}') -and (Get-Date) -lt $until) {{ Start-Sleep -Milliseconds 400 }}; " +
+            $"Start-Process -FilePath '{Esc(exePath)}'";
+        var launcherPs1 = Path.Combine(work, "restart.ps1");
+        await File.WriteAllTextAsync(launcherPs1, launcher, new System.Text.UTF8Encoding(true));
         Process.Start(new ProcessStartInfo
         {
             FileName = "powershell.exe",
-            Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{ps1}\"",
+            Arguments = $"-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File \"{launcherPs1}\"",
             UseShellExecute = false,
             CreateNoWindow = true,
         });
-        return true;
+        App.Log("Обновление: папка программы защищена, замена файлов - с правами администратора");
+        return PrepareResult.Ready;
     }
 
     static string Esc(string path) => path.Replace("'", "''");

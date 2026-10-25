@@ -74,6 +74,11 @@
     <Geometry x:Key="IcChevronDown">M6 9 L12 15 L18 9</Geometry>
     <Geometry x:Key="IcChevronUp">M6 15 L12 9 L18 15</Geometry>
     <Geometry x:Key="IcChevronRight">M9 6 L15 12 L9 18</Geometry>
+    <Geometry x:Key="IcPlay">M8 4.8 L19.5 12 L8 19.2 Z</Geometry>
+    <Geometry x:Key="IcPause">M6.5 5 L10 5 L10 19 L6.5 19 Z M14 5 L17.5 5 L17.5 19 L14 19 Z</Geometry>
+    <Geometry x:Key="IcPrev">M5 5 L8 5 L8 19 L5 19 Z M19 5 L19 19 L9 12 Z</Geometry>
+    <Geometry x:Key="IcNext">M16 5 L19 5 L19 19 L16 19 Z M5 5 L15 12 L5 19 Z</Geometry>
+    <Geometry x:Key="IcNote">M9 18 A3 3 0 1 1 9 17.99 Z M12 18 L12 4 L19 6 L19 9 L12 7</Geometry>
     <Geometry x:Key="IcDots">M5 12 A1.7 1.7 0 1 1 5 12.01 Z M12 12 A1.7 1.7 0 1 1 12 12.01 Z M19 12 A1.7 1.7 0 1 1 19 12.01 Z</Geometry>
 
     <!-- Значок приложения: синяя плитка с волнами дымки -->

@@ -218,6 +218,30 @@
         </Setter.Value>
       </Setter>
     </Style>
+
+    <!-- кнопки мини-плеера: круглые, на тёмном фоне -->
+    <Style x:Key="MediaButton" TargetType="Button">
+      <Setter Property="Width" Value="34"/>
+      <Setter Property="Height" Value="34"/>
+      <Setter Property="Focusable" Value="False"/>
+      <Setter Property="Cursor" Value="Hand"/>
+      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Background" Value="Transparent"/>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="Button">
+            <Border x:Name="Bd" Background="{TemplateBinding Background}" CornerRadius="17">
+              <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            </Border>
+            <ControlTemplate.Triggers>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#2EFFFFFF"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="#4DFFFFFF"/></Trigger>
+              <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.35"/></Trigger>
+            </ControlTemplate.Triggers>
+          </ControlTemplate>
+        </Setter.Value>
+      </Setter>
+    </Style>
   </Window.Resources>
 
   <Border x:Name="RootBorder" Background="White">
@@ -772,6 +796,65 @@
               <TextBlock x:Name="ToastActionText" Text="Вернуть" Foreground="#8FB2FF" FontSize="13" FontWeight="SemiBold"/>
             </Button>
           </StackPanel>
+        </Border>
+      </Popup>
+
+      <!-- ===== Мини-плеер: музыка на другой вкладке ===== -->
+      <Popup x:Name="MediaBar" PlacementTarget="{Binding ElementName=ContentHost}" Placement="Relative" StaysOpen="True"
+             AllowsTransparency="True" PopupAnimation="Fade">
+        <Border x:Name="MediaCard" Width="384" Margin="12" Padding="7,7,8,7" CornerRadius="16" Background="#EB1B2230">
+          <Border.Effect>
+            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.25" Color="#1B2230"/>
+          </Border.Effect>
+          <Border.Style>
+            <Style TargetType="Border">
+              <Setter Property="Opacity" Value="0.5"/>
+              <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Trigger.EnterActions>
+                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.15"/></Storyboard></BeginStoryboard>
+                  </Trigger.EnterActions>
+                  <Trigger.ExitActions>
+                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.5" Duration="0:0:0.35"/></Storyboard></BeginStoryboard>
+                  </Trigger.ExitActions>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <DockPanel LastChildFill="True">
+            <Button x:Name="MediaCloseBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" Width="26" Height="26" Margin="2,0,0,0"
+                    ToolTip="Скрыть мини-плеер" Click="MediaClose_Click">
+              <local:Glyph Data="{StaticResource IcClose}" Size="12" StrokeWidth="2.4" Foreground="#B9C3D3"/>
+            </Button>
+            <Button x:Name="MediaMuteBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" ToolTip="Выключить звук вкладки" Click="MediaMute_Click">
+              <local:Glyph x:Name="MediaMuteGlyph" Data="{StaticResource IcSpeaker}" Size="17"/>
+            </Button>
+            <Button x:Name="MediaNextBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" ToolTip="Следующий трек" Click="MediaNext_Click">
+              <local:Glyph Data="{StaticResource IcNext}" Size="15" Filled="True"/>
+            </Button>
+            <Button x:Name="MediaPlayBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" Width="38" Height="38" Background="#26FFFFFF"
+                    ToolTip="Пауза" Click="MediaPlay_Click">
+              <local:Glyph x:Name="MediaPlayGlyph" Data="{StaticResource IcPause}" Size="17" Filled="True"/>
+            </Button>
+            <Button x:Name="MediaPrevBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" ToolTip="Предыдущий трек" Click="MediaPrev_Click">
+              <local:Glyph Data="{StaticResource IcPrev}" Size="15" Filled="True"/>
+            </Button>
+            <Button x:Name="MediaGoBtn" Style="{StaticResource PlainButton}" Cursor="Hand" Margin="0,0,6,0" Click="MediaGo_Click"
+                    ToolTip="Перейти на вкладку">
+              <DockPanel>
+                <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="9" Background="#33FFFFFF" Margin="0,0,10,0">
+                  <Grid>
+                    <local:Glyph Data="{StaticResource IcNote}" Size="18" Foreground="#C9D3E3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <Border x:Name="MediaArt" CornerRadius="9"/>
+                  </Grid>
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                  <TextBlock x:Name="MediaTitle" Foreground="White" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock x:Name="MediaSub" Foreground="#AEB9CB" FontSize="11.5" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                </StackPanel>
+              </DockPanel>
+            </Button>
+          </DockPanel>
         </Border>
       </Popup>
 
