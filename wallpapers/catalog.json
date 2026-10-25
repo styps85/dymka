@@ -5,7 +5,9 @@
   "landscape": "Пейзажи",
   "cities": "Города",
   "abstract": "Абстракции",
-  "flowers": "Цветы"
+  "flowers": "Цветы",
+  "travel": "Путешествия",
+  "cars": "Автомобили"
  },
  "items": [
   {
@@ -435,6 +437,58 @@
    "title": "Наушники и нотные сердечки"
   },
   {
+   "file": "gallery-travel-backpacker-pastel.jpg",
+   "title": "Путешественница на закате",
+   "tags": [
+    "travel"
+   ]
+  },
+  {
+   "file": "gallery-travel-backpack-sketch.jpg",
+   "title": "Рюкзак-набросок",
+   "tags": [
+    "travel",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-travel-hiker-forest.jpg",
+   "title": "Турист над хвойным лесом",
+   "tags": [
+    "travel",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-travel-paper-hikers.jpg",
+   "title": "Бумажные туристы",
+   "tags": [
+    "travel",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-car-retro-concept-peach.jpg",
+   "title": "Персиковый ретро-автомобиль",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
+   "file": "gallery-car-white-coupe-shadows.jpg",
+   "title": "Белое купе у стены",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
+   "file": "gallery-car-floating-sedan.jpg",
+   "title": "Парящий ретро-седан",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
    "file": "gallery-весна-cherry-blossom.jpg",
    "title": "Цветущая вишня",
    "tags": [
@@ -588,6 +642,14 @@
    ]
   },
   {
+   "file": "gallery-лето-convertible-desert.jpg",
+   "title": "Белый кабриолет в пустыне",
+   "tags": [
+    "cars",
+    "landscape"
+   ]
+  },
+  {
    "file": "gallery-осень-leaves-colorblock.jpg",
    "title": "Осенние листья"
   },
@@ -647,6 +709,14 @@
    ]
   },
   {
+   "file": "gallery-осень-car-red-trees.jpg",
+   "title": "Ретро-автомобиль среди осенних деревьев",
+   "tags": [
+    "cars",
+    "landscape"
+   ]
+  },
+  {
    "file": "gallery-зима-frost-cones.jpg",
    "title": "Иней и шишки"
   },
@@ -693,6 +763,14 @@
    "title": "Зимняя набережная",
    "tags": [
     "cities"
+   ]
+  },
+  {
+   "file": "gallery-зима-backpack-mountains.jpg",
+   "title": "Рюкзак на фоне снежных гор",
+   "tags": [
+    "travel",
+    "landscape"
    ]
   },
   {
