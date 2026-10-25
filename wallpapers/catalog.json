@@ -7,7 +7,7 @@
   "abstract": "Абстракции",
   "flowers": "Цветы",
   "travel": "Путешествия",
-  "cars": "Автомобили"
+  "cars": "Авто и мото"
  },
  "items": [
   {
@@ -489,6 +489,69 @@
    ]
   },
   {
+   "file": "gallery-moto-cafe-racer-studio.jpg",
+   "title": "Кафе-рейсер в студии",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
+   "file": "gallery-moto-cafe-racer-olive.jpg",
+   "title": "Кафе-рейсер у оливы",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
+   "file": "gallery-moto-sport-gradient.jpg",
+   "title": "Спортбайк в пастельном градиенте",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
+   "file": "gallery-flat-golden-hills.jpg",
+   "title": "Золотые холмы с домиками",
+   "tags": [
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-green-hills-stone-house.jpg",
+   "title": "Каменный дом среди зелёных холмов",
+   "tags": [
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-pink-lake-fisherman.jpg",
+   "title": "Рыбак на рассветном озере",
+   "tags": [
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-misty-lake-white-boat.jpg",
+   "title": "Белая лодка в тумане",
+   "tags": [
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-moto-cafe-racer-light.jpg",
+   "title": "Кафе-рейсер в солнечном луче",
+   "tags": [
+    "cars"
+   ]
+  },
+  {
+   "file": "gallery-yellow-field-house-tree.jpg",
+   "title": "Домик и дерево в жёлтом поле",
+   "tags": [
+    "landscape"
+   ]
+  },
+  {
    "file": "gallery-весна-cherry-blossom.jpg",
    "title": "Цветущая вишня",
    "tags": [
@@ -646,6 +709,13 @@
    "title": "Белый кабриолет в пустыне",
    "tags": [
     "cars",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-лето-cabin-golden-grass.jpg",
+   "title": "Домик в золотой траве",
+   "tags": [
     "landscape"
    ]
   },
