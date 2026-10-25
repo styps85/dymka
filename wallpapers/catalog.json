@@ -1,5 +1,9 @@
 {
  "version": 1,
+ "tags": {
+  "asia": "Азия",
+  "landscape": "Пейзажи"
+ },
  "items": [
   {
    "file": "dymka-0-haze-waves.jpg",
@@ -109,43 +113,74 @@
   },
   {
    "file": "gallery-calm-bay-sun.jpg",
-   "title": "Тихая бухта"
+   "title": "Тихая бухта",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-paper-sea-sun.jpg",
-   "title": "Бумажное море и солнце"
+   "title": "Бумажное море и солнце",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-misty-forest-valley.jpg",
-   "title": "Туманная лесная долина"
+   "title": "Туманная лесная долина",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-paper-forest-island.jpg",
-   "title": "Бумажный островок леса"
+   "title": "Бумажный островок леса",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-paper-forest-deer.jpg",
-   "title": "Бумажный лес с оленями"
+   "title": "Бумажный лес с оленями",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-pink-lake-moon.jpg",
-   "title": "Луна над розовым озером"
+   "title": "Луна над розовым озером",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-mountains-planet-dawn.jpg",
-   "title": "Горы под планетой"
+   "title": "Горы под планетой",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-moon-dome-dawn.jpg",
-   "title": "Домик на Луне"
+   "title": "Домик на Луне",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-astronaut-beach.jpg",
-   "title": "Астронавт на берегу"
+   "title": "Астронавт на берегу",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-wanderer-misty-valley.jpg",
-   "title": "Путник над туманной долиной"
+   "title": "Путник над туманной долиной",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
   },
   {
    "file": "gallery-desk-notebook-pens.jpg",
@@ -169,7 +204,10 @@
   },
   {
    "file": "gallery-haze-misty-lake.jpg",
-   "title": "Дымка над озером"
+   "title": "Дымка над озером",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-ekb-paper-embankment.jpg",
@@ -193,7 +231,11 @@
   },
   {
    "file": "gallery-icy-mountains-wanderer.jpg",
-   "title": "Ледяные горы и путник"
+   "title": "Ледяные горы и путник",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
   },
   {
    "file": "gallery-moscow-paper-kremlin.jpg",
@@ -206,6 +248,51 @@
   {
    "file": "gallery-moscow-watercolor-warm.jpg",
    "title": "Москва акварелью"
+  },
+  {
+   "file": "gallery-zen-red-sun-branch.jpg",
+   "title": "Ветка на фоне алого солнца",
+   "tags": [
+    "asia"
+   ]
+  },
+  {
+   "file": "gallery-zen-misty-pagoda.jpg",
+   "title": "Беседка над облаками",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-zen-plum-relief.jpg",
+   "title": "Слива на белом рельефе",
+   "tags": [
+    "asia"
+   ]
+  },
+  {
+   "file": "gallery-zen-ink-bamboo.jpg",
+   "title": "Бамбук тушью",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-zen-watercolor-red-sun.jpg",
+   "title": "Акварель: красное солнце",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
+  },
+  {
+   "file": "gallery-zen-bonsai-sunlight.jpg",
+   "title": "Бонсай в солнечном луче",
+   "tags": [
+    "asia"
+   ]
   },
   {
    "file": "gallery-весна-cherry-blossom.jpg",
@@ -225,7 +312,10 @@
   },
   {
    "file": "gallery-весна-sakura.jpg",
-   "title": "Сакура"
+   "title": "Сакура",
+   "tags": [
+    "asia"
+   ]
   },
   {
    "file": "gallery-весна-blossom-bokeh-1.jpg",
@@ -240,12 +330,22 @@
    "title": "Вишня на голубом"
   },
   {
+   "file": "gallery-весна-sakura-window.jpg",
+   "title": "Сакура у окна",
+   "tags": [
+    "asia"
+   ]
+  },
+  {
    "file": "gallery-8-марта-tulips-daisies.jpg",
    "title": "Тюльпаны и ромашки"
   },
   {
    "file": "gallery-8-марта-tulip-field.jpg",
-   "title": "Поле тюльпанов"
+   "title": "Поле тюльпанов",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-8-марта-white-tulip-lilac.jpg",
@@ -285,15 +385,24 @@
   },
   {
    "file": "gallery-лето-coral-sunset.jpg",
-   "title": "Коралловый закат"
+   "title": "Коралловый закат",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-лето-white-beach.jpg",
-   "title": "Белый пляж"
+   "title": "Белый пляж",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-лето-dunes-grass.jpg",
-   "title": "Дюны с травой"
+   "title": "Дюны с травой",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-осень-leaves-colorblock.jpg",
@@ -309,11 +418,17 @@
   },
   {
    "file": "gallery-осень-valley-lake.jpg",
-   "title": "Осенняя долина"
+   "title": "Осенняя долина",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-осень-road-sunset.jpg",
-   "title": "Дорога на закате"
+   "title": "Дорога на закате",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-осень-leaf-frame.jpg",
@@ -321,15 +436,32 @@
   },
   {
    "file": "gallery-осень-deer-valley.jpg",
-   "title": "Олень в осенней долине"
+   "title": "Олень в осенней долине",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-осень-mountains-orange-sun.jpg",
-   "title": "Горы и оранжевое солнце"
+   "title": "Горы и оранжевое солнце",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-осень-red-maples.jpg",
-   "title": "Красные клёны"
+   "title": "Красные клёны",
+   "tags": [
+    "asia"
+   ]
+  },
+  {
+   "file": "gallery-осень-lake-pavilion.jpg",
+   "title": "Павильон на озере в тумане",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
   },
   {
    "file": "gallery-зима-frost-cones.jpg",
@@ -337,7 +469,10 @@
   },
   {
    "file": "gallery-зима-snow-field.jpg",
-   "title": "Зимнее поле"
+   "title": "Зимнее поле",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-зима-knitted-blanket.jpg",
@@ -349,11 +484,18 @@
   },
   {
    "file": "gallery-зима-lonely-pine.jpg",
-   "title": "Одинокая сосна в снегу"
+   "title": "Одинокая сосна в снегу",
+   "tags": [
+    "landscape"
+   ]
   },
   {
    "file": "gallery-зима-red-robe-snow.jpg",
-   "title": "Фигура в красном на снегу"
+   "title": "Фигура в красном на снегу",
+   "tags": [
+    "asia",
+    "landscape"
+   ]
   },
   {
    "file": "gallery-зима-desk-blue-wall.jpg",

@@ -208,12 +208,20 @@ public partial class MainWindow
                         title = it.TryGetProperty("title", out var ti) ? ti.GetString() : file,
                         thumb = GalleryBase + "thumbs/" + Uri.EscapeDataString(file),
                         theme = Wallpapers.ThemeOf(file),
+                        tags = it.TryGetProperty("tags", out var tg) && tg.ValueKind == JsonValueKind.Array
+                            ? tg.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToArray()
+                            : Array.Empty<string>(),
                         installed = names.Contains(local),
                     };
                 }).ToList();
                 var custom = names.Where(n => n.StartsWith("custom-")).Select(n => new { file = n, local = n, title = "Свой фон", thumb = "wallpapers/" + Uri.EscapeDataString(n), theme = "", installed = true });
+                // Подборки («Азия», «Пейзажи» и т.п.) описаны в самом каталоге: новые добавляются без выпуска браузера.
+                var tagNames = new Dictionary<string, string>();
+                if (doc.RootElement.TryGetProperty("tags", out var tn) && tn.ValueKind == JsonValueKind.Object)
+                    foreach (var p in tn.EnumerateObject())
+                        if (p.Value.ValueKind == JsonValueKind.String) tagNames[p.Name] = p.Value.GetString()!;
                 var cur = CurrentWallpaper();
-                core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "gallery", items, custom, current = cur.Replace("wallpapers/", "") }));
+                core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "gallery", items, custom, tagNames, current = cur.Replace("wallpapers/", "") }));
             }
             else if (type == "gallery-use")
             {

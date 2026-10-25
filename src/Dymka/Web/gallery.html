@@ -29,6 +29,7 @@
   .chips { max-width: 1180px; margin: 14px auto 0; padding: 0 24px; display: flex; flex-wrap: wrap; gap: 8px; }
   .chips button { height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid #D7DDE6; background: #fff; font: inherit; font-size: 13px; color: var(--ink2); cursor: pointer; }
   .chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .chips .sep { width: 1px; height: 22px; align-self: center; background: #D7DDE6; margin: 0 4px; }
   .msg { max-width: 1180px; margin: 30px auto; padding: 0 24px; color: var(--muted); font-size: 14px; }
 </style>
 </head>
@@ -55,6 +56,7 @@
     const c = document.createElement('div');
     c.className = 'card' + (it.local === current ? ' current' : '');
     c.dataset.local = it.local;
+    c.dataset.tags = (it.tags || []).join(' ');
     const img = document.createElement('div'); img.className = 'img'; img.style.backgroundImage = 'url("' + it.thumb + '")';
     if (it.theme && themes[it.theme]) { const t = document.createElement('span'); t.className = 'tag'; t.textContent = themes[it.theme]; img.append(t); }
     const body = document.createElement('div'); body.className = 'body';
@@ -78,23 +80,35 @@
     return c;
   }
   let data = null, filter = 'all';
+  // Фильтры: времена года и праздники (по имени файла) и подборки из каталога («Азия», «Пейзажи»…).
+  // Подборка хранится как 'tag:имя', чтобы не совпасть с темой.
+  function matches(it) {
+    if (filter === 'all') return true;
+    if (filter.startsWith('tag:')) return (it.tags || []).includes(filter.slice(4));
+    return (it.theme || '') === filter;
+  }
   function drawChips() {
     const box = document.getElementById('chips'); box.textContent = '';
     const present = new Set(data.items.map(i => i.theme || ''));
     const list = [['all', 'Все'], ['', 'Круглый год']].concat(Object.entries(themes)).filter(([k]) => k === 'all' || present.has(k));
-    for (const [k, label] of list) {
-      const b = document.createElement('button'); b.type = 'button'; b.textContent = label;
+    const usedTags = new Set(data.items.flatMap(i => i.tags || []));
+    const tagList = Object.entries(data.tagNames || {}).filter(([k]) => usedTags.has(k)).map(([k, label]) => ['tag:' + k, label]);
+    if (filter !== 'all' && ![...list, ...tagList].some(([k]) => k === filter)) filter = 'all';
+    const add = ([k, label]) => {
+      const b = document.createElement('button'); b.type = 'button'; b.textContent = label; b.dataset.filter = k;
       if (k === filter) b.className = 'on';
       b.addEventListener('click', () => { filter = k; draw(); });
       box.append(b);
-    }
+    };
+    list.forEach(add);
+    if (tagList.length) { const s = document.createElement('span'); s.className = 'sep'; box.append(s); tagList.forEach(add); }
   }
   function draw() {
     if (!data) return;
     drawChips();
     const cat = document.getElementById('catalog'), cus = document.getElementById('custom');
     cat.textContent = ''; cus.textContent = '';
-    for (const it of data.items) if (filter === 'all' || (it.theme || '') === filter) cat.append(card(it, !it.local.startsWith('dymka-')));
+    for (const it of data.items) if (matches(it)) cat.append(card(it, !it.local.startsWith('dymka-')));
     for (const it of data.custom) cus.append(card(it, true));
     document.getElementById('hCatalog').hidden = data.items.length === 0;
     document.getElementById('hCustom').hidden = data.custom.length === 0;

@@ -1063,6 +1063,14 @@ sealed class SelfTest
                     await Task.Delay(400);
                     var winter = await gc.ExecuteScriptAsync("(()=>{var c=[...document.querySelectorAll('#catalog .card')];return c.length>0&&c.every(x=>x.querySelector('.tag')&&x.querySelector('.tag').textContent==='Зима');})()");
                     Check(winter == "true", "фильтр «Зима» в галерее оставляет только зимние фоны");
+                    foreach (var (tag, label) in new[] { ("asia", "Азия"), ("landscape", "Пейзажи") })
+                    {
+                        var r = await gc.ExecuteScriptAsync("(()=>{var b=document.querySelector('#chips button[data-filter=\"tag:" + tag + "\"]');if(!b)return 'нет кнопки';b.click();" +
+                            "var c=[...document.querySelectorAll('#catalog .card')];return c.length>0&&c.every(x=>x.dataset.tags.split(' ').indexOf('" + tag + "')>=0)?'ok '+c.length:'ошибка '+c.length;})()");
+                        var rr = r.Trim('"');
+                        Check(rr.StartsWith("ok"), $"подборка «{label}» в галерее: {rr}");
+                        if (tag == "asia") { await Task.Delay(800); Capture(_w, "49b-gallery-asia"); }
+                    }
                     await gc.ExecuteScriptAsync("document.querySelector('#chips button').click()");
                     await Task.Delay(300);
                     await gc.ExecuteScriptAsync("var c=[...document.querySelectorAll('#catalog .card')].find(x=>x.dataset.local.indexOf('gallery-')===0);c.querySelector('.btn.primary').click()");
