@@ -552,6 +552,35 @@
    ]
   },
   {
+   "file": "gallery-alpine-huts-meadow.jpg",
+   "title": "Альпийские домики на рассвете",
+   "tags": [
+    "landscape",
+    "travel"
+   ]
+  },
+  {
+   "file": "gallery-travel-plane-clouds-string.jpg",
+   "title": "Самолётик и ватные облака",
+   "tags": [
+    "travel"
+   ]
+  },
+  {
+   "file": "gallery-travel-plane-string.jpg",
+   "title": "Самолётик с ниточкой",
+   "tags": [
+    "travel"
+   ]
+  },
+  {
+   "file": "gallery-travel-plane-mint.jpg",
+   "title": "Самолётик на мятном фоне",
+   "tags": [
+    "travel"
+   ]
+  },
+  {
    "file": "gallery-весна-cherry-blossom.jpg",
    "title": "Цветущая вишня",
    "tags": [
@@ -717,6 +746,13 @@
    "title": "Домик в золотой траве",
    "tags": [
     "landscape"
+   ]
+  },
+  {
+   "file": "gallery-лето-plane-clouds-starfish.jpg",
+   "title": "Самолётик и морские звёзды",
+   "tags": [
+    "travel"
    ]
   },
   {
