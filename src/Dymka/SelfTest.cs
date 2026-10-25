@@ -1316,6 +1316,24 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Проверка обновлений: оба способа (API GitHub и страница выпусков) должны отвечать.
+    /// Эта сборка новее опубликованной, поэтому «новых версий нет» - правильный ответ.</summary>
+    async Task TestUpdateCheckAsync()
+    {
+        try
+        {
+            var api = await UpdateChecker.CheckApiAsync();
+            Line("проверка обновлений через API GitHub: " + (api.Error ?? (api.Update != null ? "есть версия " + api.Update.Version : "новых версий нет")) +
+                 " (отказ API из-за лимита на общем адресе сборочного сервера - не ошибка, для этого и есть запасной способ)");
+            var page = await UpdateChecker.CheckPageAsync();
+            Check(page.Error == null, "проверка обновлений по странице выпусков работает" + (page.Error != null ? ": " + page.Error : ""));
+            var all = await UpdateChecker.CheckAsync();
+            Check(all.Error == null && all.Update == null, $"проверка обновлений: у сборки {App.VersionText} новых версий нет" +
+                  (all.Error != null ? " - ошибка: " + all.Error : all.Update != null ? " - неожиданно найдена " + all.Update.Version : ""));
+        }
+        catch (Exception ex) { Check(false, "проверка обновлений: " + ex.Message); }
+    }
+
     public async Task RunAsync()
     {
         _ = Task.Run(async () =>
@@ -1340,6 +1358,8 @@ sealed class SelfTest
             var startCore = _w.ActiveTab!.Core!;
             var tiles = await startCore.ExecuteScriptAsync("document.querySelectorAll('.tile:not(.add)').length");
             Check(tiles == _w.Settings.ShortcutsFor(_w.ActiveTab!.Container).Count.ToString(), $"стартовая страница получила плитки сайтов ({tiles})");
+
+            await TestUpdateCheckAsync();
 
             // страница с трекерами: счётчики Google, Яндекса, Mail.ru и пиксель Facebook должны быть заблокированы
             var testDir = Path.Combine(_dir, "web");

@@ -1659,22 +1659,34 @@ public partial class MainWindow : Window
 
     async Task CheckUpdatesAsync(bool silent)
     {
+        UpdateResult result;
         try
         {
             if (silent) await Task.Delay(TimeSpan.FromSeconds(8));
-            _update = await UpdateChecker.CheckAsync();
+            else UpdateItemText.Text = "Проверяю обновления…";
+            result = await UpdateChecker.CheckAsync();
         }
         catch (Exception ex)
         {
             App.Log("Проверка обновлений: " + ex.Message);
-            _update = null;
+            result = new UpdateResult(null, ex.Message);
         }
+        _update = result.Update;
         UpdateDot.Visibility = _update != null ? Visibility.Visible : Visibility.Collapsed;
         UpdateItemText.Text = _update != null ? $"Обновить до версии {_update.Version}" : "Проверить обновления";
-        if (!silent && _update == null)
-            Dialogs.Show(this, "Обновлений нет", $"У вас последняя версия «Дымки» ({App.VersionText}).", new[] { "Хорошо" });
-        else if (!silent && _update != null)
+        if (silent) return;
+        if (_update != null)
             await InstallUpdateAsync();
+        else if (result.Error == null)
+            Dialogs.Show(this, "Обновлений нет", $"У вас последняя версия «Дымки» ({App.VersionText}).", new[] { "Хорошо" });
+        else
+        {
+            var (i, _) = Dialogs.Show(this, "Не удалось проверить обновления",
+                $"Причина: {result.Error}\n\nСейчас установлена версия {App.VersionText}. Попробуйте позже или откройте страницу " +
+                "выпусков и сравните номер последней версии с вашим.",
+                new[] { "Открыть страницу выпусков", "Закрыть" });
+            if (i == 0) _ = NewTabAsync(UpdateChecker.ReleasesPage, activate: true);
+        }
     }
 
     async void UpdateItem_Click(object sender, RoutedEventArgs e)

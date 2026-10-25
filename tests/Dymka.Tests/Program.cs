@@ -456,6 +456,24 @@ var d2 = Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 26), false);
 Eq(d1 != d2 && d1 == Wallpapers.OfTheDay(wps, new DateTime(2026, 10, 25, 23, 0, 0), false), true, "фон дня меняется раз в сутки");
 Eq(Wallpapers.SafeName("gallery-", "../../evil name?.PNG"), "gallery-evil-name-.png", "безопасное имя файла фона");
 
+// --- проверка обновлений
+Eq(UpdateCheck.ParseTag("v1.0.54"), new Version(1, 0, 54), "тег v1.0.54");
+Eq(UpdateCheck.ParseTag("1.2"), new Version(1, 2, 0), "тег без третьей части");
+Eq(UpdateCheck.ParseTag("selftest"), null, "служебный тег selftest");
+Eq(UpdateCheck.ParseTag("certs-fetch"), null, "служебный тег certs-fetch");
+Eq(UpdateCheck.ParseTag(""), null, "пустой тег");
+Eq(UpdateCheck.FromReleaseUrl("https://github.com/styps85/dymka/releases/tag/v1.0.54"), new Version(1, 0, 54), "адрес после перенаправления");
+Eq(UpdateCheck.FromReleaseUrl("https://github.com/styps85/dymka/releases"), null, "адрес без тега");
+Eq(UpdateCheck.FromReleaseUrl("https://github.com/styps85/dymka/releases/tag/selftest"), null, "адрес служебного выпуска");
+Eq(UpdateCheck.Normalize(new Version(1, 0, 46, 0)) < new Version(1, 0, 54), true, "1.0.46.0 старше 1.0.54");
+Eq(UpdateCheck.Normalize(new Version(1, 0, 54, 0)) == new Version(1, 0, 54), true, "четвёртая часть не мешает сравнению");
+Eq(UpdateCheck.DownloadUrl(new Version(1, 0, 54), "Dymka.exe"), "https://github.com/styps85/dymka/releases/download/v1.0.54/Dymka.exe", "ссылка на exe");
+var nowU = DateTimeOffset.FromUnixTimeSeconds(1_800_000_000);
+Eq(UpdateCheck.DescribeHttpFailure(403, "0", "1800001200", nowU).Contains("60 в час") , true, "лимит: причина");
+Eq(UpdateCheck.DescribeHttpFailure(403, "0", "1800001200", nowU).Contains("через 20 мин"), true, "лимит: когда снимется");
+Eq(UpdateCheck.DescribeHttpFailure(403, "57", null, nowU).Contains("провайдер"), true, "403 без лимита - блокировка");
+Eq(UpdateCheck.DescribeHttpFailure(502, null, null, nowU).Contains("502"), true, "ошибка сервера");
+
 Console.WriteLine($"Тестов пройдено: {passed}, ошибок: {failed}");
 return failed == 0 ? 0 : 1;
 

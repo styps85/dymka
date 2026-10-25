@@ -1,61 +1,136 @@
 using System.Diagnostics;
 using System.Reflection;
 using System.Text.Json;
+using Dymka.Core;
 
 namespace Dymka;
 
 sealed record UpdateInfo(Version Version, string PageUrl, string? ExeUrl, string? ZipUrl);
 
+/// <summary>Итог проверки: Update - новая версия (или null, если её нет); Error - проверить не удалось.</summary>
+sealed record UpdateResult(UpdateInfo? Update, string? Error)
+{
+    public static readonly UpdateResult UpToDate = new(null, null);
+}
+
 /// <summary>Проверка новой версии в выпусках GitHub и установка с перезапуском.</summary>
 static class UpdateChecker
 {
-    const string Api = "https://api.github.com/repos/styps85/dymka/releases/latest";
-    public const string ReleasesPage = "https://github.com/styps85/dymka/releases/latest";
+    public const string ReleasesPage = UpdateCheck.PageLatest;
 
     public static Version Current
     {
         get
         {
             var v = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(1, 0, 0);
-            return new Version(v.Major, v.Minor, Math.Max(0, v.Build));
+            return UpdateCheck.Normalize(v);
         }
     }
 
     /// <summary>true, если программа собрана одним файлом (иначе - версия-папка).</summary>
     public static bool IsSingleFile => string.IsNullOrEmpty(typeof(UpdateChecker).Assembly.Location);
 
-    static HttpClient NewClient(int seconds)
+    static HttpClient NewClient(int seconds, bool redirects = true)
     {
-        var http = new HttpClient { Timeout = TimeSpan.FromSeconds(seconds) };
+        var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = redirects }) { Timeout = TimeSpan.FromSeconds(seconds) };
         http.DefaultRequestHeaders.UserAgent.ParseAdd("Dymka/" + Current);
         http.DefaultRequestHeaders.Accept.ParseAdd("application/vnd.github+json");
         return http;
     }
 
-    /// <summary>Новая версия или null (нет обновления, нет сети, репозиторий закрыт).</summary>
-    public static async Task<UpdateInfo?> CheckAsync()
+    /// <summary>Проверка в два шага: API GitHub, а если он отказал (лимит 60 запросов в час на адрес,
+    /// блокировка, сбой) - по перенаправлению обычной страницы выпусков, у которой лимита нет.
+    /// Ошибка возвращается, только если не сработали оба способа.</summary>
+    public static async Task<UpdateResult> CheckAsync()
+    {
+        string apiError;
+        try
+        {
+            var r = await CheckApiAsync();
+            if (r.Error == null) return r;
+            apiError = r.Error;
+        }
+        catch (Exception ex) { apiError = Explain(ex); }
+        App.Log("Проверка обновлений через API GitHub не удалась: " + apiError + " Пробую страницу выпусков.");
+
+        try
+        {
+            var r = await CheckPageAsync();
+            if (r.Error == null)
+            {
+                App.Log("Проверка обновлений по странице выпусков: " + (r.Update != null ? "есть версия " + r.Update.Version : "новых версий нет"));
+                return r;
+            }
+            App.Log("Проверка обновлений по странице выпусков не удалась: " + r.Error);
+            return new UpdateResult(null, apiError);
+        }
+        catch (Exception ex)
+        {
+            App.Log("Проверка обновлений по странице выпусков не удалась: " + Explain(ex));
+            return new UpdateResult(null, apiError);
+        }
+    }
+
+    internal static async Task<UpdateResult> CheckApiAsync()
     {
         using var http = NewClient(20);
-        using var resp = await http.GetAsync(Api);
-        if (!resp.IsSuccessStatusCode) return null;
+        using var resp = await http.GetAsync(UpdateCheck.ApiLatest);
+        if (!resp.IsSuccessStatusCode)
+        {
+            var remaining = Header(resp, "X-RateLimit-Remaining");
+            var reset = Header(resp, "X-RateLimit-Reset");
+            App.Log($"API GitHub: код {(int)resp.StatusCode}, осталось запросов {remaining ?? "?"}, сброс {reset ?? "?"}");
+            return new UpdateResult(null, UpdateCheck.DescribeHttpFailure((int)resp.StatusCode, remaining, reset, DateTimeOffset.UtcNow));
+        }
         using var doc = JsonDocument.Parse(await resp.Content.ReadAsStringAsync());
         var root = doc.RootElement;
-        var tag = root.GetProperty("tag_name").GetString() ?? "";
-        if (!Version.TryParse(tag.TrimStart('v', 'V'), out var v)) return null;
-        v = new Version(v.Major, v.Minor, Math.Max(0, v.Build));
-        if (v <= Current) return null;
+        var v = UpdateCheck.ParseTag(root.TryGetProperty("tag_name", out var t) ? t.GetString() : null);
+        if (v == null) return new UpdateResult(null, "GitHub вернул выпуск без номера версии.");
+        if (v <= Current) return UpdateResult.UpToDate;
 
         string? exe = null, zip = null;
-        foreach (var a in root.GetProperty("assets").EnumerateArray())
-        {
-            var name = a.GetProperty("name").GetString();
-            var url = a.GetProperty("browser_download_url").GetString();
-            if (name == "Dymka.exe") exe = url;
-            else if (name == "Dymka-folder.zip") zip = url;
-        }
-        var page = root.TryGetProperty("html_url", out var h) ? h.GetString() ?? ReleasesPage : ReleasesPage;
-        return new UpdateInfo(v, page, exe, zip);
+        if (root.TryGetProperty("assets", out var assets))
+            foreach (var a in assets.EnumerateArray())
+            {
+                var name = a.GetProperty("name").GetString();
+                var url = a.GetProperty("browser_download_url").GetString();
+                if (name == "Dymka.exe") exe = url;
+                else if (name == "Dymka-folder.zip") zip = url;
+            }
+        var page = root.TryGetProperty("html_url", out var h) ? h.GetString() ?? UpdateCheck.TagUrl(v) : UpdateCheck.TagUrl(v);
+        return new UpdateResult(new UpdateInfo(v, page, exe, zip), null);
     }
+
+    /// <summary>github.com/.../releases/latest отвечает перенаправлением на .../releases/tag/v1.0.N.</summary>
+    internal static async Task<UpdateResult> CheckPageAsync()
+    {
+        using var http = NewClient(20, redirects: false);
+        using var req = new HttpRequestMessage(HttpMethod.Head, UpdateCheck.PageLatest);
+        using var resp = await http.SendAsync(req);
+        var location = resp.Headers.Location;
+        if (location != null && !location.IsAbsoluteUri) location = new Uri(new Uri(UpdateCheck.PageLatest), location);
+        var v = UpdateCheck.FromReleaseUrl(location?.ToString());
+        if (v == null)
+            return new UpdateResult(null, (int)resp.StatusCode is >= 300 and < 400
+                ? "страница выпусков перенаправила на неожиданный адрес " + location
+                : UpdateCheck.DescribeHttpFailure((int)resp.StatusCode, null, null, DateTimeOffset.UtcNow));
+        if (v <= Current) return UpdateResult.UpToDate;
+        // Ссылки на файлы выпуска предсказуемы и тоже не расходуют лимит API.
+        return new UpdateResult(new UpdateInfo(v, UpdateCheck.TagUrl(v),
+            UpdateCheck.DownloadUrl(v, "Dymka.exe"), UpdateCheck.DownloadUrl(v, "Dymka-folder.zip")), null);
+    }
+
+    static string? Header(HttpResponseMessage resp, string name) =>
+        resp.Headers.TryGetValues(name, out var vals) ? vals.FirstOrDefault() : null;
+
+    static string Explain(Exception ex) => ex switch
+    {
+        TaskCanceledException => "GitHub не ответил за 20 секунд (медленная связь или блокировка).",
+        HttpRequestException h when h.InnerException is System.Security.Authentication.AuthenticationException =>
+            "не удалось установить защищённое соединение с GitHub (антивирус или прокси подменяет сертификат): " + h.Message,
+        HttpRequestException h => "нет связи с GitHub: " + h.Message,
+        _ => ex.Message,
+    };
 
     /// <summary>Скачивает обновление и запускает замену файлов после закрытия браузера.
     /// Возвращает false, если обновить автоматически нельзя (тогда открываем страницу выпуска).</summary>
