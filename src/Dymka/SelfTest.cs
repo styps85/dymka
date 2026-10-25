@@ -1063,7 +1063,7 @@ sealed class SelfTest
                     await Task.Delay(400);
                     var winter = await gc.ExecuteScriptAsync("(()=>{var c=[...document.querySelectorAll('#catalog .card')];return c.length>0&&c.every(x=>x.querySelector('.tag')&&x.querySelector('.tag').textContent==='Зима');})()");
                     Check(winter == "true", "фильтр «Зима» в галерее оставляет только зимние фоны");
-                    foreach (var (tag, label) in new[] { ("asia", "Азия"), ("landscape", "Пейзажи") })
+                    foreach (var (tag, label) in new[] { ("asia", "Азия"), ("landscape", "Пейзажи"), ("cities", "Города"), ("abstract", "Абстракции"), ("flowers", "Цветы") })
                     {
                         var r = await gc.ExecuteScriptAsync("(()=>{var b=document.querySelector('#chips button[data-filter=\"tag:" + tag + "\"]');if(!b)return 'нет кнопки';b.click();" +
                             "var c=[...document.querySelectorAll('#catalog .card')];return c.length>0&&c.every(x=>x.dataset.tags.split(' ').indexOf('" + tag + "')>=0)?'ok '+c.length:'ошибка '+c.length;})()");
@@ -1073,6 +1073,18 @@ sealed class SelfTest
                     }
                     await gc.ExecuteScriptAsync("document.querySelector('#chips button').click()");
                     await Task.Delay(300);
+                    // предпросмотр: щелчок по картинке, стрелка вправо, закрытие по Esc
+                    await gc.ExecuteScriptAsync("document.querySelectorAll('#catalog .card .img')[1].click()");
+                    await Task.Delay(300);
+                    var pv1 = await gc.ExecuteScriptAsync("document.getElementById('pv').hidden?'':document.querySelector('#pv .bar b').textContent");
+                    await gc.ExecuteScriptAsync("document.querySelector('#pv .nav.next').click()");
+                    await Task.Delay(1500);
+                    var pv2 = await gc.ExecuteScriptAsync("document.querySelector('#pv .bar b').textContent");
+                    Check(pv1.Length > 2 && pv2.Length > 2 && pv1 != pv2, $"предпросмотр фона открывается и листается стрелкой: {pv1} → {pv2}");
+                    Capture(_w, "49c-gallery-preview");
+                    await gc.ExecuteScriptAsync("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+                    await Task.Delay(200);
+                    Check(await gc.ExecuteScriptAsync("document.getElementById('pv').hidden") == "true", "предпросмотр закрывается по Esc");
                     await gc.ExecuteScriptAsync("var c=[...document.querySelectorAll('#catalog .card')].find(x=>x.dataset.local.indexOf('gallery-')===0);c.querySelector('.btn.primary').click()");
                     Check(await WaitFor(() => _w.Settings.Wallpaper.StartsWith("wallpapers/gallery-") &&
                                               File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper.Replace('/', '\\'))), 30),

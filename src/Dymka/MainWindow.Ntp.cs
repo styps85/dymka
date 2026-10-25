@@ -207,6 +207,8 @@ public partial class MainWindow
                         local,
                         title = it.TryGetProperty("title", out var ti) ? ti.GetString() : file,
                         thumb = GalleryBase + "thumbs/" + Uri.EscapeDataString(file),
+                        // для предпросмотра: скачанный фон - с диска, остальные - из каталога
+                        full = names.Contains(local) ? "wallpapers/" + Uri.EscapeDataString(local) : GalleryBase + Uri.EscapeDataString(file),
                         theme = Wallpapers.ThemeOf(file),
                         tags = it.TryGetProperty("tags", out var tg) && tg.ValueKind == JsonValueKind.Array
                             ? tg.EnumerateArray().Where(x => x.ValueKind == JsonValueKind.String).Select(x => x.GetString()!).ToArray()
@@ -214,7 +216,7 @@ public partial class MainWindow
                         installed = names.Contains(local),
                     };
                 }).ToList();
-                var custom = names.Where(n => n.StartsWith("custom-")).Select(n => new { file = n, local = n, title = "Свой фон", thumb = "wallpapers/" + Uri.EscapeDataString(n), theme = "", installed = true });
+                var custom = names.Where(n => n.StartsWith("custom-")).Select(n => new { file = n, local = n, title = "Свой фон", thumb = "wallpapers/" + Uri.EscapeDataString(n), full = "wallpapers/" + Uri.EscapeDataString(n), theme = "", installed = true });
                 // Подборки («Азия», «Пейзажи» и т.п.) описаны в самом каталоге: новые добавляются без выпуска браузера.
                 var tagNames = new Dictionary<string, string>();
                 if (doc.RootElement.TryGetProperty("tags", out var tn) && tn.ValueKind == JsonValueKind.Object)

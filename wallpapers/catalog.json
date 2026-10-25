@@ -2,38 +2,59 @@
  "version": 1,
  "tags": {
   "asia": "Азия",
-  "landscape": "Пейзажи"
+  "landscape": "Пейзажи",
+  "cities": "Города",
+  "abstract": "Абстракции",
+  "flowers": "Цветы"
  },
  "items": [
   {
    "file": "dymka-0-haze-waves.jpg",
    "title": "Голубая дымка",
-   "builtin": true
+   "builtin": true,
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "dymka-1-sky-waves.jpg",
    "title": "Небесные волны",
-   "builtin": true
+   "builtin": true,
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "dymka-2-peach-circles.jpg",
    "title": "Персиковые круги",
-   "builtin": true
+   "builtin": true,
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "dymka-3-sage-sand.jpg",
    "title": "Шалфей и песок",
-   "builtin": true
+   "builtin": true,
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "dymka-4-lilac-waves.jpg",
    "title": "Сиреневые волны",
-   "builtin": true
+   "builtin": true,
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "dymka-5-apricot-arcs.jpg",
    "title": "Абрикосовые дуги",
-   "builtin": true
+   "builtin": true,
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-strelitzia-shadows.jpg",
@@ -57,19 +78,31 @@
   },
   {
    "file": "gallery-paper-shapes.jpg",
-   "title": "Бумажные формы"
+   "title": "Бумажные формы",
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-pastel-waves-gold.jpg",
-   "title": "Пастельные волны с золотом"
+   "title": "Пастельные волны с золотом",
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-watercolor-waves-leaf.jpg",
-   "title": "Акварельные волны и лист"
+   "title": "Акварельные волны и лист",
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-silk-waves.jpg",
-   "title": "Шёлковые волны"
+   "title": "Шёлковые волны",
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-pastel-sky.jpg",
@@ -85,23 +118,38 @@
   },
   {
    "file": "gallery-watercolor-peach-1.jpg",
-   "title": "Персиковая акварель"
+   "title": "Персиковая акварель",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-watercolor-peach-2.jpg",
-   "title": "Персиковая акварель 2"
+   "title": "Персиковая акварель 2",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-aegean-village.jpg",
-   "title": "Белые домики у моря"
+   "title": "Белые домики у моря",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-paper-village.jpg",
-   "title": "Бумажный городок"
+   "title": "Бумажный городок",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-santorini-sea.jpg",
-   "title": "Домики над морем"
+   "title": "Домики над морем",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-shell-sand-dune.jpg",
@@ -200,7 +248,10 @@
   },
   {
    "file": "gallery-haze-smoke-waves.jpg",
-   "title": "Дымка: струящийся дым"
+   "title": "Дымка: струящийся дым",
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-haze-misty-lake.jpg",
@@ -211,23 +262,38 @@
   },
   {
    "file": "gallery-ekb-paper-embankment.jpg",
-   "title": "Бумажная набережная"
+   "title": "Бумажная набережная",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-ekb-watercolor-mist.jpg",
-   "title": "Набережная в тумане"
+   "title": "Набережная в тумане",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-ekb-dam-dawn.jpg",
-   "title": "Плотинка на рассвете"
+   "title": "Плотинка на рассвете",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-blue-smoke.jpg",
-   "title": "Голубой дым"
+   "title": "Голубой дым",
+   "tags": [
+    "abstract"
+   ]
   },
   {
    "file": "gallery-moscow-lowpoly.jpg",
-   "title": "Москва из граней"
+   "title": "Москва из граней",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-icy-mountains-wanderer.jpg",
@@ -239,21 +305,31 @@
   },
   {
    "file": "gallery-moscow-paper-kremlin.jpg",
-   "title": "Бумажный Кремль"
+   "title": "Бумажный Кремль",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-moscow-watercolor-city.jpg",
-   "title": "Кремль и Москва-Сити"
+   "title": "Кремль и Москва-Сити",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-moscow-watercolor-warm.jpg",
-   "title": "Москва акварелью"
+   "title": "Москва акварелью",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-zen-red-sun-branch.jpg",
    "title": "Ветка на фоне алого солнца",
    "tags": [
-    "asia"
+    "asia",
+    "flowers"
    ]
   },
   {
@@ -268,7 +344,8 @@
    "file": "gallery-zen-plum-relief.jpg",
    "title": "Слива на белом рельефе",
    "tags": [
-    "asia"
+    "asia",
+    "flowers"
    ]
   },
   {
@@ -295,69 +372,175 @@
    ]
   },
   {
+   "file": "gallery-retro-vinyl-cassettes.jpg",
+   "title": "Пластинка и кассеты"
+  },
+  {
+   "file": "gallery-paper-flowers-pink.jpg",
+   "title": "Бумажные цветы на розовом",
+   "tags": [
+    "flowers"
+   ]
+  },
+  {
+   "file": "gallery-watercolor-pastel-washes.jpg",
+   "title": "Акварельные разводы",
+   "tags": [
+    "abstract"
+   ]
+  },
+  {
+   "file": "gallery-eucalyptus-pink-shadow.jpg",
+   "title": "Эвкалипт на розово-голубой стене"
+  },
+  {
+   "file": "gallery-desk-cotton-pampas.jpg",
+   "title": "Хлопок, пампас и клавиатура"
+  },
+  {
+   "file": "gallery-boho-leaf-shapes.jpg",
+   "title": "Бохо: ветка и пятна",
+   "tags": [
+    "abstract"
+   ]
+  },
+  {
+   "file": "gallery-gerbera-teapot-mint.jpg",
+   "title": "Гербера и чайник",
+   "tags": [
+    "flowers"
+   ]
+  },
+  {
+   "file": "gallery-gerbera-teapot-mint-2.jpg",
+   "title": "Гербера и чайник 2",
+   "tags": [
+    "flowers"
+   ]
+  },
+  {
+   "file": "gallery-pastel-silicone-tableware.jpg",
+   "title": "Пастельная детская посуда"
+  },
+  {
+   "file": "gallery-music-white-guitar.jpg",
+   "title": "Белая гитара и ноты"
+  },
+  {
+   "file": "gallery-music-treble-clef.jpg",
+   "title": "Скрипичный ключ"
+  },
+  {
+   "file": "gallery-music-headphones-hearts.jpg",
+   "title": "Наушники и нотные сердечки"
+  },
+  {
    "file": "gallery-весна-cherry-blossom.jpg",
-   "title": "Цветущая вишня"
+   "title": "Цветущая вишня",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-vase-blossom.jpg",
-   "title": "Ваза с цветущими ветками"
+   "title": "Ваза с цветущими ветками",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-snowdrops-1.jpg",
-   "title": "Подснежники"
+   "title": "Подснежники",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-snowdrops-2.jpg",
-   "title": "Подснежники 2"
+   "title": "Подснежники 2",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-sakura.jpg",
    "title": "Сакура",
    "tags": [
-    "asia"
+    "asia",
+    "flowers"
    ]
   },
   {
    "file": "gallery-весна-blossom-bokeh-1.jpg",
-   "title": "Вишня в солнечных бликах"
+   "title": "Вишня в солнечных бликах",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-blossom-bokeh-2.jpg",
-   "title": "Вишня в солнечных бликах 2"
+   "title": "Вишня в солнечных бликах 2",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-blossom-sky.jpg",
-   "title": "Вишня на голубом"
+   "title": "Вишня на голубом",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-весна-sakura-window.jpg",
    "title": "Сакура у окна",
    "tags": [
-    "asia"
+    "asia",
+    "flowers"
    ]
   },
   {
    "file": "gallery-8-марта-tulips-daisies.jpg",
-   "title": "Тюльпаны и ромашки"
+   "title": "Тюльпаны и ромашки",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-8-марта-tulip-field.jpg",
    "title": "Поле тюльпанов",
    "tags": [
-    "landscape"
+    "landscape",
+    "flowers"
    ]
   },
   {
    "file": "gallery-8-марта-white-tulip-lilac.jpg",
-   "title": "Белый тюльпан на лиловом"
+   "title": "Белый тюльпан на лиловом",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-8-марта-line-flower.jpg",
-   "title": "Цветок из тонких линий"
+   "title": "Цветок из тонких линий",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-8-марта-tulip-pink-vase.jpg",
-   "title": "Тюльпан в розовой вазе"
+   "title": "Тюльпан в розовой вазе",
+   "tags": [
+    "flowers"
+   ]
+  },
+  {
+   "file": "gallery-8-марта-gypsophila-card.jpg",
+   "title": "Гипсофила на открытке",
+   "tags": [
+    "flowers"
+   ]
   },
   {
    "file": "gallery-лето-lemon-palm.jpg",
@@ -507,7 +690,10 @@
   },
   {
    "file": "gallery-зима-ekb-embankment.jpg",
-   "title": "Зимняя набережная"
+   "title": "Зимняя набережная",
+   "tags": [
+    "cities"
+   ]
   },
   {
    "file": "gallery-новый-год-frosted-branches.jpg",
