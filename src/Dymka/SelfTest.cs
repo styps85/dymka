@@ -1002,7 +1002,7 @@ sealed class SelfTest
             wb.WritePixels(new Int32Rect(0, 0, 640, 360), px, 640 * 4, 0);
             Native.SavePng(wb, file);
             var wallDir = Path.Combine(_w.DataDir, "ui", "wallpapers");
-            Check(Directory.Exists(wallDir) && Directory.GetFiles(wallDir, "dymka-*.jpg").Length == 5, "стандартные фоны распакованы (5 шт.)");
+            Check(Directory.Exists(wallDir) && Directory.GetFiles(wallDir, "dymka-*.jpg").Length == 6, "стандартные фоны распакованы (6 шт.)");
             var tab = await _w.NewTabAsync(null, activate: true);
             await WaitFor(() => tab.Core != null && !tab.IsLoading, 20);
             var core = tab.Core!;
@@ -1012,18 +1012,18 @@ sealed class SelfTest
                 for (int i = 0; i < seconds * 4; i++) { if (await Js(js) == "true") return true; await Task.Delay(250); }
                 return false;
             }
-            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-1')>=0"), "по умолчанию на новой вкладке стандартный фон");
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-0-haze')>=0"), "по умолчанию на новой вкладке голубая дымка");
             Check(await JsWait("document.body.classList.contains('clock-on')&&document.getElementById('time').textContent.length>=4"), "на новой вкладке часы и дата");
             await Js("document.getElementById('ntpBtn').click()");
             Check(await JsWait("!document.getElementById('ntp').hidden"), "кнопка внизу справа открывает меню новой вкладки");
             await Task.Delay(500);
             Capture(_w, "48-ntp-menu");
             await Js("document.getElementById('nextBg').click()");
-            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-2')>=0&&!document.getElementById('ntp').hidden"),
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-1')>=0&&!document.getElementById('ntp').hidden"),
                 "стрелка меняет фон на вкладке и в миниатюре, меню не закрывается");
-            Check(_w.Settings.Wallpaper.StartsWith("wallpapers/dymka-2"), "выбранный фон запомнен: " + _w.Settings.Wallpaper);
+            Check(_w.Settings.Wallpaper.StartsWith("wallpapers/dymka-1"), "выбранный фон запомнен: " + _w.Settings.Wallpaper);
             await Js("document.getElementById('prevBg').click()");
-            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-1')>=0"), "стрелка назад возвращает предыдущий фон");
+            Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('wallpapers/dymka-0-haze')>=0"), "стрелка назад возвращает предыдущий фон");
             await Js("document.getElementById('optClock').click()");
             Check(await JsWait("!document.body.classList.contains('clock-on')") && !_w.Settings.ShowClock, "часы выключаются переключателем");
             await Js("document.getElementById('optClock').click()");

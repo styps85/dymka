@@ -2,6 +2,11 @@
  "version": 1,
  "items": [
   {
+   "file": "dymka-0-haze-waves.jpg",
+   "title": "Голубая дымка",
+   "builtin": true
+  },
+  {
    "file": "dymka-1-sky-waves.jpg",
    "title": "Небесные волны",
    "builtin": true
@@ -159,6 +164,50 @@
    "title": "Пуф и солнечная полоса"
   },
   {
+   "file": "gallery-haze-smoke-waves.jpg",
+   "title": "Дымка: струящийся дым"
+  },
+  {
+   "file": "gallery-haze-misty-lake.jpg",
+   "title": "Дымка над озером"
+  },
+  {
+   "file": "gallery-ekb-paper-embankment.jpg",
+   "title": "Бумажная набережная"
+  },
+  {
+   "file": "gallery-ekb-watercolor-mist.jpg",
+   "title": "Набережная в тумане"
+  },
+  {
+   "file": "gallery-ekb-dam-dawn.jpg",
+   "title": "Плотинка на рассвете"
+  },
+  {
+   "file": "gallery-blue-smoke.jpg",
+   "title": "Голубой дым"
+  },
+  {
+   "file": "gallery-moscow-lowpoly.jpg",
+   "title": "Москва из граней"
+  },
+  {
+   "file": "gallery-icy-mountains-wanderer.jpg",
+   "title": "Ледяные горы и путник"
+  },
+  {
+   "file": "gallery-moscow-paper-kremlin.jpg",
+   "title": "Бумажный Кремль"
+  },
+  {
+   "file": "gallery-moscow-watercolor-city.jpg",
+   "title": "Кремль и Москва-Сити"
+  },
+  {
+   "file": "gallery-moscow-watercolor-warm.jpg",
+   "title": "Москва акварелью"
+  },
+  {
    "file": "gallery-весна-cherry-blossom.jpg",
    "title": "Цветущая вишня"
   },
@@ -301,6 +350,10 @@
   {
    "file": "gallery-зима-interior-window.jpg",
    "title": "Зимний вид из окна"
+  },
+  {
+   "file": "gallery-зима-ekb-embankment.jpg",
+   "title": "Зимняя набережная"
   },
   {
    "file": "gallery-новый-год-frosted-branches.jpg",
