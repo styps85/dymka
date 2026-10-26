@@ -56,6 +56,7 @@ window.__dymkaMedia=function(cmd){
 
     void InitMediaBar()
     {
+        ApplyMediaStyle();
         _mediaTimer.Tick += async (_, _) => await MediaTickAsync();
         _mediaTimer.Start();
         Deactivated += (_, _) => MediaBar.IsOpen = false;
@@ -91,8 +92,9 @@ window.__dymkaMedia=function(cmd){
         try
         {
             var t = PickMediaTab();
-            bool can = t != null && t != _active && !t.InPip && t != _mediaDismissed && !InSplit(t)
+            bool can = t != null && (_settings.MiniPlayer || t == MediaTestTab) && t != _active && !t.InPip && t != _mediaDismissed && !InSplit(t)
                        && (IsActive || MediaTestTab != null) && WindowState != WindowState.Minimized && !_fullscreen;
+            if (_mediaDragging) return;
             if (!can) { HideMediaBar(); return; }
             var st = await QueryMediaAsync(t!, "state", gesture: false);
             // на паузе панель остаётся только у настоящего плеера (сайт сообщил название трека) или если паузу нажали в мини-плеере;
@@ -162,20 +164,229 @@ window.__dymkaMedia=function(cmd){
         catch { }
     }
 
-    /// <summary>Нижний правый угол страницы; на новой вкладке - выше её кнопки настроек.</summary>
+    // ================================================================ где стоит мини-плеер
+
+    const double MediaMargin = 12;   // поле вокруг карточки внутри окна мини-плеера (для тени)
+    const double MediaGap = 4;       // отступ карточки от края страницы
+    const double MediaSnap = 36;     // ближе этого к краю - прилипает
+    bool _mediaVertical;
+
+    /// <summary>Вид: горизонтальный (обложка, название, кнопки) или вертикальный - только кнопки (у левого и правого края).</summary>
+    void SetMediaVertical(bool v)
+    {
+        if (v == _mediaVertical && MediaCard.Width is double w && (v ? double.IsNaN(w) : w > 0)) return;
+        _mediaVertical = v;
+        MediaGoBtn.Visibility = v ? Visibility.Collapsed : Visibility.Visible;
+        foreach (var b in new FrameworkElement[] { MediaCloseBtn, MediaMuteBtn, MediaNextBtn, MediaPlayBtn, MediaPrevBtn })
+            System.Windows.Controls.DockPanel.SetDock(b, v ? System.Windows.Controls.Dock.Bottom : System.Windows.Controls.Dock.Right);
+        MediaCard.Width = v ? double.NaN : 384;
+        MediaCard.Padding = v ? new Thickness(7, 8, 7, 7) : new Thickness(7, 7, 8, 7);
+        MediaCloseBtn.Margin = v ? new Thickness(0, 4, 0, 0) : new Thickness(2, 0, 0, 0);
+        MediaPlayBtn.Margin = v ? new Thickness(0, 3, 0, 3) : new Thickness(0);
+    }
+
+    Size MediaSize()
+    {
+        MediaCard.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var d = MediaCard.DesiredSize;   // вместе с полями
+        return d;
+    }
+
+    (double minX, double maxX, double minY, double maxY) MediaRange(Size sz)
+    {
+        double W = ContentHost.ActualWidth, H = ContentHost.ActualHeight;
+        double minX = MediaGap - MediaMargin, minY = MediaGap - MediaMargin;
+        double maxX = Math.Max(minX, W - sz.Width + MediaMargin - MediaGap);
+        double maxY = Math.Max(minY, H - sz.Height + MediaMargin - MediaGap);
+        return (minX, maxX, minY, maxY);
+    }
+
+    static double Frac(double v, double a, double b) => b - a < 1 ? 0 : Math.Clamp((v - a) / (b - a), 0, 1);
+    static double Lerp(double f, double a, double b) => a + Math.Clamp(f, 0, 1) * (b - a);
+
+    /// <summary>Ставит мини-плеер по сохранённому положению: угол страницы (по умолчанию), край или свободное место.
+    /// Положение - относительно области страницы, поэтому при смене вида вкладок (сверху / сбоку) и размера окна
+    /// плеер остаётся у того же края и не заходит на список вкладок.</summary>
     void PositionMediaBar()
     {
-        if (!MediaBar.IsOpen || MediaBar.Child is not FrameworkElement card) return;
-        card.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-        var sz = card.DesiredSize;
-        // на новой вкладке - в нижнем ряду левее шестерёнки (она в 20 точках от края, шириной 44), чтобы не закрывать её и сведения о защите
+        if (!MediaBar.IsOpen || _mediaDragging) return;
+        var edge = _settings.MiniPlayerEdge;
+        SetMediaVertical(edge is "left" or "right");
+        var sz = MediaSize();
+        var (minX, maxX, minY, maxY) = MediaRange(sz);
+        double W = ContentHost.ActualWidth, H = ContentHost.ActualHeight;
         bool start = _active?.IsStart == true;
-        double x = Math.Max(0, ContentHost.ActualWidth - sz.Width - (start ? 64 : 8));
-        double y = Math.Max(0, ContentHost.ActualHeight - sz.Height - (start ? 3 : 4));
+        double x, y;
+        switch (edge)
+        {
+            case "left": x = minX; y = Lerp(_settings.MiniPlayerY, minY, maxY); break;
+            case "right": x = maxX; y = Lerp(_settings.MiniPlayerY, minY, maxY); break;
+            case "top": y = minY; x = Lerp(_settings.MiniPlayerX, minX, maxX); break;
+            case "bottom": y = maxY; x = Lerp(_settings.MiniPlayerX, minX, maxX); break;
+            case "free": x = Lerp(_settings.MiniPlayerX, minX, maxX); y = Lerp(_settings.MiniPlayerY, minY, maxY); break;
+            default:
+                // угол: на новой вкладке - в нижнем ряду левее шестерёнки
+                x = Math.Max(0, W - sz.Width - (start ? 64 : 8));
+                y = Math.Max(0, H - sz.Height - (start ? 3 : 4));
+                break;
+        }
+        if (start && edge.Length > 0) (x, y) = AvoidStartButtons(x, y, sz, W, H);
+        PlaceMediaBar(x, y);
+    }
+
+    /// <summary>Не закрывать кнопки новой вкладки: шестерёнку (внизу справа) и щит (внизу слева), 44 точки в 20 от краёв.</summary>
+    (double, double) AvoidStartButtons(double x, double y, Size sz, double W, double H)
+    {
+        Rect card = new(x + MediaMargin, y + MediaMargin, sz.Width - 2 * MediaMargin, sz.Height - 2 * MediaMargin);
+        foreach (var btn in new[] { new Rect(W - 64, H - 64, 44, 44), new Rect(20, H - 64, 44, 44) })
+        {
+            if (!card.IntersectsWith(btn)) continue;
+            if (_mediaVertical) y = btn.Top - 8 - (sz.Height - MediaMargin);
+            else if (btn.Left > W / 2) x = btn.Left - 8 - (sz.Width - MediaMargin);
+            else x = btn.Right + 8 - MediaMargin;
+            card = new(x + MediaMargin, y + MediaMargin, card.Width, card.Height);
+        }
+        return (x, y);
+    }
+
+    void PlaceMediaBar(double x, double y)
+    {
         // при перемещении окна смещение не меняется - чуть сдвигаем, чтобы окно мини-плеера переехало вместе с браузером
         _mediaNudge = !_mediaNudge;
         MediaBar.HorizontalOffset = x + (_mediaNudge ? 0.01 : 0);
         MediaBar.VerticalOffset = y;
+    }
+
+    /// <summary>К какому краю ближе карточка (или "free"), если до него меньше MediaSnap.</summary>
+    string MediaEdgeAt(double x, double y, Size sz)
+    {
+        double W = ContentHost.ActualWidth, H = ContentHost.ActualHeight;
+        double l = x + MediaMargin, t = y + MediaMargin, r = W - (x + sz.Width - MediaMargin), b = H - (y + sz.Height - MediaMargin);
+        double best = Math.Min(Math.Min(l, r), Math.Min(t, b));
+        if (best > MediaSnap) return "free";
+        if (l == best) return "left";
+        if (r == best) return "right";
+        return t == best ? "top" : "bottom";
+    }
+
+    /// <summary>Отпустили мини-плеер в точке (x, y) области страницы: прилипание к краю и запоминание.</summary>
+    internal void MediaDropAt(double x, double y)
+    {
+        var edge = MediaEdgeAt(x, y, MediaSize());
+        SetMediaVertical(edge is "left" or "right");
+        var sz = MediaSize();
+        var (minX, maxX, minY, maxY) = MediaRange(sz);
+        _settings.MiniPlayerEdge = edge;
+        _settings.MiniPlayerX = Frac(x, minX, maxX);
+        _settings.MiniPlayerY = Frac(y, minY, maxY);
+        _settings.Save();
+        App.Log("Мини-плеер: " + (edge == "free" ? "перенесён" : "прилип к краю " + edge));
+        PositionMediaBar();
+    }
+
+    void ResetMediaPosition()
+    {
+        _settings.MiniPlayerEdge = "";
+        _settings.MiniPlayerX = _settings.MiniPlayerY = -1;
+        _settings.Save();
+        PositionMediaBar();
+    }
+
+    // ---- перетаскивание мышью
+    Point _mediaDragStart;
+    double _mediaX0, _mediaY0;
+    bool _mediaDragPending, _mediaDragging;
+
+    void MediaCard_Down(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (e.ClickCount == 2) { ResetMediaPosition(); e.Handled = true; return; }
+        _mediaDragPending = true;
+        _mediaDragStart = e.GetPosition(ContentHost);
+        _mediaX0 = MediaBar.HorizontalOffset;
+        _mediaY0 = MediaBar.VerticalOffset;
+    }
+
+    void MediaCard_Move(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!_mediaDragPending && !_mediaDragging) return;
+        if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed) { EndMediaDrag(false); return; }
+        var p = e.GetPosition(ContentHost);
+        var d = p - _mediaDragStart;
+        if (!_mediaDragging)
+        {
+            if (Math.Abs(d.X) < 5 && Math.Abs(d.Y) < 5) return;
+            _mediaDragging = true;
+            MediaCard.CaptureMouse();   // кнопка под курсором отпускается и не сработает
+        }
+        // вид меняется сразу, когда плеер подносят к левому или правому краю
+        var edge = MediaEdgeAt(_mediaX0 + d.X, _mediaY0 + d.Y, MediaSize());
+        SetMediaVertical(edge is "left" or "right");
+        var (minX, maxX, minY, maxY) = MediaRange(MediaSize());
+        PlaceMediaBar(Math.Clamp(_mediaX0 + d.X, minX, maxX), Math.Clamp(_mediaY0 + d.Y, minY, maxY));
+        e.Handled = true;
+    }
+
+    void MediaCard_Up(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (_mediaDragging) e.Handled = true;
+        EndMediaDrag(true);
+    }
+
+    void MediaCard_LostCapture(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_mediaDragging) EndMediaDrag(true);
+    }
+
+    void EndMediaDrag(bool drop)
+    {
+        bool was = _mediaDragging;
+        _mediaDragPending = false;
+        _mediaDragging = false;
+        if (MediaCard.IsMouseCaptured) MediaCard.ReleaseMouseCapture();
+        if (was && drop) MediaDropAt(MediaBar.HorizontalOffset, MediaBar.VerticalOffset);
+    }
+
+    // ---- оформление: тёмный или светлый плеер
+    void ApplyMediaStyle()
+    {
+        var mode = _settings.MiniPlayerStyle;
+        bool light = mode == "light" || (mode == "theme" && !ThemeManager.IsDark);
+        void Set(string key, string hex)
+        {
+            var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(hex)!);
+            b.Freeze();
+            MediaCard.Resources[key] = b;
+        }
+        if (light)
+        {
+            Set("MediaBg", "#F5FFFFFF"); Set("MediaFg", "#1B2230"); Set("MediaSub", "#5B6475"); Set("MediaFaint", "#7A8394");
+            Set("MediaHover", "#14000000"); Set("MediaPress", "#24000000"); Set("MediaPlayBg", "#0F000000");
+            Set("MediaArtBg", "#EEF1F6"); Set("MediaNote", "#7A8394");
+            MediaShadow.Opacity = 0.18;
+        }
+        else
+        {
+            bool darkTheme = mode == "theme" && ThemeManager.IsDark;
+            Set("MediaBg", darkTheme ? "#F22A2F38" : "#EB1B2230"); Set("MediaFg", "#FFFFFF"); Set("MediaSub", "#AEB9CB"); Set("MediaFaint", "#B9C3D3");
+            Set("MediaHover", "#2EFFFFFF"); Set("MediaPress", "#4DFFFFFF"); Set("MediaPlayBg", "#26FFFFFF");
+            Set("MediaArtBg", "#33FFFFFF"); Set("MediaNote", "#C9D3E3");
+            MediaShadow.Opacity = 0.25;
+        }
+        MediaLight = light;
+    }
+
+    public bool MediaLight { get; private set; }
+    public void ApplyLayoutForTest() => ApplyLayout();
+    public bool MediaVerticalForTest => _mediaVertical;
+    public void MediaDropForTest(double x, double y) => MediaDropAt(x, y);
+    public void MediaResetForTest() => ResetMediaPosition();
+    public void MediaStyleForTest(string style) { _settings.MiniPlayerStyle = style; ApplyMediaStyle(); }
+    /// <summary>Прямоугольник карточки и области страницы на экране (в точках экрана).</summary>
+    public (Rect card, Rect page) MediaRectsForTest()
+    {
+        var c = new Rect(MediaCard.PointToScreen(new Point(0, 0)), MediaCard.PointToScreen(new Point(MediaCard.ActualWidth, MediaCard.ActualHeight)));
+        var pg = new Rect(ContentHost.PointToScreen(new Point(0, 0)), ContentHost.PointToScreen(new Point(ContentHost.ActualWidth, ContentHost.ActualHeight)));
+        return (c, pg);
     }
 
     async Task MediaCommandAsync(string cmd)

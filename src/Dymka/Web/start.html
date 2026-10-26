@@ -143,6 +143,51 @@
   .row { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
   .btn { height: 38px; padding: 0 16px; border-radius: 12px; border: 1px solid #D7DDE6; background: #fff; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
   .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+
+  /* ===== тёмное оформление (браузер передаёт prefers-color-scheme) ===== */
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #E6EAF0; --ink2: #C2C9D4; --muted: #97A1B2; --line: #2D333D; --ground: #16191F; --accent: #5B7FF0; --green: #45C083; color-scheme: dark; }
+    form.search, .sugg, .tile .ic, .chip, .ntp, dialog, .btn, .tile .rm { background: #1E222A; color: var(--ink); }
+    .sugg { border-color: #363D48; }
+    .sugg div:hover, .sugg div.sel { background: #243154; }
+    .sugg div span.h, form.search input::placeholder { color: #858E9E; }
+    form.search, .tile .ic { box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 26px rgba(0,0,0,.25); }
+    .seg { background: #22262E; }
+    .seg button:hover { background: rgba(255,255,255,.06); }
+    .seg button.on { background: #2E343E; color: var(--ink); box-shadow: none; }
+    .chip { border-color: #2D333D; }
+    .tile:active .ic, .tile.opening .ic { background: #2E343E; }
+    .tile.add .ic { border-color: #4A5260; }
+    .ntp { border-color: #363D48; box-shadow: 0 18px 46px rgba(0,0,0,.5); }
+    .ntp .sep { background: #2D333D; }
+    .sw span { background: #4A5260; }
+    .thumb { background-color: #272C35; border-color: #363D48; }
+    .thumb .cnt, .thumb .nav button { background: rgba(30,34,42,.92); color: var(--ink); }
+    .btn { border-color: #3B424E; }
+    .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+    dialog { border-color: #363D48; }
+    dialog::backdrop { background: rgba(0,0,0,.5); }
+    dialog input { background: #272C35; color: var(--ink); }
+    dialog input:focus { background: #1E222A; }
+    .ntp-btn, .stats-btn { background: rgba(30,34,42,.85); color: var(--ink2); box-shadow: 0 1px 3px rgba(0,0,0,.4); }
+    .ntp-btn svg { stroke: #C2C9D4; }
+    .chip svg[stroke="#3D4656"] { stroke: #C2C9D4; }
+    .chip svg[stroke="#1C7F53"] { stroke: #45C083; }
+    form.search > svg { stroke: #97A1B2; }
+    .ntp svg[stroke="#3D4656"] { stroke: #C2C9D4; }
+    .thumb .nav svg { stroke: #E6EAF0; }
+    .ntp-btn:hover, .ntp-btn.on, .stats-btn:hover { background: #2E343E; }
+    .stats-btn { color: #45C083; }
+    /* светлые фоны в тёмной теме приглушаем, чтобы светлый текст читался */
+    body.wp::before { content: ""; position: fixed; inset: 0; background: rgba(12,14,18,.46); pointer-events: none; }
+    main { position: relative; }
+    body.wp .brand h1, body.wp .clock .time, body.wp .clock .date { text-shadow: 0 1px 14px rgba(0,0,0,.55); }
+    body.wp .seg { background: rgba(30,34,42,.6); }
+    body.wp .tile .name { background: rgba(30,34,42,.78); }
+    body.wp .empty { background: rgba(30,34,42,.75); }
+    body.wp .chip { background: rgba(30,34,42,.85); }
+    body.wp .tile.add .ic { background: rgba(30,34,42,.6); }
+  }
 </style>
 </head>
 <body>

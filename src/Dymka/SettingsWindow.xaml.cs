@@ -59,6 +59,14 @@ public partial class SettingsWindow : Window
             {
                 Content = text, Tag = id, GroupName = "smartscreen", Style = chip, IsChecked = _s.SmartScreenMode == id,
             });
+        foreach (var (id, text) in new[] { ("light", "Светлое"), ("dark", "Тёмное"), ("system", "Как в Windows") })
+            ThemePanel.Children.Add(new RadioButton { Content = text, Tag = id, GroupName = "theme", Style = chip, IsChecked = _s.Theme == id });
+        foreach (var (id, text) in new[] { ("dark", "Тёмный"), ("light", "Светлый"), ("theme", "Как оформление браузера") })
+            MiniStylePanel.Children.Add(new RadioButton { Content = text, Tag = id, GroupName = "ministyle", Style = chip, IsChecked = _s.MiniPlayerStyle == id });
+        MiniPlayerBox.IsChecked = _s.MiniPlayer;
+        AskDownloadBox.IsChecked = _s.AskDownloadPath;
+        _downloadFolder = _s.DownloadFolder;
+        ShowDownloadFolder();
         CheckUpdatesBox.IsChecked = _s.CheckUpdates;
         StartRestore.IsChecked = _s.RestoreSession;
         StartNew.IsChecked = !_s.RestoreSession;
@@ -145,6 +153,13 @@ public partial class SettingsWindow : Window
             if (r.IsChecked == true) _s.SleepMinutes = (int)r.Tag;
         foreach (RadioButton r in SmartScreenPanel.Children)
             if (r.IsChecked == true) _s.SmartScreenMode = (string)r.Tag;
+        foreach (RadioButton r in ThemePanel.Children)
+            if (r.IsChecked == true) _s.Theme = (string)r.Tag;
+        foreach (RadioButton r in MiniStylePanel.Children)
+            if (r.IsChecked == true) _s.MiniPlayerStyle = (string)r.Tag;
+        _s.MiniPlayer = MiniPlayerBox.IsChecked == true;
+        _s.AskDownloadPath = AskDownloadBox.IsChecked == true;
+        _s.DownloadFolder = _downloadFolder;
         _s.CheckUpdates = CheckUpdatesBox.IsChecked == true;
         _s.RestoreSession = StartRestore.IsChecked == true;
         VideoTranslationChanged = _s.VideoTranslation != (VideoTranslationBox.IsChecked == true);
@@ -161,6 +176,27 @@ public partial class SettingsWindow : Window
         _s.TrackerExceptions = ParseDomains(Exceptions.Text);
         if (_resetPermissions) _s.SitePermissions.Clear();
         DialogResult = true;
+    }
+
+    string _downloadFolder = "";
+
+    void ShowDownloadFolder()
+    {
+        DownloadFolderText.Text = _downloadFolder.Length > 0 ? _downloadFolder : "«Загрузки» Windows (как в Edge и Chrome)";
+        DownloadFolderResetBtn.IsEnabled = _downloadFolder.Length > 0;
+    }
+
+    void DownloadFolder_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Папка для загрузок" };
+        if (_downloadFolder.Length > 0 && Directory.Exists(_downloadFolder)) dlg.InitialDirectory = _downloadFolder;
+        if (dlg.ShowDialog(this) == true) { _downloadFolder = dlg.FolderName; ShowDownloadFolder(); }
+    }
+
+    void DownloadFolderReset_Click(object sender, RoutedEventArgs e)
+    {
+        _downloadFolder = "";
+        ShowDownloadFolder();
     }
 
     void UpdateLists_Click(object sender, RoutedEventArgs e)

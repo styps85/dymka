@@ -4,8 +4,8 @@
         xmlns:local="clr-namespace:Dymka"
         Title="Очистка вкладок - Дымка" Width="600" Height="680" MinWidth="480" MinHeight="400"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
-        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+        Background="{DynamicResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{DynamicResource Ink}" UseLayoutRounding="True">
   <Window.Resources>
     <Style x:Key="Tick" TargetType="CheckBox">
       <Setter Property="Cursor" Value="Hand"/>
@@ -18,8 +18,8 @@
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="*"/>
               </Grid.ColumnDefinitions>
-              <Border x:Name="Box" Width="18" Height="18" CornerRadius="5" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
-                      Background="White" VerticalAlignment="Center">
+              <Border x:Name="Box" Width="18" Height="18" CornerRadius="5" BorderThickness="1.5" BorderBrush="{DynamicResource LineStrong}"
+                      Background="{DynamicResource Surface}" VerticalAlignment="Center">
                 <Grid>
                   <Path x:Name="Mark" Data="M3.5 9 L7.5 12.5 L14 5" Stroke="White" StrokeThickness="2.2" StrokeStartLineCap="Round"
                         StrokeEndLineCap="Round" StrokeLineJoin="Round" Visibility="Collapsed" Margin="-1.5"/>
@@ -30,17 +30,17 @@
             </Grid>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/>
                 <Setter TargetName="Mark" Property="Visibility" Value="Visible"/>
               </Trigger>
               <Trigger Property="IsChecked" Value="{x:Null}">
-                <Setter TargetName="Box" Property="Background" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Box" Property="Background" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/>
                 <Setter TargetName="Dash" Property="Visibility" Value="Visible"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Box" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Box" Property="BorderBrush" Value="{DynamicResource Accent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -53,17 +53,17 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="Bd" CornerRadius="13" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
-                    Background="White" Padding="10,3">
+            <Border x:Name="Bd" CornerRadius="13" BorderThickness="1.5" BorderBrush="{DynamicResource LineStrong}"
+                    Background="{DynamicResource Surface}" Padding="10,3">
               <ContentPresenter TextElement.FontSize="12"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -73,9 +73,9 @@
   </Window.Resources>
 
   <DockPanel>
-    <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
       <DockPanel>
-        <TextBlock x:Name="Summary" VerticalAlignment="Center" Foreground="{StaticResource Muted}" FontSize="12.5"/>
+        <TextBlock x:Name="Summary" VerticalAlignment="Center" Foreground="{DynamicResource Muted}" FontSize="12.5"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
           <Button Content="Отмена" Style="{StaticResource SecondaryButton}" MinWidth="100" IsCancel="True"/>
           <Button x:Name="CloseBtn" Content="Закрыть отмеченные" Style="{StaticResource PrimaryButton}" MinWidth="170" Margin="8,0,0,0"
@@ -87,7 +87,7 @@
     <StackPanel DockPanel.Dock="Top" Margin="24,20,24,8">
       <TextBlock Text="Очистка вкладок" FontSize="19" FontWeight="Bold"/>
       <TextBlock Text="Отметьте, что закрыть. Закреплённые вкладки и та, что открыта сейчас, не трогаются. Закрытое можно вернуть кнопкой «Вернуть» в уведомлении."
-                 TextWrapping="Wrap" Foreground="{StaticResource Ink2}" Margin="0,6,0,0" FontSize="13"/>
+                 TextWrapping="Wrap" Foreground="{DynamicResource Ink2}" Margin="0,6,0,0" FontSize="13"/>
     </StackPanel>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto" Padding="20,8,20,12">

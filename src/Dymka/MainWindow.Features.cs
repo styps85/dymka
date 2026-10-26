@@ -141,7 +141,7 @@ public partial class MainWindow
         PinnedHeaderText.Text = _pinnedExpanded ? "ЗАКРЕПЛЕНЫ" : $"ЗАКРЕПЛЕНЫ ({count})";
         TopPinBtn.Visibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
         TopPinBtn.ToolTip = $"Закреплённые вкладки ({count}) - открыть в боковой панели";
-        TopPinBtn.Background = _active?.IsPinned == true ? (Brush)FindResource("AccentSoft") : Brushes.Transparent;
+        if (_active?.IsPinned == true) TopPinBtn.SetResourceReference(Control.BackgroundProperty, "AccentSoft"); else TopPinBtn.Background = Brushes.Transparent;
     }
 
     void PinnedHeader_Click(object sender, RoutedEventArgs e)

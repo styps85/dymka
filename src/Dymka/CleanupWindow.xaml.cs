@@ -47,7 +47,7 @@ public partial class CleanupWindow : Window
         if (items.Count == 0)
             Groups.Children.Insert(0, new Border
             {
-                Background = Brushes.White, CornerRadius = new CornerRadius(16), Padding = new Thickness(20, 16, 20, 16),
+                Background = (Brush)FindResource("Surface"), CornerRadius = new CornerRadius(16), Padding = new Thickness(20, 16, 20, 16),
                 Margin = new Thickness(0, 0, 0, 12), BorderBrush = (Brush)FindResource("Line"), BorderThickness = new Thickness(1),
                 Child = new TextBlock
                 {
@@ -168,7 +168,7 @@ public partial class CleanupWindow : Window
 
         return new Border
         {
-            Background = Brushes.White, CornerRadius = new CornerRadius(16), Padding = new Thickness(20, 16, 20, 16),
+            Background = (Brush)FindResource("Surface"), CornerRadius = new CornerRadius(16), Padding = new Thickness(20, 16, 20, 16),
             Margin = new Thickness(0, 0, 0, 12), BorderBrush = (Brush)FindResource("Line"), BorderThickness = new Thickness(1),
             Child = stack,
         };

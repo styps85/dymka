@@ -79,6 +79,23 @@ public sealed class AppSettings
     /// <summary>Видео со звуком при переходе на другую вкладку продолжается в мини-окне поверх всех окон («картинка в картинке»).</summary>
     public bool AutoPip { get; set; } = true;
 
+    /// <summary>Оформление: "light", "dark" или "system" (как в Windows).</summary>
+    public string Theme { get; set; } = "light";
+
+    /// <summary>Мини-плеер для музыки: включён ли, оформление ("dark", "light", "theme" - как у браузера) и где стоит.</summary>
+    public bool MiniPlayer { get; set; } = true;
+    public string MiniPlayerStyle { get; set; } = "dark";
+    /// <summary>Край экрана, к которому прилип мини-плеер: "" (угол страницы), "left", "right", "top", "bottom".</summary>
+    public string MiniPlayerEdge { get; set; } = "";
+    /// <summary>Положение вдоль края (0..1) или, если не прилип, - доля от ширины и высоты экрана.</summary>
+    public double MiniPlayerX { get; set; } = -1;
+    public double MiniPlayerY { get; set; } = -1;
+
+    /// <summary>Скачивание: спрашивать, куда сохранить каждый файл; папка по умолчанию ("" - «Загрузки» Windows).</summary>
+    public bool AskDownloadPath { get; set; } = true;
+    public string DownloadFolder { get; set; } = "";
+    public string LastDownloadFolder { get; set; } = "";
+
     /// <summary>Фон новой вкладки: путь внутри папки ui, например "wallpapers/dymka-1-sky-waves.jpg" (пусто - первый стандартный).</summary>
     public string Wallpaper { get; set; } = "";
     /// <summary>Показывать фон на новой вкладке.</summary>

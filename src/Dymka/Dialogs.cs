@@ -84,7 +84,7 @@ static class Dialogs
 
         win.Content = new Border
         {
-            Background = Brushes.White,
+            Background = (Brush)Application.Current.FindResource("Surface"),
             CornerRadius = new CornerRadius(16),
             BorderBrush = (Brush)res["Line"],
             BorderThickness = new Thickness(1),
@@ -164,7 +164,7 @@ static class Dialogs
         };
         win.Content = new Border
         {
-            Background = Brushes.White,
+            Background = (Brush)Application.Current.FindResource("Surface"),
             CornerRadius = new CornerRadius(16),
             BorderBrush = (Brush)res["Line"],
             BorderThickness = new Thickness(1),

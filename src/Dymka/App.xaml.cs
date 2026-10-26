@@ -79,23 +79,15 @@ public partial class App : Application
         // ошибки вне окна (фоновые потоки, обратные вызовы движка) - иначе браузер закрывается молча
         AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
             Log("Аварийное завершение: " + ev.ExceptionObject);
-        _runFlag = Path.Combine(dataDir, "running.flag");
         if (selfTest == null && memTest == null)
-        {
-            try
-            {
-                if (File.Exists(_runFlag))
-                    Log("Предыдущий запуск завершился аварийно (браузер закрылся без выхода). Начат: " + File.ReadAllText(_runFlag));
-                File.WriteAllText(_runFlag, DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss"));
-            }
-            catch { }
-        }
+            CrashDiagnostics.Start(Path.Combine(dataDir, "running.flag"));
         Log($"Запуск Дымки {VersionText}, движок {EngineVersionSafe()}, папка данных {dataDir}, процесс {Environment.ProcessId}, файл {Environment.ProcessPath}");
         DataWriteError = CheckDataFolderWritable(dataDir);
         if (DataWriteError.Length > 0) Log("Папка данных недоступна для записи: " + DataWriteError);
         TaskScheduler.UnobservedTaskException += (_, ev) => { Log("Фоновая ошибка: " + ev.Exception); ev.SetObserved(); };
 
         var settings = AppSettings.Load(Path.Combine(dataDir, "settings.json"));
+        ThemeManager.Apply(settings.Theme);
         Shared.Vault = new Vault(Path.Combine(dataDir, "vault.dat"), new Dpapi());
         // заблокировали Windows - закрываем хранилище с главным паролем
         Microsoft.Win32.SystemEvents.SessionSwitch += (_, ev) =>
@@ -110,8 +102,6 @@ public partial class App : Application
         w.Show();
     }
 
-    static string _runFlag = "";
-
     /// <summary>Ошибка записи в папку данных при запуске (пусто - всё в порядке).</summary>
     public static string DataWriteError { get; private set; } = "";
 
@@ -124,7 +114,7 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         Log("Выход из браузера");
-        try { if (_runFlag.Length > 0) File.Delete(_runFlag); } catch { }
+        CrashDiagnostics.Stop();
         base.OnExit(e);
     }
 

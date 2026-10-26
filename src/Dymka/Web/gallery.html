@@ -51,6 +51,18 @@
   #pv .close { position: absolute; top: 16px; right: 18px; width: 40px; height: 40px; border-radius: 50%; border: 0; background: rgba(255,255,255,.14); color: #fff; cursor: pointer; opacity: .7; }
   #pv .close:hover { opacity: 1; background: rgba(255,255,255,.24); }
   .msg { max-width: 1180px; margin: 30px auto; padding: 0 24px; color: var(--muted); font-size: 14px; }
+
+  @media (prefers-color-scheme: dark) {
+    :root { --ink: #E6EAF0; --ink2: #C2C9D4; --muted: #97A1B2; --line: #2D333D; --ground: #16191F; --accent: #5B7FF0; color-scheme: dark; }
+    .btn, .chips button, .card { background: #1E222A; color: var(--ink); border-color: #363D48; }
+    .btn:hover { border-color: #4A5260; }
+    .btn.primary, .chips button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+    .card { box-shadow: none; }
+    .card .img { background-color: #272C35; }
+    .card .tag { background: rgba(30,34,42,.9); color: var(--ink2); }
+    .card .del:hover { background: #272C35; color: #FF6A5C; }
+    .chips .sep { background: #363D48; }
+  }
 </style>
 </head>
 <body>

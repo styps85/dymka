@@ -4,13 +4,13 @@
         xmlns:local="clr-namespace:Dymka"
         Title="Настройки - Дымка" Width="640" Height="760" MinWidth="520" MinHeight="480"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
-        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+        Background="{DynamicResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{DynamicResource Ink}" UseLayoutRounding="True">
   <Window.Resources>
     <Style x:Key="Card" TargetType="Border">
-      <Setter Property="Background" Value="White"/>
+      <Setter Property="Background" Value="{DynamicResource Surface}"/>
       <Setter Property="CornerRadius" Value="16"/>
-      <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="20,16"/>
       <Setter Property="Margin" Value="0,0,0,14"/>
@@ -22,7 +22,7 @@
     </Style>
     <Style x:Key="Hint" TargetType="TextBlock">
       <Setter Property="FontSize" Value="12"/>
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
       <Setter Property="Margin" Value="0,3,0,0"/>
     </Style>
@@ -32,17 +32,17 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="Bd" CornerRadius="16" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
-                    Background="White" Padding="14,6">
+            <Border x:Name="Bd" CornerRadius="16" BorderThickness="1.5" BorderBrush="{DynamicResource LineStrong}"
+                    Background="{DynamicResource Surface}" Padding="14,6">
               <ContentPresenter TextElement.FontSize="13"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -52,7 +52,7 @@
   </Window.Resources>
 
   <DockPanel>
-    <Border DockPanel.Dock="Bottom" Background="White" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
+    <Border DockPanel.Dock="Bottom" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="20,12">
       <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
         <Button Content="Отмена" Style="{StaticResource SecondaryButton}" MinWidth="100" IsCancel="True"/>
         <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" MinWidth="120" Margin="8,0,0,0"
@@ -69,7 +69,7 @@
             <UniformGrid Columns="2">
               <RadioButton x:Name="LayoutTop" GroupName="layout" Style="{StaticResource ChoiceRadio}" Margin="0,0,6,0">
                 <StackPanel Orientation="Horizontal">
-                  <local:Glyph Data="{StaticResource IcLayoutTop}" Size="22" Foreground="{StaticResource Ink2}" Margin="0,0,10,0"/>
+                  <local:Glyph Data="{StaticResource IcLayoutTop}" Size="22" Foreground="{DynamicResource Ink2}" Margin="0,0,10,0"/>
                   <StackPanel>
                     <TextBlock Text="Вкладки сверху" FontWeight="SemiBold"/>
                     <TextBlock Text="Как в Chrome" Style="{StaticResource Hint}"/>
@@ -78,7 +78,7 @@
               </RadioButton>
               <RadioButton x:Name="LayoutSide" GroupName="layout" Style="{StaticResource ChoiceRadio}" Margin="6,0,0,0">
                 <StackPanel Orientation="Horizontal">
-                  <local:Glyph Data="{StaticResource IcLayoutSide}" Size="22" Foreground="{StaticResource Ink2}" Margin="0,0,10,0"/>
+                  <local:Glyph Data="{StaticResource IcLayoutSide}" Size="22" Foreground="{DynamicResource Ink2}" Margin="0,0,10,0"/>
                   <StackPanel>
                     <TextBlock Text="Вкладки сбоку" FontWeight="SemiBold"/>
                     <TextBlock Text="Длинные названия целиком" Style="{StaticResource Hint}"/>
@@ -87,6 +87,10 @@
               </RadioButton>
             </UniformGrid>
             <TextBlock Text="Переключить вид можно и в меню «⋯» - «Вкладки сбоку / сверху»." Style="{StaticResource Hint}" Margin="0,10,0,0"/>
+            <TextBlock Text="Оформление" FontWeight="SemiBold" Margin="0,16,0,8"/>
+            <WrapPanel x:Name="ThemePanel"/>
+            <TextBlock Text="«Как в Windows» - светлое или тёмное, как выбрано в параметрах Windows. Сайты, которые умеют, тоже переключаются на тёмную тему."
+                       Style="{StaticResource Hint}"/>
           </StackPanel>
         </Border>
 
@@ -205,11 +209,11 @@
           <StackPanel>
             <TextBlock Text="Фон новой вкладки" Style="{StaticResource CardTitle}"/>
             <DockPanel>
-              <Border DockPanel.Dock="Left" Width="128" Height="72" CornerRadius="10" Background="#F1F4F8" ClipToBounds="True"
-                      BorderBrush="{StaticResource Line}" BorderThickness="1" Margin="0,0,16,0">
+              <Border DockPanel.Dock="Left" Width="128" Height="72" CornerRadius="10" Background="{DynamicResource Field}" ClipToBounds="True"
+                      BorderBrush="{DynamicResource Line}" BorderThickness="1" Margin="0,0,16,0">
                 <Grid>
                   <TextBlock x:Name="WallpaperNone" Text="Без фона" HorizontalAlignment="Center" VerticalAlignment="Center"
-                             Foreground="{StaticResource Muted}" FontSize="12"/>
+                             Foreground="{DynamicResource Muted}" FontSize="12"/>
                   <Image x:Name="WallpaperPreview" Stretch="UniformToFill" RenderOptions.BitmapScalingMode="HighQuality"/>
                 </Grid>
               </Border>
@@ -222,6 +226,46 @@
                 </StackPanel>
               </StackPanel>
             </DockPanel>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Скачивание" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="AskDownloadBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Спрашивать, куда сохранить каждый файл"/>
+                <TextBlock Text="При скачивании откроется окно «Сохранить как» с выбором папки и имени файла." Style="{StaticResource Hint}"/>
+              </StackPanel>
+            </DockPanel>
+            <TextBlock Text="Папка для загрузок" Margin="0,14,0,6"/>
+            <DockPanel>
+              <Button DockPanel.Dock="Right" Content="По умолчанию" Style="{StaticResource SecondaryButton}" Padding="14,0" Margin="8,0,0,0"
+                      Click="DownloadFolderReset_Click" x:Name="DownloadFolderResetBtn"/>
+              <Button DockPanel.Dock="Right" Content="Изменить…" Style="{StaticResource SecondaryButton}" Padding="14,0" Margin="8,0,0,0"
+                      Click="DownloadFolder_Click"/>
+              <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="12,0" Height="38">
+                <TextBlock x:Name="DownloadFolderText" VerticalAlignment="Center" TextTrimming="CharacterEllipsis"/>
+              </Border>
+            </DockPanel>
+            <TextBlock Text="Сюда файлы сохраняются, если не спрашивать; при вопросе окно откроется в последней выбранной папке." Style="{StaticResource Hint}" Margin="0,6,0,0"/>
+          </StackPanel>
+        </Border>
+
+        <Border Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Мини-плеер для музыки" Style="{StaticResource CardTitle}"/>
+            <DockPanel>
+              <CheckBox x:Name="MiniPlayerBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Показывать мини-плеер, когда музыка играет на другой вкладке"/>
+                <TextBlock Text="Его можно перетащить мышью; у края страницы он прилипает, а у левого и правого края становится вертикальным. Двойной щелчок по плееру возвращает его в угол."
+                           Style="{StaticResource Hint}"/>
+              </StackPanel>
+            </DockPanel>
+            <TextBlock Text="Оформление мини-плеера" Margin="0,14,0,8"/>
+            <WrapPanel x:Name="MiniStylePanel"/>
           </StackPanel>
         </Border>
 

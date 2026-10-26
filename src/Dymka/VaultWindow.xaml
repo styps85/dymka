@@ -4,8 +4,8 @@
         xmlns:local="clr-namespace:Dymka"
         Title="Пароли и автозаполнение - Дымка" Width="900" Height="680" MinWidth="720" MinHeight="480"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="{StaticResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
-        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+        Background="{DynamicResource Ground}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{DynamicResource Ink}" UseLayoutRounding="True">
   <Window.Resources>
     <local:HexBrushConverter x:Key="HexBrush"/>
     <Style x:Key="Tab" TargetType="RadioButton">
@@ -14,13 +14,13 @@
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
             <Border x:Name="Bd" CornerRadius="9" Background="Transparent" Padding="16,6">
-              <ContentPresenter x:Name="Cp" TextElement.FontSize="13" TextElement.FontWeight="Medium" TextElement.Foreground="{StaticResource Ink2}"/>
+              <ContentPresenter x:Name="Cp" TextElement.FontSize="13" TextElement.FontWeight="Medium" TextElement.Foreground="{DynamicResource Ink2}"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="White"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface}"/>
                 <Setter TargetName="Cp" Property="TextElement.FontWeight" Value="SemiBold"/>
-                <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{StaticResource Ink}"/>
+                <Setter TargetName="Cp" Property="TextElement.Foreground" Value="{DynamicResource Ink}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -33,13 +33,13 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="Bd" CornerRadius="16" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}" Background="White" Padding="14,6">
+            <Border x:Name="Bd" CornerRadius="16" BorderThickness="1.5" BorderBrush="{DynamicResource LineStrong}" Background="{DynamicResource Surface}" Padding="14,6">
               <ContentPresenter TextElement.FontSize="13"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -47,9 +47,9 @@
       </Setter>
     </Style>
     <Style x:Key="Card" TargetType="Border">
-      <Setter Property="Background" Value="White"/>
+      <Setter Property="Background" Value="{DynamicResource Surface}"/>
       <Setter Property="CornerRadius" Value="16"/>
-      <Setter Property="BorderBrush" Value="{StaticResource Line}"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource Line}"/>
       <Setter Property="BorderThickness" Value="1"/>
     </Style>
     <Style x:Key="ListItem" TargetType="ListBoxItem">
@@ -62,10 +62,10 @@
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource Field}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Field}"/>
               </Trigger>
               <Trigger Property="IsSelected" Value="True">
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -76,7 +76,7 @@
 
   <DockPanel Margin="20,16,20,20">
     <DockPanel DockPanel.Dock="Top" Margin="0,0,0,14">
-      <Border DockPanel.Dock="Right" Background="#E3E8EF" CornerRadius="12" Padding="4" VerticalAlignment="Center">
+      <Border DockPanel.Dock="Right" Background="{DynamicResource Segment}" CornerRadius="12" Padding="4" VerticalAlignment="Center">
         <StackPanel Orientation="Horizontal">
           <RadioButton x:Name="TabPasswords" Style="{StaticResource Tab}" GroupName="vt" Content="Пароли" Checked="Tab_Checked"/>
           <RadioButton x:Name="TabCards" Style="{StaticResource Tab}" GroupName="vt" Content="Карточки" Checked="Tab_Checked"/>
@@ -85,7 +85,7 @@
         </StackPanel>
       </Border>
       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-        <local:Glyph Data="{StaticResource IcKey}" Size="22" Foreground="{StaticResource Accent}" Margin="0,0,10,0"/>
+        <local:Glyph Data="{StaticResource IcKey}" Size="22" Foreground="{DynamicResource Accent}" Margin="0,0,10,0"/>
         <TextBlock Text="Пароли и автозаполнение" FontSize="19" FontWeight="Bold"/>
       </StackPanel>
     </DockPanel>
@@ -102,14 +102,14 @@
           <DockPanel>
             <Grid DockPanel.Dock="Top" Margin="0,0,0,8">
               <TextBox x:Name="PwSearch" Style="{StaticResource FieldBox}" TextChanged="PwSearch_TextChanged"/>
-              <TextBlock x:Name="PwSearchHint" Text="Поиск по сайту и логину" Foreground="#7A8394" IsHitTestVisible="False"
+              <TextBlock x:Name="PwSearchHint" Text="Поиск по сайту и логину" Foreground="{DynamicResource Faint}" IsHitTestVisible="False"
                          VerticalAlignment="Center" Margin="13,0,0,0"/>
             </Grid>
             <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
               <Button Content="Добавить пароль" Style="{StaticResource SecondaryButton}" Click="PwNew_Click" Margin="0,0,0,6"/>
               <Button Content="Импорт из Chrome или Яндекса (CSV)…" Style="{StaticResource SecondaryButton}" Click="PwImport_Click"/>
             </StackPanel>
-            <TextBlock x:Name="PwEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="6,4"
+            <TextBlock x:Name="PwEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="6,4"
                        Text="Сохранённых паролей нет. После входа на сайт «Дымка» предложит сохранить пароль, а пароли из другого браузера можно перенести через файл CSV."/>
             <ListBox x:Name="PwList" BorderThickness="0" Background="Transparent" ItemContainerStyle="{StaticResource ListItem}"
                      SelectionChanged="PwList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -120,7 +120,7 @@
                 <DataTemplate>
                   <StackPanel>
                     <TextBlock Text="{Binding Host}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding Username}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding Username}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -129,28 +129,28 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22,18">
           <Grid>
-            <TextBlock x:Name="PwNone" Text="Выберите пароль слева" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock x:Name="PwNone" Text="Выберите пароль слева" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <StackPanel x:Name="PwEditor" Visibility="Collapsed">
-              <TextBlock Text="Сайт" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+              <TextBlock Text="Сайт" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
               <TextBox x:Name="PwUrl" Style="{StaticResource FieldBox}"/>
-              <TextBlock Text="Логин" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <TextBlock Text="Логин" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,12,0,4"/>
               <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Скопировать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwCopyUser_Click"/>
                 <TextBox x:Name="PwUser" Style="{StaticResource FieldBox}"/>
               </DockPanel>
-              <TextBlock Text="Пароль" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <TextBlock Text="Пароль" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,12,0,4"/>
               <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Скопировать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwCopyPass_Click"/>
                 <Button x:Name="PwShowBtn" DockPanel.Dock="Right" Content="Показать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwShow_Click"/>
                 <Grid>
                   <PasswordBox x:Name="PwPass" FontSize="14" Height="38" Padding="10,0" VerticalContentAlignment="Center"
-                               Background="{StaticResource Field}" BorderBrush="{StaticResource LineStrong}" BorderThickness="1.5"/>
+                               Background="{DynamicResource Field}" BorderBrush="{DynamicResource LineStrong}" BorderThickness="1.5"/>
                   <TextBox x:Name="PwPassPlain" Style="{StaticResource FieldBox}" Visibility="Collapsed"/>
                 </Grid>
               </DockPanel>
-              <TextBlock Text="Примечание" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <TextBlock Text="Примечание" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,12,0,4"/>
               <TextBox x:Name="PwNote" Style="{StaticResource FieldBox}"/>
-              <TextBlock x:Name="PwInfo" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap"/>
+              <TextBlock x:Name="PwInfo" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,10,0,0" TextWrapping="Wrap"/>
               <StackPanel Orientation="Horizontal" Margin="0,18,0,0">
                 <Button Content="Сохранить" Style="{StaticResource PrimaryButton}" MinWidth="120" Click="PwSave_Click"/>
                 <Button Content="Удалить" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="PwDelete_Click"/>
@@ -172,7 +172,7 @@
             <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
               <Button Content="Добавить карточку" Style="{StaticResource SecondaryButton}" Click="CardNew_Click"/>
             </StackPanel>
-            <TextBlock x:Name="CardEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="6,4"
+            <TextBlock x:Name="CardEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="6,4"
                        Text="Карточек пока нет. Добавьте свою («Я»), карточку арбитражного управляющего и карточки должников - тогда в анкетах на сайтах появится подсказка «Заполнить»."/>
             <ListBox x:Name="CardList" BorderThickness="0" Background="Transparent" ItemContainerStyle="{StaticResource ListItem}"
                      SelectionChanged="CardList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -180,7 +180,7 @@
                 <DataTemplate>
                   <StackPanel>
                     <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                    <TextBlock Text="{Binding ShortName}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                    <TextBlock Text="{Binding ShortName}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
                   </StackPanel>
                 </DataTemplate>
               </ListBox.ItemTemplate>
@@ -189,9 +189,9 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="4">
           <Grid>
-            <TextBlock x:Name="CardNone" Text="Выберите или добавьте карточку" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock x:Name="CardNone" Text="Выберите или добавьте карточку" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <DockPanel x:Name="CardEditorHost" Visibility="Collapsed">
-              <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="18,12">
+              <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="18,12">
                 <StackPanel Orientation="Horizontal">
                   <Button Content="Сохранить карточку" Style="{StaticResource PrimaryButton}" MinWidth="150" Click="CardSave_Click"/>
                   <Button Content="Удалить" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="CardDelete_Click"/>
@@ -220,7 +220,7 @@
             <StackPanel DockPanel.Dock="Bottom" Margin="0,8,0,0">
               <Button Content="Добавить карту" Style="{StaticResource SecondaryButton}" Click="BcNew_Click"/>
             </StackPanel>
-            <TextBlock x:Name="BcEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Muted}" Margin="6,4"
+            <TextBlock x:Name="BcEmpty" DockPanel.Dock="Top" TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource Muted}" Margin="6,4"
                        Text="Карт пока нет. Добавьте карту - и на странице оплаты появится подсказка: номер, срок и имя владельца подставятся сами, останется ввести код CVC."/>
             <ListBox x:Name="BcList" BorderThickness="0" Background="Transparent" ItemContainerStyle="{StaticResource ListItem}"
                      SelectionChanged="BcList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled">
@@ -234,7 +234,7 @@
                     <TextBlock DockPanel.Dock="Right" Text="{Binding Last4, StringFormat='•• {0}'}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="8,0,0,0"/>
                     <StackPanel VerticalAlignment="Center">
                       <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                      <TextBlock Text="{Binding Sub}" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis"/>
+                      <TextBlock Text="{Binding Sub}" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis"/>
                     </StackPanel>
                   </DockPanel>
                 </DataTemplate>
@@ -244,7 +244,7 @@
         </Border>
         <Border Grid.Column="2" Style="{StaticResource Card}" Padding="22,18">
           <Grid>
-            <TextBlock x:Name="BcNone" Text="Выберите или добавьте карту" Foreground="{StaticResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+            <TextBlock x:Name="BcNone" Text="Выберите или добавьте карту" Foreground="{DynamicResource Muted}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
             <StackPanel x:Name="BcEditor" Visibility="Collapsed">
               <Grid>
                 <Grid.ColumnDefinitions>
@@ -253,20 +253,20 @@
                   <ColumnDefinition Width="200"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Название (например: Сбер зарплатная)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBlock Text="Название (например: Сбер зарплатная)" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
                   <TextBox x:Name="BcTitle" Style="{StaticResource FieldBox}"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                  <TextBlock Text="Банк" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBlock Text="Банк" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
                   <ComboBox x:Name="BcBank" Height="38" FontSize="13.5" VerticalContentAlignment="Center"/>
                 </StackPanel>
               </Grid>
-              <TextBlock Text="Номер карты" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <TextBlock Text="Номер карты" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,12,0,4"/>
               <DockPanel>
                 <Button DockPanel.Dock="Right" Content="Скопировать" IsTabStop="False" Style="{StaticResource SecondaryButton}" Margin="8,0,0,0" Click="BcCopy_Click"/>
                 <TextBox x:Name="BcNumber" Style="{StaticResource FieldBox}" LostFocus="BcNumber_LostFocus" TextChanged="BcNumber_TextChanged" MaxLength="23"/>
               </DockPanel>
-              <TextBlock x:Name="BcNumberInfo" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,4,0,0"/>
+              <TextBlock x:Name="BcNumberInfo" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,4,0,0"/>
               <Grid Margin="0,12,0,0">
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*"/>
@@ -274,18 +274,18 @@
                   <ColumnDefinition Width="130"/>
                 </Grid.ColumnDefinitions>
                 <StackPanel>
-                  <TextBlock Text="Имя владельца (латиницей, как на карте)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBlock Text="Имя владельца (латиницей, как на карте)" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
                   <TextBox x:Name="BcHolder" Style="{StaticResource FieldBox}" CharacterCasing="Upper"/>
                 </StackPanel>
                 <StackPanel Grid.Column="2">
-                  <TextBlock Text="Срок (ММ/ГГ)" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                  <TextBlock Text="Срок (ММ/ГГ)" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
                   <TextBox x:Name="BcExp" Style="{StaticResource FieldBox}" MaxLength="7" TextChanged="BcExp_TextChanged"/>
                 </StackPanel>
               </Grid>
-              <TextBlock Text="Примечание" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+              <TextBlock Text="Примечание" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,12,0,4"/>
               <TextBox x:Name="BcNote" Style="{StaticResource FieldBox}"/>
-              <Border Background="{StaticResource Field}" CornerRadius="12" Padding="14,10" Margin="0,14,0,0">
-                <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{StaticResource Ink2}"
+              <Border Background="{DynamicResource Field}" CornerRadius="12" Padding="14,10" Margin="0,14,0,0">
+                <TextBlock TextWrapping="Wrap" FontSize="12.5" Foreground="{DynamicResource Ink2}"
                            Text="Код CVC/CVV с обратной стороны карты не хранится - его вводите сами при каждой оплате. Так требуют правила платёжных систем, и так безопаснее: без кода по данным карты не заплатить в большинстве магазинов."/>
               </Border>
               <StackPanel Orientation="Horizontal" Margin="0,16,0,0">
@@ -303,14 +303,14 @@
           <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,0,0,14">
             <StackPanel>
               <TextBlock Text="Как хранятся пароли" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
-              <TextBlock TextWrapping="Wrap" Foreground="{StaticResource Ink2}" LineHeight="20"
+              <TextBlock TextWrapping="Wrap" Foreground="{DynamicResource Ink2}" LineHeight="20"
                          Text="Пароли, карточки и банковские карты хранятся только на этом компьютере в зашифрованном файле (AES-256). Ключ защищён вашей учётной записью Windows: на другом компьютере или под другим пользователем файл не открыть. Никуда в интернет они не отправляются. Подставляются данные только когда вы выбрали их в подсказке."/>
             </StackPanel>
           </Border>
           <Border Style="{StaticResource Card}" Padding="22,18" Margin="0,0,0,14">
             <StackPanel>
               <TextBlock Text="Главный пароль" FontSize="15" FontWeight="Bold" Margin="0,0,0,8"/>
-              <TextBlock x:Name="MasterInfo" TextWrapping="Wrap" Foreground="{StaticResource Ink2}" LineHeight="20"/>
+              <TextBlock x:Name="MasterInfo" TextWrapping="Wrap" Foreground="{DynamicResource Ink2}" LineHeight="20"/>
               <WrapPanel Margin="0,12,0,0">
                 <Button x:Name="MasterSetBtn" Content="Задать главный пароль" Style="{StaticResource PrimaryButton}" Margin="0,0,8,8" Click="MasterSet_Click"/>
                 <Button x:Name="MasterRemoveBtn" Content="Убрать главный пароль" Style="{StaticResource SecondaryButton}" Margin="0,0,8,8" Click="MasterRemove_Click"/>
@@ -332,7 +332,7 @@
                 <StackPanel Margin="0,0,16,0">
                   <TextBlock Text="Предлагать сохранить банковскую карту, введённую на сайте"/>
                   <TextBlock Text="После оплаты или привязки новой карты «Дымка» спросит, сохранить ли её. Код CVC не сохраняется." FontSize="12"
-                             Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                             Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
                 </StackPanel>
               </DockPanel>
               <DockPanel>
@@ -340,7 +340,7 @@
                 <StackPanel Margin="0,0,16,0">
                   <TextBlock Text="Предлагать заполнить анкету данными карточки"/>
                   <TextBlock Text="Подсказка появляется, когда вы встаёте в поле вроде «Фамилия», «ИНН», «Серия паспорта», «Адрес»." FontSize="12"
-                             Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
+                             Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,3,0,0"/>
                 </StackPanel>
               </DockPanel>
             </StackPanel>

@@ -3,8 +3,8 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:local="clr-namespace:Dymka"
         Title="Дымка" Width="1280" Height="820" MinWidth="640" MinHeight="420"
-        Background="White" FontFamily="{StaticResource UiFont}" FontSize="13"
-        Foreground="{StaticResource Ink}" UseLayoutRounding="True"
+        Background="{DynamicResource Surface}" FontFamily="{StaticResource UiFont}" FontSize="13"
+        Foreground="{DynamicResource Ink}" UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Ideal"
         WindowStartupLocation="CenterScreen">
 
@@ -21,7 +21,7 @@
       <Border x:Name="Root" Height="32" Margin="0,0,3,4" CornerRadius="10" Background="Transparent"
               Padding="10,0,5,0" VerticalAlignment="Bottom" WindowChrome.IsHitTestVisibleInChrome="True"
               MouseLeftButtonDown="Tab_MouseDown" MouseUp="Tab_MouseUp" MouseRightButtonUp="Tab_RightUp" Tag="{Binding}"
-              ToolTip="{Binding Title}" TextElement.Foreground="{StaticResource Ink2}">
+              ToolTip="{Binding Title}" TextElement.Foreground="{DynamicResource Ink2}">
         <DockPanel LastChildFill="True">
           <Button x:Name="CloseBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}"
                   Click="TabClose_Click" Tag="{Binding}" Visibility="Hidden" ToolTip="Закрыть вкладку (Ctrl+W)">
@@ -39,9 +39,9 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <local:Glyph x:Name="StartGl" Data="{StaticResource IcSearch}" Size="15" Visibility="Collapsed"
-                         Foreground="{StaticResource Muted}"/>
+                         Foreground="{DynamicResource Muted}"/>
             <local:Glyph x:Name="MoonGl" Data="{StaticResource IcMoon}" Size="15" Visibility="Collapsed"
-                         Foreground="{StaticResource Muted}"/>
+                         Foreground="{DynamicResource Muted}"/>
           </Grid>
           <TextBlock x:Name="TitleTb" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                      FontWeight="Medium"/>
@@ -69,18 +69,18 @@
           <Setter TargetName="StartGl" Property="Visibility" Value="Collapsed"/>
           <Setter TargetName="Letter" Property="Visibility" Value="Collapsed"/>
           <Setter TargetName="Fav" Property="Visibility" Value="Collapsed"/>
-          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{StaticResource Muted}"/>
+          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{DynamicResource Muted}"/>
         </DataTrigger>
         <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
-          <Setter TargetName="Root" Property="Background" Value="#E2E7EE"/>
+          <Setter TargetName="Root" Property="Background" Value="{DynamicResource TabHover}"/>
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
         </Trigger>
         <DataTrigger Binding="{Binding IsActive}" Value="True">
-          <Setter TargetName="Root" Property="Background" Value="White"/>
+          <Setter TargetName="Root" Property="Background" Value="{DynamicResource Surface}"/>
           <Setter TargetName="Root" Property="CornerRadius" Value="12,12,0,0"/>
           <Setter TargetName="Root" Property="Height" Value="38"/>
           <Setter TargetName="Root" Property="Margin" Value="0,0,3,0"/>
-          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{StaticResource Ink}"/>
+          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{DynamicResource Ink}"/>
           <Setter TargetName="TitleTb" Property="FontWeight" Value="SemiBold"/>
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
         </DataTrigger>
@@ -96,7 +96,7 @@
     <DataTemplate x:Key="SideTabTemplate" DataType="{x:Type local:BrowserTab}">
       <Border x:Name="Root" Height="38" Margin="0,1" CornerRadius="10" Background="Transparent" BorderThickness="1"
               BorderBrush="Transparent" Padding="10,0,6,0" MouseLeftButtonDown="Tab_MouseDown" MouseUp="Tab_MouseUp" MouseRightButtonUp="Tab_RightUp"
-              Tag="{Binding}" ToolTip="{Binding Url}" TextElement.Foreground="{StaticResource Ink2}"
+              Tag="{Binding}" ToolTip="{Binding Url}" TextElement.Foreground="{DynamicResource Ink2}"
               WindowChrome.IsHitTestVisibleInChrome="True">
         <DockPanel LastChildFill="True">
           <Button x:Name="CloseBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}"
@@ -120,7 +120,7 @@
                          HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <local:Glyph x:Name="StartGl" Data="{StaticResource IcSearch}" Size="16" Visibility="Collapsed"
-                         Foreground="{StaticResource Muted}"/>
+                         Foreground="{DynamicResource Muted}"/>
           </Grid>
           <TextBlock x:Name="TitleTb" Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"
                      FontWeight="Medium"/>
@@ -145,20 +145,20 @@
         </DataTrigger>
         <DataTrigger Binding="{Binding IsSleeping}" Value="True">
           <Setter TargetName="Root" Property="Height" Value="34"/>
-          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{StaticResource Muted}"/>
+          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{DynamicResource Muted}"/>
           <Setter TargetName="Letter" Property="Background" Value="Transparent"/>
-          <Setter TargetName="Letter" Property="BorderBrush" Value="#C3CAD5"/>
-          <Setter TargetName="LetterTb" Property="Foreground" Value="{StaticResource Muted}"/>
+          <Setter TargetName="Letter" Property="BorderBrush" Value="{DynamicResource Thumb}"/>
+          <Setter TargetName="LetterTb" Property="Foreground" Value="{DynamicResource Muted}"/>
           <Setter TargetName="Fav" Property="Opacity" Value="0.55"/>
         </DataTrigger>
         <Trigger SourceName="Root" Property="IsMouseOver" Value="True">
-          <Setter TargetName="Root" Property="Background" Value="#E3E8EF"/>
+          <Setter TargetName="Root" Property="Background" Value="{DynamicResource Segment}"/>
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
         </Trigger>
         <DataTrigger Binding="{Binding IsActive}" Value="True">
-          <Setter TargetName="Root" Property="Background" Value="White"/>
-          <Setter TargetName="Root" Property="BorderBrush" Value="#E1E6ED"/>
-          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{StaticResource Ink}"/>
+          <Setter TargetName="Root" Property="Background" Value="{DynamicResource Surface}"/>
+          <Setter TargetName="Root" Property="BorderBrush" Value="{DynamicResource TabBorder}"/>
+          <Setter TargetName="Root" Property="TextElement.Foreground" Value="{DynamicResource Ink}"/>
           <Setter TargetName="TitleTb" Property="FontWeight" Value="SemiBold"/>
           <Setter TargetName="CloseBtn" Property="Visibility" Value="Visible"/>
         </DataTrigger>
@@ -176,15 +176,15 @@
         <Border x:Name="Bd" CornerRadius="9" Background="Transparent">
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Center" VerticalAlignment="Center">
             <Ellipse Width="7" Height="7" Fill="{Binding Brush}" Margin="0,0,6,0" VerticalAlignment="Center"/>
-            <TextBlock x:Name="Tb" Text="{Binding Name}" FontSize="12" FontWeight="Medium" Foreground="{StaticResource Ink2}"/>
+            <TextBlock x:Name="Tb" Text="{Binding Name}" FontSize="12" FontWeight="Medium" Foreground="{DynamicResource Ink2}"/>
           </StackPanel>
         </Border>
       </Button>
       <DataTemplate.Triggers>
         <DataTrigger Binding="{Binding IsCurrent}" Value="True">
-          <Setter TargetName="Bd" Property="Background" Value="White"/>
+          <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Surface}"/>
           <Setter TargetName="Tb" Property="FontWeight" Value="SemiBold"/>
-          <Setter TargetName="Tb" Property="Foreground" Value="{StaticResource Ink}"/>
+          <Setter TargetName="Tb" Property="Foreground" Value="{DynamicResource Ink}"/>
         </DataTrigger>
       </DataTemplate.Triggers>
     </DataTemplate>
@@ -193,7 +193,7 @@
     <DataTemplate x:Key="ContainerRowTemplate" DataType="{x:Type local:ContainerVM}">
       <Button Click="Container_Click" Tag="{Binding Id}" Style="{StaticResource MenuRow}">
         <DockPanel>
-          <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Foreground="{StaticResource Muted}" FontSize="12"
+          <TextBlock DockPanel.Dock="Right" Text="{Binding CountText}" Foreground="{DynamicResource Muted}" FontSize="12"
                      VerticalAlignment="Center"/>
           <Ellipse Width="9" Height="9" Fill="{Binding Brush}" Margin="2,0,10,0" VerticalAlignment="Center"/>
           <TextBlock x:Name="Tb" Text="{Binding Name}" VerticalAlignment="Center"/>
@@ -207,9 +207,9 @@
     </DataTemplate>
 
     <Style x:Key="PopupCard" TargetType="Border">
-      <Setter Property="Background" Value="White"/>
+      <Setter Property="Background" Value="{DynamicResource Surface}"/>
       <Setter Property="CornerRadius" Value="16"/>
-      <Setter Property="BorderBrush" Value="#E3E7EE"/>
+      <Setter Property="BorderBrush" Value="{DynamicResource PopupLine}"/>
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Margin" Value="14,6,14,20"/>
       <Setter Property="Effect">
@@ -219,13 +219,22 @@
       </Setter>
     </Style>
 
-    <!-- кнопки мини-плеера: круглые, на тёмном фоне -->
+    <!-- мини-плеер: цвета задаёт код (тёмный или светлый вид), здесь - тёмные по умолчанию -->
+    <SolidColorBrush x:Key="MediaBg" Color="#EB1B2230"/>
+    <SolidColorBrush x:Key="MediaFg" Color="#FFFFFF"/>
+    <SolidColorBrush x:Key="MediaSub" Color="#AEB9CB"/>
+    <SolidColorBrush x:Key="MediaFaint" Color="#B9C3D3"/>
+    <SolidColorBrush x:Key="MediaHover" Color="#2EFFFFFF"/>
+    <SolidColorBrush x:Key="MediaPress" Color="#4DFFFFFF"/>
+    <SolidColorBrush x:Key="MediaPlayBg" Color="#26FFFFFF"/>
+    <SolidColorBrush x:Key="MediaArtBg" Color="#33FFFFFF"/>
+    <SolidColorBrush x:Key="MediaNote" Color="#C9D3E3"/>
     <Style x:Key="MediaButton" TargetType="Button">
       <Setter Property="Width" Value="34"/>
       <Setter Property="Height" Value="34"/>
       <Setter Property="Focusable" Value="False"/>
       <Setter Property="Cursor" Value="Hand"/>
-      <Setter Property="Foreground" Value="White"/>
+      <Setter Property="Foreground" Value="{DynamicResource MediaFg}"/>
       <Setter Property="Background" Value="Transparent"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -234,8 +243,8 @@
               <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
-              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="#2EFFFFFF"/></Trigger>
-              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="#4DFFFFFF"/></Trigger>
+              <Trigger Property="IsMouseOver" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource MediaHover}"/></Trigger>
+              <Trigger Property="IsPressed" Value="True"><Setter TargetName="Bd" Property="Background" Value="{DynamicResource MediaPress}"/></Trigger>
               <Trigger Property="IsEnabled" Value="False"><Setter Property="Opacity" Value="0.35"/></Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -244,7 +253,7 @@
     </Style>
   </Window.Resources>
 
-  <Border x:Name="RootBorder" Background="White">
+  <Border x:Name="RootBorder" Background="{DynamicResource Surface}">
     <Grid x:Name="RootGrid">
       <Grid.ColumnDefinitions>
         <ColumnDefinition x:Name="SideCol" Width="0"/>
@@ -257,7 +266,7 @@
       </Grid.RowDefinitions>
 
       <!-- ===== Полоса вкладок сверху ===== -->
-      <Grid x:Name="TopStrip" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="{StaticResource Strip}">
+      <Grid x:Name="TopStrip" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2" Background="{DynamicResource Strip}">
         <DockPanel Margin="12,0,150,0" LastChildFill="False">
           <Button DockPanel.Dock="Left" Style="{StaticResource PlainButton}" Click="Logo_Click" Margin="0,0,8,0"
                   VerticalAlignment="Center" WindowChrome.IsHitTestVisibleInChrome="True" Cursor="Hand"
@@ -289,7 +298,7 @@
       </Grid>
 
       <!-- ===== Боковая панель ===== -->
-      <Border x:Name="Sidebar" Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Background="{StaticResource Strip}"
+      <Border x:Name="Sidebar" Grid.Row="0" Grid.RowSpan="3" Grid.Column="0" Background="{DynamicResource Strip}"
               Visibility="Collapsed">
         <DockPanel Margin="12,10,12,12">
           <StackPanel DockPanel.Dock="Top">
@@ -301,7 +310,7 @@
                 <TextBlock Text="Дымка" FontSize="15" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
               </StackPanel>
             </Button>
-            <Border Background="#E3E8EF" CornerRadius="12" Padding="4" Margin="0,8,0,0">
+            <Border Background="{DynamicResource Segment}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
               <ItemsControl x:Name="ContainerSeg" ItemTemplate="{StaticResource ContainerSegTemplate}" Focusable="False">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -312,29 +321,29 @@
             </Border>
             <Button Style="{StaticResource MenuRow}" Margin="0,8,0,0" Click="NewTab_Click" ToolTip="Ctrl+T">
               <StackPanel Orientation="Horizontal">
-                <local:Glyph Data="{StaticResource IcPlus}" Size="17" Foreground="{StaticResource Ink2}" Margin="0,0,10,0"/>
-                <TextBlock Text="Новая вкладка" FontWeight="SemiBold" Foreground="{StaticResource Ink2}"/>
+                <local:Glyph Data="{StaticResource IcPlus}" Size="17" Foreground="{DynamicResource Ink2}" Margin="0,0,10,0"/>
+                <TextBlock Text="Новая вкладка" FontWeight="SemiBold" Foreground="{DynamicResource Ink2}"/>
               </StackPanel>
             </Button>
           </StackPanel>
 
           <StackPanel DockPanel.Dock="Bottom">
-            <Border Background="White" CornerRadius="12" Padding="14,11" Margin="0,10,0,6" ToolTip="Сколько оперативной памяти сейчас занимает браузер со всеми вкладками">
+            <Border Background="{DynamicResource Surface}" CornerRadius="12" Padding="14,11" Margin="0,10,0,6" ToolTip="Сколько оперативной памяти сейчас занимает браузер со всеми вкладками">
               <StackPanel>
                 <DockPanel>
                   <TextBlock DockPanel.Dock="Right" x:Name="SideMemText" Text="…" FontWeight="Bold" FontSize="12"/>
-                  <TextBlock Text="Память браузера" FontSize="12" Foreground="{StaticResource Ink2}"/>
+                  <TextBlock Text="Память браузера" FontSize="12" Foreground="{DynamicResource Ink2}"/>
                 </DockPanel>
-                <Border Height="6" CornerRadius="3" Background="{StaticResource Line}" Margin="0,8,0,0" ClipToBounds="True">
-                  <Border x:Name="SideMemBar" Height="6" CornerRadius="3" Background="{StaticResource Accent}"
+                <Border Height="6" CornerRadius="3" Background="{DynamicResource Line}" Margin="0,8,0,0" ClipToBounds="True">
+                  <Border x:Name="SideMemBar" Height="6" CornerRadius="3" Background="{DynamicResource Accent}"
                           HorizontalAlignment="Left" Width="0"/>
                 </Border>
               </StackPanel>
             </Border>
             <Button Style="{StaticResource MenuRow}" Click="Settings_Click">
               <StackPanel Orientation="Horizontal">
-                <local:Glyph Data="{StaticResource IcSettings}" Size="17" Foreground="{StaticResource Ink2}" Margin="0,0,10,0"/>
-                <TextBlock Text="Настройки" Foreground="{StaticResource Ink2}"/>
+                <local:Glyph Data="{StaticResource IcSettings}" Size="17" Foreground="{DynamicResource Ink2}" Margin="0,0,10,0"/>
+                <TextBlock Text="Настройки" Foreground="{DynamicResource Ink2}"/>
               </StackPanel>
             </Button>
           </StackPanel>
@@ -347,29 +356,29 @@
               <Button x:Name="PinnedHeader" Style="{StaticResource PlainButton}" Click="PinnedHeader_Click" Visibility="Collapsed"
                       HorizontalAlignment="Left" Cursor="Hand" Margin="10,12,10,4" ToolTip="Свернуть или развернуть">
                 <StackPanel Orientation="Horizontal">
-                  <TextBlock x:Name="PinnedHeaderText" Text="ЗАКРЕПЛЕНЫ" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Muted}"
+                  <TextBlock x:Name="PinnedHeaderText" Text="ЗАКРЕПЛЕНЫ" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
                              VerticalAlignment="Center"/>
                   <local:Glyph x:Name="PinnedChevron" Data="{StaticResource IcChevronRight}" Size="13" StrokeWidth="2.6"
-                               Foreground="{StaticResource Muted}" Margin="4,0,0,0" VerticalAlignment="Center"/>
+                               Foreground="{DynamicResource Muted}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
               <ItemsControl x:Name="SidePinned" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
               <DockPanel Margin="0,6,0,0">
                 <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="Cleanup_Click"
                         ToolTip="Очистить вкладки: дубликаты, пустые, с ошибкой" Margin="0,0,2,0">
-                  <local:Glyph Data="{StaticResource IcBroom}" Size="14" Foreground="{StaticResource Muted}"/>
+                  <local:Glyph Data="{StaticResource IcBroom}" Size="14" Foreground="{DynamicResource Muted}"/>
                 </Button>
                 <Button x:Name="SideSearchBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="TabSearch_Click"
                         ToolTip="Поиск по вкладкам (Ctrl+Shift+A)" Margin="0,0,2,0">
-                  <local:Glyph Data="{StaticResource IcTabSearch}" Size="14" Foreground="{StaticResource Muted}"/>
+                  <local:Glyph Data="{StaticResource IcTabSearch}" Size="14" Foreground="{DynamicResource Muted}"/>
                 </Button>
                 <TextBlock Text="ОТКРЫТЫ" Style="{StaticResource SectionLabel}" Margin="10,6,10,4" VerticalAlignment="Center"/>
               </DockPanel>
               <ItemsControl x:Name="SideAwake" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
               <StackPanel x:Name="SleepHeader" Orientation="Horizontal" Margin="10,14,10,4" Visibility="Collapsed">
-                <local:Glyph Data="{StaticResource IcMoon}" Size="12" Foreground="{StaticResource Muted}" Margin="0,0,6,0"
+                <local:Glyph Data="{StaticResource IcMoon}" Size="12" Foreground="{DynamicResource Muted}" Margin="0,0,6,0"
                              VerticalAlignment="Center"/>
-                <TextBlock x:Name="SleepHeaderText" Text="СПЯТ" FontSize="11" FontWeight="SemiBold" Foreground="{StaticResource Muted}"
+                <TextBlock x:Name="SleepHeaderText" Text="СПЯТ" FontSize="11" FontWeight="SemiBold" Foreground="{DynamicResource Muted}"
                            ToolTip="Спящие вкладки не занимают память и загружаются по щелчку"/>
               </StackPanel>
               <ItemsControl x:Name="SideSleeping" ItemTemplate="{StaticResource SideTabTemplate}" Focusable="False"/>
@@ -379,7 +388,7 @@
       </Border>
 
       <!-- ===== Панель адреса ===== -->
-      <Border x:Name="Toolbar" Grid.Row="1" Grid.Column="1" Background="White" BorderBrush="{StaticResource Line}"
+      <Border x:Name="Toolbar" Grid.Row="1" Grid.Column="1" Background="{DynamicResource Surface}" BorderBrush="{DynamicResource Line}"
               BorderThickness="0,0,0,1">
         <DockPanel x:Name="ToolbarDock" Margin="12,0,10,0">
           <StackPanel DockPanel.Dock="Left" Orientation="Horizontal" VerticalAlignment="Center">
@@ -404,39 +413,39 @@
             <Button x:Name="MenuBtn" Style="{StaticResource IconButton}" Click="Menu_Click" ToolTip="Меню" Margin="2,0,0,0">
               <Grid>
                 <local:Glyph Data="{StaticResource IcDots}" Filled="True"/>
-                <Ellipse x:Name="UpdateDot" Width="8" Height="8" Fill="{StaticResource Accent}" Stroke="White" StrokeThickness="1.5"
+                <Ellipse x:Name="UpdateDot" Width="8" Height="8" Fill="{DynamicResource Accent}" Stroke="{DynamicResource Surface}" StrokeThickness="1.5"
                          HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-3,-4,0" Visibility="Collapsed"/>
               </Grid>
             </Button>
           </StackPanel>
 
-          <Border x:Name="AddressBorder" Height="38" Margin="10,0,8,0" CornerRadius="19" Background="{StaticResource Field}"
+          <Border x:Name="AddressBorder" Height="38" Margin="10,0,8,0" CornerRadius="19" Background="{DynamicResource Field}"
                   BorderThickness="1.5" BorderBrush="Transparent" VerticalAlignment="Center"
                   WindowChrome.IsHitTestVisibleInChrome="True">
             <DockPanel Margin="14,0,5,0">
               <local:Glyph x:Name="AddrIcon" DockPanel.Dock="Left" Data="{StaticResource IcSearch}" Size="16"
-                           Foreground="{StaticResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                           Foreground="{DynamicResource Muted}" VerticalAlignment="Center" Margin="0,0,10,0"/>
               <Button x:Name="ShieldBtn" DockPanel.Dock="Right" Click="Shield_Click" Focusable="False"
                       ToolTip="Защита на этом сайте" Margin="6,0,0,0" Height="28" Cursor="Hand">
                 <Button.Template>
                   <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" CornerRadius="14" Background="{StaticResource GreenSoft}" Padding="9,0,10,0">
+                    <Border x:Name="Bd" CornerRadius="14" Background="{DynamicResource GreenSoft}" Padding="9,0,10,0">
                       <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <local:Glyph x:Name="Gl" Data="{StaticResource IcShield}" Size="15" StrokeWidth="2.3"
-                                     Foreground="{StaticResource Green}" VerticalAlignment="Center"/>
+                                     Foreground="{DynamicResource Green}" VerticalAlignment="Center"/>
                         <TextBlock x:Name="Tb" Text="{Binding Tag, RelativeSource={RelativeSource TemplatedParent}}"
-                                   Margin="5,0,0,0" FontSize="12" FontWeight="Bold" Foreground="{StaticResource Green}"
+                                   Margin="5,0,0,0" FontSize="12" FontWeight="Bold" Foreground="{DynamicResource Green}"
                                    VerticalAlignment="Center"/>
                       </StackPanel>
                     </Border>
                     <ControlTemplate.Triggers>
                       <Trigger Property="IsMouseOver" Value="True">
-                        <Setter TargetName="Bd" Property="Background" Value="#D3EDDF"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource GreenHover}"/>
                       </Trigger>
                       <Trigger Property="IsEnabled" Value="False">
-                        <Setter TargetName="Bd" Property="Background" Value="#ECEFF3"/>
-                        <Setter TargetName="Gl" Property="Foreground" Value="{StaticResource Muted}"/>
-                        <Setter TargetName="Tb" Property="Foreground" Value="{StaticResource Muted}"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource Hover}"/>
+                        <Setter TargetName="Gl" Property="Foreground" Value="{DynamicResource Muted}"/>
+                        <Setter TargetName="Tb" Property="Foreground" Value="{DynamicResource Muted}"/>
                       </Trigger>
                     </ControlTemplate.Triggers>
                   </ControlTemplate>
@@ -446,55 +455,55 @@
                       Height="28" ToolTip="Контейнер: сайты в разных контейнерах не видят cookie друг друга">
                 <Button.Template>
                   <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" CornerRadius="14" Background="White" Padding="10,0">
+                    <Border x:Name="Bd" CornerRadius="14" Background="{DynamicResource Surface}" Padding="10,0">
                       <ContentPresenter VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                       <Trigger Property="IsMouseOver" Value="True">
-                        <Setter TargetName="Bd" Property="Background" Value="#F8F9FB"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource FieldHover}"/>
                       </Trigger>
                     </ControlTemplate.Triggers>
                   </ControlTemplate>
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
-                  <Ellipse x:Name="ContainerDot" Width="8" Height="8" Fill="{StaticResource Accent}" Margin="0,0,6,0"
+                  <Ellipse x:Name="ContainerDot" Width="8" Height="8" Fill="{DynamicResource Accent}" Margin="0,0,6,0"
                            VerticalAlignment="Center"/>
                   <TextBlock x:Name="ContainerName" Text="Работа" FontSize="12" FontWeight="SemiBold"
-                             Foreground="{StaticResource Ink2}" VerticalAlignment="Center"/>
+                             Foreground="{DynamicResource Ink2}" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
               <Button x:Name="TranslateBtn" DockPanel.Dock="Right" Click="Translate_Click" Focusable="False" Height="28"
                       Margin="0,0,6,0" Visibility="Collapsed" Cursor="Hand">
                 <Button.Template>
                   <ControlTemplate TargetType="Button">
-                    <Border x:Name="Bd" CornerRadius="14" Background="{StaticResource AccentSoft}" Padding="9,0,11,0">
+                    <Border x:Name="Bd" CornerRadius="14" Background="{DynamicResource AccentSoft}" Padding="9,0,11,0">
                       <ContentPresenter VerticalAlignment="Center"/>
                     </Border>
                     <ControlTemplate.Triggers>
                       <Trigger Property="IsMouseOver" Value="True">
-                        <Setter TargetName="Bd" Property="Background" Value="#DCE5FF"/>
+                        <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft2}"/>
                       </Trigger>
                     </ControlTemplate.Triggers>
                   </ControlTemplate>
                 </Button.Template>
                 <StackPanel Orientation="Horizontal">
-                  <local:Glyph Data="{StaticResource IcTranslate}" Size="15" Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                  <local:Glyph Data="{StaticResource IcTranslate}" Size="15" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
                   <TextBlock x:Name="TranslateText" Text="Перевести" FontSize="12" FontWeight="SemiBold" Margin="6,0,0,0"
-                             Foreground="{StaticResource Accent}" VerticalAlignment="Center"/>
+                             Foreground="{DynamicResource Accent}" VerticalAlignment="Center"/>
                 </StackPanel>
               </Button>
               <Grid VerticalAlignment="Center">
                 <TextBox x:Name="Address" BorderThickness="0" Background="Transparent" FontSize="14"
-                         Foreground="{StaticResource Ink}" CaretBrush="{StaticResource Ink}" Padding="0"
+                         Foreground="{DynamicResource Ink}" CaretBrush="{DynamicResource Ink}" Padding="0"
                          VerticalContentAlignment="Center" KeyDown="Address_KeyDown" PreviewKeyDown="Address_PreviewKeyDown"
                          GotKeyboardFocus="Address_GotFocus" LostKeyboardFocus="Address_LostFocus"
-                         PreviewMouseLeftButtonDown="Address_PreviewMouseDown" SelectionBrush="{StaticResource Accent}"/>
+                         PreviewMouseLeftButtonDown="Address_PreviewMouseDown" SelectionBrush="{DynamicResource Accent}"/>
                 <TextBlock x:Name="AddressPlaceholder" Text="Искать или ввести адрес" FontSize="14"
-                           Foreground="#7A8394" IsHitTestVisible="False" VerticalAlignment="Center" Margin="2,0,0,0"/>
+                           Foreground="{DynamicResource Faint}" IsHitTestVisible="False" VerticalAlignment="Center" Margin="2,0,0,0"/>
                 <TextBlock x:Name="AddressDisplay" FontSize="14" IsHitTestVisible="False" VerticalAlignment="Center"
-                           Margin="2,0,0,0" TextTrimming="CharacterEllipsis" Background="{StaticResource Field}"
+                           Margin="2,0,0,0" TextTrimming="CharacterEllipsis" Background="{DynamicResource Field}"
                            Visibility="Collapsed">
-                  <Run x:Name="AddrHost" Foreground="{StaticResource Ink}" FontWeight="SemiBold"/><Run x:Name="AddrRest" Foreground="{StaticResource Muted}"/>
+                  <Run x:Name="AddrHost" Foreground="{DynamicResource Ink}" FontWeight="SemiBold"/><Run x:Name="AddrRest" Foreground="{DynamicResource Muted}"/>
                 </TextBlock>
               </Grid>
             </DockPanel>
@@ -503,7 +512,7 @@
       </Border>
 
       <!-- ===== Содержимое вкладок ===== -->
-      <Grid x:Name="ContentHost" Grid.Row="2" Grid.Column="1" Background="{StaticResource Ground}">
+      <Grid x:Name="ContentHost" Grid.Row="2" Grid.Column="1" Background="{DynamicResource Ground}">
         <Grid.ColumnDefinitions>
           <ColumnDefinition x:Name="LeftCol" Width="*" MinWidth="200"/>
           <ColumnDefinition x:Name="SplitCol" Width="0"/>
@@ -513,10 +522,10 @@
           <RowDefinition x:Name="MarkRow" Height="0"/>
           <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
-        <Border x:Name="LeftMark" Grid.Row="0" Grid.Column="0" Background="{StaticResource Accent}"/>
-        <Border x:Name="RightMark" Grid.Row="0" Grid.Column="2" Background="{StaticResource Accent}"/>
+        <Border x:Name="LeftMark" Grid.Row="0" Grid.Column="0" Background="{DynamicResource Accent}"/>
+        <Border x:Name="RightMark" Grid.Row="0" Grid.Column="2" Background="{DynamicResource Accent}"/>
         <GridSplitter x:Name="Splitter" Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="6" HorizontalAlignment="Stretch"
-                      Background="#DDE2EA" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Visibility="Collapsed"
+                      Background="{DynamicResource LineStrong}" ResizeBehavior="PreviousAndNext" ResizeDirection="Columns" Visibility="Collapsed"
                       ToolTip="Перетащите, чтобы изменить ширину половин" Focusable="False"/>
       </Grid>
 
@@ -540,31 +549,31 @@
         <Border Style="{StaticResource PopupCard}" Width="370" Padding="18">
           <StackPanel>
             <DockPanel>
-              <Border Width="36" Height="36" CornerRadius="18" Background="{StaticResource GreenSoft}" Margin="0,0,12,0"
+              <Border Width="36" Height="36" CornerRadius="18" Background="{DynamicResource GreenSoft}" Margin="0,0,12,0"
                       x:Name="PpLockBg">
                 <local:Glyph x:Name="PpLockIcon" Data="{StaticResource IcLock}" Size="17" StrokeWidth="2.3"
-                             Foreground="{StaticResource Green}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                             Foreground="{DynamicResource Green}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
               </Border>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock x:Name="PpHost" FontSize="15" FontWeight="Bold" TextTrimming="CharacterEllipsis"/>
-                <TextBlock x:Name="PpSecure" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
+                <TextBlock x:Name="PpSecure" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
               </StackPanel>
             </DockPanel>
 
-            <Border Background="{StaticResource GreenPale}" CornerRadius="14" Padding="16,12" Margin="0,14,0,0">
+            <Border Background="{DynamicResource GreenPale}" CornerRadius="14" Padding="16,12" Margin="0,14,0,0">
               <StackPanel>
                 <StackPanel Orientation="Horizontal">
-                  <TextBlock x:Name="PpCount" Text="0" FontSize="30" FontWeight="Bold" Foreground="{StaticResource Green}"/>
-                  <TextBlock Text="заблокировано на странице" FontSize="13" Foreground="{StaticResource Ink2}"
+                  <TextBlock x:Name="PpCount" Text="0" FontSize="30" FontWeight="Bold" Foreground="{DynamicResource Green}"/>
+                  <TextBlock Text="заблокировано на странице" FontSize="13" Foreground="{DynamicResource Ink2}"
                              VerticalAlignment="Bottom" Margin="10,0,0,7"/>
                 </StackPanel>
                 <DockPanel Margin="0,6,0,0">
                   <TextBlock x:Name="PpTrackers" DockPanel.Dock="Right" FontWeight="Bold" FontSize="13"/>
-                  <TextBlock Text="Трекеры и реклама" FontSize="13" Foreground="{StaticResource Ink2}"/>
+                  <TextBlock Text="Трекеры и реклама" FontSize="13" Foreground="{DynamicResource Ink2}"/>
                 </DockPanel>
                 <DockPanel Margin="0,6,0,0">
                   <TextBlock x:Name="PpCookies" DockPanel.Dock="Right" FontWeight="Bold" FontSize="13"/>
-                  <TextBlock Text="Сторонние cookie" FontSize="13" Foreground="{StaticResource Ink2}"/>
+                  <TextBlock Text="Сторонние cookie" FontSize="13" Foreground="{DynamicResource Ink2}"/>
                 </DockPanel>
               </StackPanel>
             </Border>
@@ -581,16 +590,16 @@
                         Click="PpCookieToggle_Click" VerticalAlignment="Center"/>
               <StackPanel VerticalAlignment="Center">
                 <TextBlock Text="Хранить cookie после закрытия" FontSize="13.5"/>
-                <TextBlock x:Name="PpCookieHint" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,2,0,0"/>
+                <TextBlock x:Name="PpCookieHint" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,2,0,0"/>
               </StackPanel>
             </DockPanel>
 
             <StackPanel x:Name="PpPermissions" Margin="0,4,0,0"/>
 
-            <Border Height="1" Background="{StaticResource Line}" Margin="0,12"/>
+            <Border Height="1" Background="{DynamicResource Line}" Margin="0,12"/>
             <DockPanel>
-              <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Background="{StaticResource Field}"
-                      BorderBrush="{StaticResource Field}" Content="Настройки" Margin="8,0,0,0" Click="Settings_Click"/>
+              <Button DockPanel.Dock="Right" Style="{StaticResource SecondaryButton}" Background="{DynamicResource Field}"
+                      BorderBrush="{DynamicResource Field}" Content="Настройки" Margin="8,0,0,0" Click="Settings_Click"/>
               <Button Style="{StaticResource SecondaryButton}" Content="Очистить данные сайта" Click="ClearSite_Click"/>
             </DockPanel>
           </StackPanel>
@@ -602,97 +611,97 @@
              AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-292" VerticalOffset="2">
         <Border Style="{StaticResource PopupCard}" Width="330" Padding="6">
           <StackPanel>
-            <Border Background="{StaticResource Field}" CornerRadius="10" Padding="12,9" Margin="0,0,0,6">
+            <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="12,9" Margin="0,0,0,6">
               <DockPanel>
                 <TextBlock x:Name="MenuMemText" DockPanel.Dock="Right" Text="…" FontWeight="Bold" FontSize="12.5"/>
-                <TextBlock Text="Память браузера" FontSize="12.5" Foreground="{StaticResource Ink2}"/>
+                <TextBlock Text="Память браузера" FontSize="12.5" Foreground="{DynamicResource Ink2}"/>
               </DockPanel>
             </Border>
             <Button Style="{StaticResource MenuRow}" Click="NewTab_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+T" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcPlus}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+T" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcPlus}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Новая вкладка" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="NewWindow_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+N" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+N" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Новое окно" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="ReopenClosed_Click" x:Name="ReopenItem">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+T" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcUndo}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+T" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcUndo}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Вернуть закрытую вкладку" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="SleepOthers_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcMoon}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcMoon}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Усыпить остальные вкладки" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="TabSearch_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+A" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcTabSearch}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+A" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcTabSearch}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Поиск по вкладкам" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="Cleanup_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcBroom}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcBroom}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Очистить вкладки…" VerticalAlignment="Center"/></DockPanel>
             </Button>
-            <Border Height="1" Background="{StaticResource Line}" Margin="8,5"/>
+            <Border Height="1" Background="{DynamicResource Line}" Margin="8,5"/>
             <Button Style="{StaticResource MenuRow}" Click="ToggleLayout_Click">
               <DockPanel>
-                <local:Glyph x:Name="LayoutGlyph" Data="{StaticResource IcLayoutSide}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph x:Name="LayoutGlyph" Data="{StaticResource IcLayoutSide}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock x:Name="LayoutItemText" Text="Вкладки сбоку" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button x:Name="TranslateMenuItem" Style="{StaticResource MenuRow}" Click="Translate_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcTranslate}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcTranslate}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock x:Name="TranslateMenuText" Text="Перевести страницу на русский" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="Print_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+P" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcPrint}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+P" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcPrint}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Печать" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="Downloads_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+J" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcDownload}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+J" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcDownload}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Загрузки" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="DevTools_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="F12" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcCode}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="F12" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcCode}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Инструменты разработчика" VerticalAlignment="Center"/></DockPanel>
             </Button>
-            <Border Height="1" Background="{StaticResource Line}" Margin="8,5"/>
+            <Border Height="1" Background="{DynamicResource Line}" Margin="8,5"/>
             <Button Style="{StaticResource MenuRow}" Click="Vault_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcKey}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcKey}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Пароли и автозаполнение" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="Extensions_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcPuzzle}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcPuzzle}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Расширения" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="ClearAllNow_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcTrash}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcTrash}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Удалить cookie и данные сайтов…" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="Settings_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcSettings}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcSettings}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Настройки" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="UpdateItem_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcDownload}" Size="16" Foreground="{StaticResource Accent}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcDownload}" Size="16" Foreground="{DynamicResource Accent}" Margin="0,0,12,0"/>
                 <TextBlock x:Name="UpdateItemText" Text="Проверить обновления" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="About_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcInfo}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcInfo}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="О программе" VerticalAlignment="Center"/></DockPanel>
             </Button>
           </StackPanel>
@@ -707,7 +716,7 @@
             <TextBlock Text="КОНТЕЙНЕР" Style="{StaticResource SectionLabel}" Margin="10,6,10,4"/>
             <ItemsControl x:Name="ContainerList" ItemTemplate="{StaticResource ContainerRowTemplate}" Focusable="False"/>
             <TextBlock Text="Сайты в разных контейнерах не видят cookie и данные друг друга."
-                       TextWrapping="Wrap" FontSize="12" Foreground="{StaticResource Muted}" Margin="10,6,10,8"/>
+                       TextWrapping="Wrap" FontSize="12" Foreground="{DynamicResource Muted}" Margin="10,6,10,8"/>
           </StackPanel>
         </Border>
       </Popup>
@@ -719,63 +728,63 @@
           <StackPanel>
             <StackPanel Margin="10,8,10,8">
               <TextBlock x:Name="AmTitle" FontWeight="SemiBold" FontSize="13.5" TextTrimming="CharacterEllipsis"/>
-              <TextBlock x:Name="AmHost" FontSize="12" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
+              <TextBlock x:Name="AmHost" FontSize="12" Foreground="{DynamicResource Muted}" TextTrimming="CharacterEllipsis" Margin="0,2,0,0"/>
             </StackPanel>
-            <Border Height="1" Background="{StaticResource Line}" Margin="8,0,8,4"/>
+            <Border Height="1" Background="{DynamicResource Line}" Margin="8,0,8,4"/>
             <Button x:Name="AmCopyBtn" Style="{StaticResource MenuRow}" Click="AmCopy_Click">
-              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+C" Foreground="{StaticResource Muted}" FontSize="12" VerticalAlignment="Center"/>
-                <local:Glyph Data="{StaticResource IcCopy}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+C" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcCopy}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Скопировать адрес" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="AmCopyTitle_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcText}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcText}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Скопировать название и адрес" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button x:Name="AmQrBtn" Style="{StaticResource MenuRow}" Click="AmQr_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcQr}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcQr}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="QR-код - открыть на телефоне" VerticalAlignment="Center"/></DockPanel>
             </Button>
-            <Border x:Name="AmQrBox" Visibility="Collapsed" Margin="10,4,10,8" Background="{StaticResource Field}" CornerRadius="12" Padding="12">
+            <Border x:Name="AmQrBox" Visibility="Collapsed" Margin="10,4,10,8" Background="{DynamicResource Field}" CornerRadius="12" Padding="12">
               <DockPanel>
                 <Border Background="White" CornerRadius="8" Padding="6" DockPanel.Dock="Left">
                   <Image x:Name="AmQrImage" Width="132" Height="132" RenderOptions.BitmapScalingMode="NearestNeighbor"/>
                 </Border>
                 <TextBlock Text="Наведите камеру телефона на код - страница откроется на телефоне." TextWrapping="Wrap"
-                           FontSize="12.5" Foreground="{StaticResource Ink2}" Margin="14,0,0,0" VerticalAlignment="Center"/>
+                           FontSize="12.5" Foreground="{DynamicResource Ink2}" Margin="14,0,0,0" VerticalAlignment="Center"/>
               </DockPanel>
             </Border>
             <Button Style="{StaticResource MenuRow}" Click="AmPin_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcPin}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcPin}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock x:Name="AmPinText" Text="Закрепить вкладку" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button x:Name="AmShortcutBtn" Style="{StaticResource MenuRow}" Click="AmShortcut_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcHomeAdd}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcHomeAdd}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock x:Name="AmShortcutText" Text="Добавить на стартовую страницу" VerticalAlignment="Center"/></DockPanel>
             </Button>
-            <Border Height="1" Background="{StaticResource Line}" Margin="8,4"/>
+            <Border Height="1" Background="{DynamicResource Line}" Margin="8,4"/>
             <DockPanel Margin="10,6,10,6">
-              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcSwap}" Size="16" Foreground="{StaticResource Ink2}"
+              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcSwap}" Size="16" Foreground="{DynamicResource Ink2}"
                            Margin="0,0,12,0" VerticalAlignment="Center"/>
               <TextBlock DockPanel.Dock="Left" Text="Перенести в" VerticalAlignment="Center" FontSize="13.5" Margin="0,0,10,0"/>
               <WrapPanel x:Name="AmContainers" VerticalAlignment="Center"/>
             </DockPanel>
             <Button Style="{StaticResource MenuRow}" Click="AmNewWindow_Click">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Открыть в новом окне" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button x:Name="AmSplitEndBtn" Style="{StaticResource MenuRow}" Click="AmSplitEnd_Click" Visibility="Collapsed">
               <DockPanel>
-                <local:Glyph Data="{StaticResource IcSplit}" Size="16" Foreground="{StaticResource Ink2}" Margin="0,0,12,0"/>
+                <local:Glyph Data="{StaticResource IcSplit}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Закрыть раздельный просмотр" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <StackPanel x:Name="AmSplitPanel">
               <DockPanel Margin="10,6,10,4">
-                <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcSplit}" Size="16" Foreground="{StaticResource Ink2}"
+                <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcSplit}" Size="16" Foreground="{DynamicResource Ink2}"
                              Margin="0,0,12,0" VerticalAlignment="Center"/>
                 <TextBlock Text="Открыть рядом (две страницы в окне)" VerticalAlignment="Center" FontSize="13.5"/>
               </DockPanel>
@@ -802,9 +811,12 @@
       <!-- ===== Мини-плеер: музыка на другой вкладке ===== -->
       <Popup x:Name="MediaBar" PlacementTarget="{Binding ElementName=ContentHost}" Placement="Relative" StaysOpen="True"
              AllowsTransparency="True" PopupAnimation="Fade">
-        <Border x:Name="MediaCard" Width="384" Margin="12" Padding="7,7,8,7" CornerRadius="16" Background="#EB1B2230">
+        <Border x:Name="MediaCard" Width="384" Margin="12" Padding="7,7,8,7" CornerRadius="16" Background="{DynamicResource MediaBg}"
+                Cursor="SizeAll" ToolTip="Перетащите мышью; у края страницы плеер прилипает. Двойной щелчок - вернуть в угол"
+                PreviewMouseLeftButtonDown="MediaCard_Down" PreviewMouseMove="MediaCard_Move" PreviewMouseLeftButtonUp="MediaCard_Up"
+                LostMouseCapture="MediaCard_LostCapture">
           <Border.Effect>
-            <DropShadowEffect BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.25" Color="#1B2230"/>
+            <DropShadowEffect x:Name="MediaShadow" BlurRadius="18" ShadowDepth="4" Direction="270" Opacity="0.25" Color="#1B2230"/>
           </Border.Effect>
           <Border.Style>
             <Style TargetType="Border">
@@ -821,10 +833,10 @@
               </Style.Triggers>
             </Style>
           </Border.Style>
-          <DockPanel LastChildFill="True">
+          <DockPanel x:Name="MediaPanel" LastChildFill="True">
             <Button x:Name="MediaCloseBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" Width="26" Height="26" Margin="2,0,0,0"
-                    ToolTip="Скрыть мини-плеер" Click="MediaClose_Click">
-              <local:Glyph Data="{StaticResource IcClose}" Size="12" StrokeWidth="2.4" Foreground="#B9C3D3"/>
+                    ToolTip="Скрыть мини-плеер" Click="MediaClose_Click" Cursor="Hand">
+              <local:Glyph Data="{StaticResource IcClose}" Size="12" StrokeWidth="2.4" Foreground="{DynamicResource MediaFaint}"/>
             </Button>
             <Button x:Name="MediaMuteBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" ToolTip="Выключить звук вкладки" Click="MediaMute_Click">
               <local:Glyph x:Name="MediaMuteGlyph" Data="{StaticResource IcSpeaker}" Size="17"/>
@@ -832,7 +844,7 @@
             <Button x:Name="MediaNextBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" ToolTip="Следующий трек" Click="MediaNext_Click">
               <local:Glyph Data="{StaticResource IcNext}" Size="15" Filled="True"/>
             </Button>
-            <Button x:Name="MediaPlayBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" Width="38" Height="38" Background="#26FFFFFF"
+            <Button x:Name="MediaPlayBtn" DockPanel.Dock="Right" Style="{StaticResource MediaButton}" Width="38" Height="38" Background="{DynamicResource MediaPlayBg}"
                     ToolTip="Пауза" Click="MediaPlay_Click">
               <local:Glyph x:Name="MediaPlayGlyph" Data="{StaticResource IcPause}" Size="17" Filled="True"/>
             </Button>
@@ -842,15 +854,15 @@
             <Button x:Name="MediaGoBtn" Style="{StaticResource PlainButton}" Cursor="Hand" Margin="0,0,6,0" Click="MediaGo_Click"
                     ToolTip="Перейти на вкладку">
               <DockPanel>
-                <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="9" Background="#33FFFFFF" Margin="0,0,10,0">
+                <Border DockPanel.Dock="Left" Width="40" Height="40" CornerRadius="9" Background="{DynamicResource MediaArtBg}" Margin="0,0,10,0">
                   <Grid>
-                    <local:Glyph Data="{StaticResource IcNote}" Size="18" Foreground="#C9D3E3" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                    <local:Glyph Data="{StaticResource IcNote}" Size="18" Foreground="{DynamicResource MediaNote}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
                     <Border x:Name="MediaArt" CornerRadius="9"/>
                   </Grid>
                 </Border>
                 <StackPanel VerticalAlignment="Center">
-                  <TextBlock x:Name="MediaTitle" Foreground="White" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
-                  <TextBlock x:Name="MediaSub" Foreground="#AEB9CB" FontSize="11.5" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
+                  <TextBlock x:Name="MediaTitle" Foreground="{DynamicResource MediaFg}" FontSize="13" FontWeight="SemiBold" TextTrimming="CharacterEllipsis"/>
+                  <TextBlock x:Name="MediaSub" Foreground="{DynamicResource MediaSub}" FontSize="11.5" TextTrimming="CharacterEllipsis" Margin="0,1,0,0"/>
                 </StackPanel>
               </DockPanel>
             </Button>
@@ -879,19 +891,19 @@
         <Border Style="{StaticResource PopupCard}" Width="380" Padding="18,14,18,16">
           <StackPanel>
             <DockPanel>
-              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcKey}" Size="18" Foreground="{StaticResource Accent}" Margin="0,0,10,0"
+              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcKey}" Size="18" Foreground="{DynamicResource Accent}" Margin="0,0,10,0"
                            VerticalAlignment="Center"/>
               <TextBlock x:Name="SpTitle" FontSize="14.5" FontWeight="Bold" TextWrapping="Wrap"/>
             </DockPanel>
-            <TextBlock Text="Логин" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,12,0,4"/>
+            <TextBlock Text="Логин" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,12,0,4"/>
             <TextBox x:Name="SpUser" Style="{StaticResource FieldBox}"/>
-            <TextBlock Text="Пароль" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,10,0,4"/>
+            <TextBlock Text="Пароль" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,10,0,4"/>
             <TextBlock x:Name="SpPass" FontSize="14" Margin="2,0,0,0"/>
             <TextBlock Text="Пароль хранится в зашифрованном виде на этом компьютере и никуда не отправляется." TextWrapping="Wrap"
-                       FontSize="12" Foreground="{StaticResource Muted}" Margin="0,10,0,0"/>
+                       FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,10,0,0"/>
             <DockPanel Margin="0,14,0,0">
               <Button DockPanel.Dock="Left" Style="{StaticResource PlainButton}" Click="SpNever_Click" Cursor="Hand" VerticalAlignment="Center">
-                <TextBlock Text="Никогда для этого сайта" FontSize="12.5" Foreground="{StaticResource Muted}"/>
+                <TextBlock Text="Никогда для этого сайта" FontSize="12.5" Foreground="{DynamicResource Muted}"/>
               </Button>
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Не сейчас" Style="{StaticResource SecondaryButton}" Click="SpLater_Click"/>
@@ -908,7 +920,7 @@
         <Border Style="{StaticResource PopupCard}" Width="390" Padding="18,14,18,16">
           <StackPanel>
             <DockPanel>
-              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcCard}" Size="18" Foreground="{StaticResource Accent}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcCard}" Size="18" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" VerticalAlignment="Center"/>
               <TextBlock x:Name="ScTitle" FontSize="14.5" FontWeight="Bold" TextWrapping="Wrap"/>
             </DockPanel>
             <TextBlock x:Name="ScCard" FontSize="13.5" Margin="0,10,0,0" TextWrapping="Wrap"/>
@@ -919,19 +931,19 @@
                 <ColumnDefinition Width="150"/>
               </Grid.ColumnDefinitions>
               <StackPanel>
-                <TextBlock Text="Название" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                <TextBlock Text="Название" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
                 <TextBox x:Name="ScName" Style="{StaticResource FieldBox}"/>
               </StackPanel>
               <StackPanel Grid.Column="2">
-                <TextBlock Text="Банк" FontSize="12" Foreground="{StaticResource Muted}" Margin="0,0,0,4"/>
+                <TextBlock Text="Банк" FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,0,0,4"/>
                 <ComboBox x:Name="ScBank" Height="38" FontSize="13" VerticalContentAlignment="Center"/>
               </StackPanel>
             </Grid>
             <TextBlock Text="Карта хранится в зашифрованном виде на этом компьютере. Код CVC не сохраняется." TextWrapping="Wrap"
-                       FontSize="12" Foreground="{StaticResource Muted}" Margin="0,10,0,0"/>
+                       FontSize="12" Foreground="{DynamicResource Muted}" Margin="0,10,0,0"/>
             <DockPanel Margin="0,14,0,0">
               <Button DockPanel.Dock="Left" Style="{StaticResource PlainButton}" Click="ScNever_Click" Cursor="Hand" VerticalAlignment="Center">
-                <TextBlock Text="Не предлагать" FontSize="12.5" Foreground="{StaticResource Muted}"/>
+                <TextBlock Text="Не предлагать" FontSize="12.5" Foreground="{DynamicResource Muted}"/>
               </Button>
               <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="Не сейчас" Style="{StaticResource SecondaryButton}" Click="ScLater_Click"/>
@@ -950,18 +962,18 @@
               <Button DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Click="SelTrClose_Click" ToolTip="Закрыть">
                 <local:Glyph Data="{StaticResource IcClose}" Size="13" StrokeWidth="2.4"/>
               </Button>
-              <local:Glyph Data="{StaticResource IcTranslate}" Size="15" Foreground="{StaticResource Accent}" VerticalAlignment="Center"
+              <local:Glyph Data="{StaticResource IcTranslate}" Size="15" Foreground="{DynamicResource Accent}" VerticalAlignment="Center"
                            Margin="0,0,8,0"/>
-              <TextBlock x:Name="SelTrLang" Text="Яндекс Переводчик" FontSize="12" Foreground="{StaticResource Muted}" VerticalAlignment="Center"/>
+              <TextBlock x:Name="SelTrLang" Text="Яндекс Переводчик" FontSize="12" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"/>
             </DockPanel>
-            <TextBlock x:Name="SelTrSource" FontSize="12.5" Foreground="{StaticResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
+            <TextBlock x:Name="SelTrSource" FontSize="12.5" Foreground="{DynamicResource Muted}" TextWrapping="Wrap" Margin="0,8,0,0"
                        MaxHeight="60" TextTrimming="CharacterEllipsis"/>
             <ScrollViewer MaxHeight="260" VerticalScrollBarVisibility="Auto" Margin="0,8,0,0">
               <ScrollViewer.Resources>
                 <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
               </ScrollViewer.Resources>
               <TextBox x:Name="SelTrResult" FontSize="14" TextWrapping="Wrap" IsReadOnly="True" BorderThickness="0"
-                       Background="Transparent" Padding="0" Foreground="{StaticResource Ink}"/>
+                       Background="Transparent" Padding="0" Foreground="{DynamicResource Ink}"/>
             </ScrollViewer>
             <Button Content="Скопировать перевод" Style="{StaticResource SecondaryButton}" HorizontalAlignment="Left" Margin="0,12,0,0"
                     Click="SelTrCopy_Click"/>

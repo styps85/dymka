@@ -161,9 +161,26 @@ public partial class MainWindow : Window
         StateChanged += (_, _) => OnStateChanged();
         Deactivated += (_, _) => ClosePopups(keepTabSearch: true);
         PreviewKeyDown += OnPreviewKeyDown;
-        _sleepTimer.Tick += (_, _) => { SleepIdleTabs(); CheckVaultLock(); };
+        _sleepTimer.Tick += (_, _) => { SleepIdleTabs(); CheckVaultLock(); CrashDiagnostics.Flush(); };
         _memTimer.Tick += (_, _) => UpdateMemory();
         InitMediaBar();
+        ThemeManager.Changed += OnThemeChanged;
+        Closed += (_, _) => ThemeManager.Changed -= OnThemeChanged;
+    }
+
+    /// <summary>Сменилось оформление: страницы получают новую цветовую схему, панели перерисовываются.</summary>
+    void OnThemeChanged()
+    {
+        foreach (var t in _tabs)
+        {
+            try
+            {
+                if (t.View != null) t.View.DefaultBackgroundColor = ThemeManager.PageBackground;
+                if (t.Core != null) t.Core.Profile.PreferredColorScheme = ThemeManager.WebScheme;
+            }
+            catch (Exception ex) { App.Log("Оформление страницы: " + ex.Message); }
+        }
+        try { UpdateToolbar(); ApplyMediaStyle(); } catch (Exception ex) { App.Log("Оформление: " + ex.Message); }
     }
 
     // ===================================================================== запуск
@@ -381,7 +398,7 @@ public partial class MainWindow : Window
             var view = new WebView2
             {
                 Visibility = IsShown(tab) ? Visibility.Visible : Visibility.Hidden,
-                DefaultBackgroundColor = System.Drawing.Color.White,
+                DefaultBackgroundColor = ThemeManager.PageBackground,
             };
             Grid.SetRow(view, 1);
             Grid.SetColumn(view, tab == _splitRight ? 2 : 0);
@@ -420,6 +437,13 @@ public partial class MainWindow : Window
         catch (Exception ex)
         {
             App.Log("Создание вкладки: " + ex);
+            // E_ABORT: движок молча завершился (бывает после сна компьютера) - перезапускаем его, как после обычного сбоя
+            if (ex is System.Runtime.InteropServices.COMException { HResult: unchecked((int)0x80004004) } && _env != null && !_closingForGood && !_cleanupDone
+                && _tabs.Contains(tab) && tab.View != null && IsLoaded)
+            {
+                App.Log("Движок не отвечает на создание вкладки - перезапускаю его");
+                OnEngineLost(_env);
+            }
             if (tab.View != null && tab.Core == null)
             {
                 // страница не создалась (например, движок как раз падал): вкладка засыпает и проснётся по щелчку
@@ -464,6 +488,7 @@ public partial class MainWindow : Window
             // трекеры блокирует сам браузер по своим спискам: так счётчик на щите честный, а выключение блокировки на сайте
             // действительно выключает её (встроенная «строгая» защита движка срабатывала бы до нас и мимо исключений)
             core.Profile.PreferredTrackingPreventionLevel = CoreWebView2TrackingPreventionLevel.Basic;
+            core.Profile.PreferredColorScheme = ThemeManager.WebScheme;
             s.IsPasswordAutosaveEnabled = false;
             s.IsGeneralAutofillEnabled = false;
         }
@@ -482,6 +507,7 @@ public partial class MainWindow : Window
         core.NavigationCompleted += (_, e) =>
         {
             tab.IsLoading = false;
+            if (tab == _active) CrashDiagnostics.NotePage(core.Source);
             tab.LoadFailed = !e.IsSuccess && e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled;
             if (e.IsSuccess && (core.Source.StartsWith("http://") || core.Source.StartsWith("https://")))
                 _ = ProbeLanguageAsync(tab, core, core.Source);
@@ -535,7 +561,9 @@ public partial class MainWindow : Window
         };
         core.ProcessFailed += (_, e) =>
         {
-            App.Log($"Сбой процесса движка: {e.ProcessFailedKind} ({tab.Url})");
+            string details = "";
+            try { details = $", код {e.ExitCode}, процесс «{e.ProcessDescription}», причина {e.Reason}" + (string.IsNullOrEmpty(e.FailureSourceModulePath) ? "" : ", модуль " + e.FailureSourceModulePath); } catch { }
+            App.Log($"Сбой процесса движка: {e.ProcessFailedKind} ({RunFlag.SafeUrl(tab.Url)}){details}");
             if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
             {
                 // упал весь движок: все страницы окна «мертвы», их надо пересоздать
@@ -589,6 +617,7 @@ public partial class MainWindow : Window
         }
 
         _active = tab;
+        CrashDiagnostics.NotePage(tab.Url);
         tab.IsActive = true;
         tab.LastActive = DateTime.Now;
         try { PipOnSwitch(old, tab); } catch (Exception ex) { App.Log("Мини-окно с видео: " + ex.Message); }
@@ -857,6 +886,14 @@ public partial class MainWindow : Window
             App.Log($"Скачивание: {name} ({op.MimeType}, {UrlTools.HostOf(op.Uri)}) - вкладка {tab.Container}");
             tab.ActiveDownloads++;
             bool finished = false;
+            ChooseDownloadPath(tab, e, name, () =>
+            {
+                // в окне «Сохранить как» нажали «Отмена»: скачивания не будет
+                if (finished) return;
+                finished = true;
+                tab.ActiveDownloads--;
+                if (tab.ActiveDownloads <= 0 && tab.CloseAfterDownloads && _tabs.Contains(tab)) ClosePageOpenedTab(tab);
+            });
             op.StateChanged += (_, _) =>
             {
                 try
@@ -878,6 +915,57 @@ public partial class MainWindow : Window
             };
         }
         catch (Exception ex) { App.Log("Скачивание: " + ex.Message); }
+    }
+
+    /// <summary>Куда сохранить файл: окно «Сохранить как» (если включено «Спрашивать») или папка из настроек.</summary>
+    void ChooseDownloadPath(BrowserTab tab, CoreWebView2DownloadStartingEventArgs e, string name, Action onCancel)
+    {
+        var folder = Directory.Exists(_settings.DownloadFolder) ? _settings.DownloadFolder : "";
+        if (!_settings.AskDownloadPath || _selfTestDir != null)
+        {
+            if (folder.Length > 0) e.ResultFilePath = DownloadPaths.Unique(folder, name, File.Exists);
+            return;
+        }
+        var deferral = e.GetDeferral();
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                var engineDir = Path.GetDirectoryName(e.ResultFilePath ?? "") ?? "";
+                var dir = new[] { _settings.LastDownloadFolder, folder, engineDir }.FirstOrDefault(d => d.Length > 0 && Directory.Exists(d)) ?? "";
+                var ext = Path.GetExtension(name);
+                var dlg = new Microsoft.Win32.SaveFileDialog
+                {
+                    Title = "Сохранить файл",
+                    FileName = DownloadPaths.Safe(name),
+                    InitialDirectory = dir,
+                    OverwritePrompt = true,
+                    AddExtension = false,
+                    Filter = ext.Length > 1 ? $"Файл {ext.TrimStart('.').ToUpperInvariant()} (*{ext})|*{ext}|Все файлы (*.*)|*.*" : "Все файлы (*.*)|*.*",
+                };
+                _blockCloseUntil = DateTime.Now.AddMinutes(30);
+                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+                if (dlg.ShowDialog(this) == true)
+                {
+                    e.ResultFilePath = dlg.FileName;
+                    _settings.LastDownloadFolder = Path.GetDirectoryName(dlg.FileName) ?? "";
+                    _settings.Save();
+                    App.Log("Скачивание сохраняется в выбранную папку");
+                }
+                else
+                {
+                    e.Cancel = true;
+                    App.Log($"Скачивание {name}: отменено в окне «Сохранить как»");
+                    onCancel();
+                }
+            }
+            catch (Exception ex) { App.Log("Окно «Сохранить как»: " + ex.Message); }
+            finally
+            {
+                _blockCloseUntil = DateTime.Now.AddSeconds(5);
+                deferral.Complete();
+            }
+        }));
     }
 
     /// <summary>Закрывает вкладку, открытую страницей (например, ради скачивания файла), и возвращает на исходную.</summary>
@@ -1154,7 +1242,7 @@ public partial class MainWindow : Window
             Address.Text = "";
             AddressDisplay.Visibility = Visibility.Collapsed;
             AddrIcon.Data = (Geometry)FindResource("IcSearch");
-            AddrIcon.Foreground = (Brush)FindResource("Muted");
+            AddrIcon.SetResourceReference(Glyph.ForegroundProperty, "Muted");
         }
         else
         {
@@ -1166,7 +1254,7 @@ public partial class MainWindow : Window
             if (url.StartsWith("https://"))
             {
                 AddrIcon.Data = (Geometry)FindResource("IcLock");
-                AddrIcon.Foreground = (Brush)FindResource("Green");
+                AddrIcon.SetResourceReference(Glyph.ForegroundProperty, "Green");
             }
             else if (url.StartsWith("http://"))
             {
@@ -1176,7 +1264,7 @@ public partial class MainWindow : Window
             else
             {
                 AddrIcon.Data = (Geometry)FindResource("IcInfo");
-                AddrIcon.Foreground = (Brush)FindResource("Muted");
+                AddrIcon.SetResourceReference(Glyph.ForegroundProperty, "Muted");
             }
         }
         UpdatePlaceholder();
@@ -1190,8 +1278,8 @@ public partial class MainWindow : Window
     void Address_GotFocus(object sender, KeyboardFocusChangedEventArgs e)
     {
         AddressDisplay.Visibility = Visibility.Collapsed;
-        AddressBorder.BorderBrush = (Brush)FindResource("Accent");
-        AddressBorder.Background = Brushes.White;
+        AddressBorder.SetResourceReference(Border.BorderBrushProperty, "Accent");
+        AddressBorder.SetResourceReference(Border.BackgroundProperty, "Surface");
         Dispatcher.BeginInvoke(new Action(Address.SelectAll), DispatcherPriority.Input);
     }
 
@@ -1203,7 +1291,7 @@ public partial class MainWindow : Window
             if (!(SuggestPanel.IsMouseOver) && !Address.IsKeyboardFocused) SuggestPopup.IsOpen = false;
         }), DispatcherPriority.Input);
         AddressBorder.BorderBrush = Brushes.Transparent;
-        AddressBorder.Background = (Brush)FindResource("Field");
+        AddressBorder.SetResourceReference(Border.BackgroundProperty, "Field");
         UpdateAddress();
     }
 
@@ -1339,7 +1427,7 @@ public partial class MainWindow : Window
             : "Соединение защищено";
         PpLockIcon.Data = (Geometry)FindResource(secure ? "IcLock" : "IcWarn");
         PpLockIcon.Foreground = secure ? (Brush)FindResource("Green") : BrushCache.Get("#B26A00");
-        PpLockBg.Background = secure ? (Brush)FindResource("GreenSoft") : BrushCache.Get("#FFF2DC");
+        PpLockBg.Background = secure ? (Brush)FindResource("GreenSoft") : (Brush)FindResource("WarnSoft");
 
         PpCount.Text = t.Blocked.ToString();
         PpTrackers.Text = t.Blocked.ToString();
@@ -1627,6 +1715,9 @@ public partial class MainWindow : Window
         {
             if (w.WallpaperChoice != null) ApplyWallpaper(w.WallpaperChoice);
             _settings.Save();
+            if (_settings.Theme != ThemeManager.Mode) ThemeManager.Apply(_settings.Theme);
+            ApplyMediaStyle();
+            _ = MediaTickAsync();
             ApplyLayout();
             UpdateToolbar();
             foreach (var t in _tabs)
@@ -1882,6 +1973,12 @@ public partial class MainWindow : Window
             return;
         }
         App.Log("Закрытие окна" + (_userClose ? " пользователем" : ""));
+        if (!_userClose && !_cleanupDone)
+        {
+            // окно закрывает не пользователь - записываем, откуда пришла команда, чтобы найти причину
+            var st = new StackTrace(1, false).ToString().Split('\n').Select(l => l.Trim()).Where(l => l.Contains("Dymka")).Take(6);
+            App.Log("  команда закрытия: " + string.Join(" <- ", st) + $"; активная вкладка: {RunFlag.SafeUrl(_active?.Url)}");
+        }
         SaveWindowBounds();
         bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
         if (!othersOpen && !_cleanupDone)
@@ -1930,6 +2027,8 @@ public partial class MainWindow : Window
         ToolbarDock.Margin = side ? new Thickness(12, 0, 148, 0) : new Thickness(12, 0, 10, 0);
         WindowChrome.GetWindowChrome(this).CaptionHeight = side ? 56 : 46;
         RefreshViews();
+        // мини-плеер держится за край области страницы: после смены вида вкладок - на новое место
+        Dispatcher.BeginInvoke(new Action(PositionMediaBar), DispatcherPriority.Loaded);
     }
 
     void OnStateChanged()

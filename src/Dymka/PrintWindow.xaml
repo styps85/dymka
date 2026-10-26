@@ -4,8 +4,8 @@
         xmlns:local="clr-namespace:Dymka"
         Title="Печать - Дымка" Width="1000" Height="720" MinWidth="760" MinHeight="520"
         WindowStartupLocation="CenterOwner" ShowInTaskbar="False"
-        Background="White" FontFamily="{StaticResource UiFont}" FontSize="13.5"
-        Foreground="{StaticResource Ink}" UseLayoutRounding="True">
+        Background="{DynamicResource Surface}" FontFamily="{StaticResource UiFont}" FontSize="13.5"
+        Foreground="{DynamicResource Ink}" UseLayoutRounding="True">
   <Window.Resources>
     <Geometry x:Key="IcPortrait">M7 3 L14 3 L18 7 L18 21 L7 21 Z M14 3 L14 7 L18 7</Geometry>
     <Geometry x:Key="IcLandscape">M3 6 L17 6 L21 10 L21 18 L3 18 Z M17 6 L17 10 L21 10</Geometry>
@@ -13,12 +13,12 @@
     <Style x:Key="Label" TargetType="TextBlock">
       <Setter Property="FontSize" Value="12.5"/>
       <Setter Property="FontWeight" Value="SemiBold"/>
-      <Setter Property="Foreground" Value="{StaticResource Ink2}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Ink2}"/>
       <Setter Property="Margin" Value="0,16,0,8"/>
     </Style>
     <Style x:Key="Hint" TargetType="TextBlock">
       <Setter Property="FontSize" Value="12"/>
-      <Setter Property="Foreground" Value="{StaticResource Muted}"/>
+      <Setter Property="Foreground" Value="{DynamicResource Muted}"/>
       <Setter Property="TextWrapping" Value="Wrap"/>
     </Style>
     <Style x:Key="Chip" TargetType="RadioButton">
@@ -28,17 +28,17 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="Bd" CornerRadius="15" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
-                    Background="White" Padding="12,5">
+            <Border x:Name="Bd" CornerRadius="15" BorderThickness="1.5" BorderBrush="{DynamicResource LineStrong}"
+                    Background="{DynamicResource Surface}" Padding="12,5">
               <ContentPresenter HorizontalAlignment="Center" TextElement.FontSize="13"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -50,17 +50,17 @@
       <Setter Property="Template">
         <Setter.Value>
           <ControlTemplate TargetType="RadioButton">
-            <Border x:Name="Bd" CornerRadius="12" BorderThickness="1.5" BorderBrush="{StaticResource LineStrong}"
-                    Background="White" Padding="8,8,8,6">
+            <Border x:Name="Bd" CornerRadius="12" BorderThickness="1.5" BorderBrush="{DynamicResource LineStrong}"
+                    Background="{DynamicResource Surface}" Padding="8,8,8,6">
               <ContentPresenter HorizontalAlignment="Center"/>
             </Border>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
-                <Setter TargetName="Bd" Property="Background" Value="{StaticResource AccentSoft}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
+                <Setter TargetName="Bd" Property="Background" Value="{DynamicResource AccentSoft}"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Bd" Property="BorderBrush" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Bd" Property="BorderBrush" Value="{DynamicResource Accent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -75,18 +75,18 @@
           <ControlTemplate TargetType="RadioButton">
             <StackPanel Orientation="Horizontal" Background="Transparent">
               <Grid Width="18" Height="18" Margin="0,0,10,0" VerticalAlignment="Center">
-                <Ellipse x:Name="Ring" Stroke="{StaticResource LineStrong}" StrokeThickness="1.6" Fill="White"/>
-                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{StaticResource Accent}" Visibility="Collapsed"/>
+                <Ellipse x:Name="Ring" Stroke="{DynamicResource LineStrong}" StrokeThickness="1.6" Fill="{DynamicResource Surface}"/>
+                <Ellipse x:Name="Dot" Width="8" Height="8" Fill="{DynamicResource Accent}" Visibility="Collapsed"/>
               </Grid>
               <ContentPresenter VerticalAlignment="Center"/>
             </StackPanel>
             <ControlTemplate.Triggers>
               <Trigger Property="IsChecked" Value="True">
-                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}"/>
                 <Setter TargetName="Dot" Property="Visibility" Value="Visible"/>
               </Trigger>
               <Trigger Property="IsMouseOver" Value="True">
-                <Setter TargetName="Ring" Property="Stroke" Value="{StaticResource Accent}"/>
+                <Setter TargetName="Ring" Property="Stroke" Value="{DynamicResource Accent}"/>
               </Trigger>
             </ControlTemplate.Triggers>
           </ControlTemplate>
@@ -107,7 +107,7 @@
     </Grid.ColumnDefinitions>
 
     <!-- Предпросмотр -->
-    <DockPanel Background="#E9EDF3">
+    <DockPanel Background="{DynamicResource PrintGround}">
       <DockPanel DockPanel.Dock="Top" Margin="20,14,20,6">
         <TextBlock x:Name="SheetsInfo" DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Center"/>
         <TextBlock Text="Предпросмотр" FontSize="15" FontWeight="Bold"/>
@@ -139,28 +139,28 @@
                     </ItemsControl>
                   </Border>
                   <TextBlock Text="{Binding Caption}" HorizontalAlignment="Center" Margin="0,8,0,0" FontSize="12"
-                             Foreground="{StaticResource Muted}"/>
+                             Foreground="{DynamicResource Muted}"/>
                 </StackPanel>
               </DataTemplate>
             </ItemsControl.ItemTemplate>
           </ItemsControl>
         </ScrollViewer>
-        <Border x:Name="Busy" Background="#CCE9EDF3" Visibility="Collapsed">
+        <Border x:Name="Busy" Background="{DynamicResource BusyOverlay}" Visibility="Collapsed">
           <TextBlock Text="Готовлю предпросмотр…" HorizontalAlignment="Center" VerticalAlignment="Center"
-                     FontSize="14" Foreground="{StaticResource Ink2}"/>
+                     FontSize="14" Foreground="{DynamicResource Ink2}"/>
         </Border>
       </Grid>
     </DockPanel>
 
     <!-- Параметры -->
-    <DockPanel Grid.Column="1" Background="White">
+    <DockPanel Grid.Column="1" Background="{DynamicResource Surface}">
       <Border DockPanel.Dock="Top" Padding="22,16,22,0">
         <TextBlock Text="Печать" FontSize="20" FontWeight="Bold"/>
       </Border>
 
-      <Border DockPanel.Dock="Bottom" BorderBrush="{StaticResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
+      <Border DockPanel.Dock="Bottom" BorderBrush="{DynamicResource Line}" BorderThickness="0,1,0,0" Padding="22,12">
         <DockPanel>
-          <TextBlock x:Name="ErrorText" DockPanel.Dock="Top" Foreground="{StaticResource Danger}" FontSize="12"
+          <TextBlock x:Name="ErrorText" DockPanel.Dock="Top" Foreground="{DynamicResource Danger}" FontSize="12"
                      TextWrapping="Wrap" Margin="0,0,0,8" Visibility="Collapsed"/>
           <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="Отмена" Style="{StaticResource SecondaryButton}" MinWidth="100" IsCancel="True" Click="Cancel_Click"/>
@@ -188,14 +188,14 @@
             <RadioButton x:Name="Portrait" GroupName="orient" Style="{StaticResource IconChoice}" Width="96" Margin="0,0,8,0"
                          Checked="Layout_Changed" ToolTip="Книжная">
               <StackPanel>
-                <local:Glyph Data="{StaticResource IcPortrait}" Size="30" StrokeWidth="1.6" Foreground="{StaticResource Ink2}" HorizontalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcPortrait}" Size="30" StrokeWidth="1.6" Foreground="{DynamicResource Ink2}" HorizontalAlignment="Center"/>
                 <TextBlock Text="Книжная" FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,0"/>
               </StackPanel>
             </RadioButton>
             <RadioButton x:Name="Landscape" GroupName="orient" Style="{StaticResource IconChoice}" Width="96"
                          Checked="Layout_Changed" ToolTip="Альбомная">
               <StackPanel>
-                <local:Glyph Data="{StaticResource IcLandscape}" Size="30" StrokeWidth="1.6" Foreground="{StaticResource Ink2}" HorizontalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcLandscape}" Size="30" StrokeWidth="1.6" Foreground="{DynamicResource Ink2}" HorizontalAlignment="Center"/>
                 <TextBlock Text="Альбомная" FontSize="12" HorizontalAlignment="Center" Margin="0,4,0,0"/>
               </StackPanel>
             </RadioButton>
@@ -203,7 +203,7 @@
 
           <DockPanel Margin="0,16,0,8">
             <TextBlock x:Name="TotalInfo" DockPanel.Dock="Right" Style="{StaticResource Hint}" VerticalAlignment="Bottom"/>
-            <TextBlock Text="Страницы" FontSize="12.5" FontWeight="SemiBold" Foreground="{StaticResource Ink2}"/>
+            <TextBlock Text="Страницы" FontSize="12.5" FontWeight="SemiBold" Foreground="{DynamicResource Ink2}"/>
           </DockPanel>
           <RadioButton x:Name="PagesAll" GroupName="pages" Style="{StaticResource Radio}" Content="Все" Checked="Selection_Changed"/>
           <RadioButton x:Name="PagesButLast" GroupName="pages" Style="{StaticResource Radio}" Content="Все, кроме последней"
@@ -233,8 +233,8 @@
           </WrapPanel>
 
           <Expander x:Name="MoreExpander" Header="Дополнительно" Margin="0,16,0,0" FontSize="12.5" FontWeight="SemiBold"
-                    Foreground="{StaticResource Ink2}">
-            <StackPanel TextElement.FontWeight="Normal" TextElement.FontSize="13.5" TextElement.Foreground="{StaticResource Ink}">
+                    Foreground="{DynamicResource Ink2}">
+            <StackPanel TextElement.FontWeight="Normal" TextElement.FontSize="13.5" TextElement.Foreground="{DynamicResource Ink}">
               <TextBlock Text="Поля" Style="{StaticResource Label}" Margin="0,10,0,8"/>
               <WrapPanel>
                 <RadioButton x:Name="MarginsDefault" GroupName="margins" Style="{StaticResource Chip}" Content="Обычные" Checked="Layout_Changed"/>

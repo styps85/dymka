@@ -472,6 +472,20 @@ Eq(MediaState.Parse("{\"has\":true,\"art\":\"data:image/png;base64,AAA\"}")?.Art
 Eq(MediaState.Parse("null"), null, "мини-плеер: пустой ответ");
 Eq(MediaState.Parse("{oops"), null, "мини-плеер: мусор");
 
+// --- отметка запуска (диагностика аварийного закрытия)
+var rf = new RunFlag(new DateTime(2026, 10, 27, 0, 13, 40), 19780, "https://site.ru/page", new DateTime(2026, 10, 27, 1, 2, 3));
+Eq(RunFlag.Parse(rf.Format()), rf, "отметка запуска: запись и чтение");
+Eq(RunFlag.Parse("2026-10-25 23:57:24")?.Pid, 0, "отметка запуска старого вида");
+Eq(RunFlag.Parse("мусор"), null, "отметка запуска: мусор");
+Eq(RunFlag.SafeUrl("https://yandex.ru/search/?text=секрет#x"), "https://yandex.ru/search/", "в журнал - адрес без запроса");
+
+// --- скачивание: свободное имя файла
+var taken = new HashSet<string> { Path.Combine("D", "акт.pdf"), Path.Combine("D", "акт (1).pdf") };
+Eq(DownloadPaths.Unique("D", "акт.pdf", taken.Contains), Path.Combine("D", "акт (2).pdf"), "скачивание: занятое имя - «акт (2).pdf»");
+Eq(DownloadPaths.Unique("D", "новый.docx", taken.Contains), Path.Combine("D", "новый.docx"), "скачивание: свободное имя не меняется");
+Eq(DownloadPaths.Safe("a:b?.txt"), "a_b_.txt", "скачивание: недопустимые знаки заменяются");
+Eq(DownloadPaths.Safe(""), "download", "скачивание: пустое имя");
+
 // --- проверка обновлений
 Eq(UpdateCheck.ParseTag("v1.0.54"), new Version(1, 0, 54), "тег v1.0.54");
 Eq(UpdateCheck.ParseTag("1.2"), new Version(1, 2, 0), "тег без третьей части");

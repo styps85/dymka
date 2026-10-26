@@ -831,6 +831,9 @@ sealed class SelfTest
             {
                 ("direct", "обычной ссылкой"), ("blank", "ссылкой в новом окне"), ("frame", "через скрытый фрейм"), ("attach", "как вложение"),
             };
+            var dlDir = Path.Combine(_dir, "downloads");
+            Directory.CreateDirectory(dlDir);
+            _w.Settings.DownloadFolder = dlDir;   // папка из настроек (окно «Сохранить как» в самопроверке не открывается)
             foreach (var (id, what) in cases)
             {
                 int before = _w.Downloads, tabs = _w.Tabs.Count;
@@ -847,6 +850,9 @@ sealed class SelfTest
                 }
                 Line($"ИНФО вкладок до {tabs}, после {_w.Tabs.Count}");
             }
+            var saved = Directory.GetFiles(dlDir);
+            Check(saved.Length >= cases.Length, $"файлы сохранены в папку из настроек: {saved.Length} шт. ({string.Join(", ", saved.Select(Path.GetFileName))})");
+            _w.Settings.DownloadFolder = "";
             await Task.Delay(500);
             Capture(_w, "39-downloads");
             _w.CloseTab(tab, remember: false);
@@ -1068,6 +1074,19 @@ sealed class SelfTest
             Check(_w.Settings.Wallpaper.StartsWith("wallpapers/custom-") && File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper.Replace('/', '\\'))),
                 "свой фон скопирован в папку фонов: " + _w.Settings.Wallpaper);
             Check(await JsWait("getComputedStyle(document.body).backgroundImage.indexOf('custom-')>=0"), "свой фон сразу показан на новой вкладке");
+            // тёмное оформление: окно и новая вкладка перекрашиваются сразу
+            ThemeManager.Apply("dark");
+            Check(await JsWait("matchMedia('(prefers-color-scheme: dark)').matches"), "в тёмном оформлении страницы получают тёмную схему");
+            var surf = ((System.Windows.Media.SolidColorBrush)System.Windows.Application.Current.Resources["Surface"]).Color;
+            Check(ThemeManager.IsDark && surf.R < 0x40, $"в тёмном оформлении окно тёмное ({surf})");
+            await Task.Delay(800);
+            Capture(_w, "50-dark-start");
+            var sw = _w.OpenSettingsForTest();
+            await Task.Delay(800);
+            Capture(sw, "51-dark-settings");
+            sw.Close();
+            ThemeManager.Apply("light");
+            Check(await JsWait("!matchMedia('(prefers-color-scheme: dark)').matches") && !ThemeManager.IsDark, "светлое оформление возвращается");
             await Js("document.getElementById('ntpBtn').click()");
             _w.CloseTab(tab, remember: false);
 
@@ -1411,6 +1430,42 @@ sealed class SelfTest
             Check(await WaitFor(() => core.DocumentTitle == "media:pause", 6), "кнопка «пауза» ставит музыку на паузу");
             await Task.Delay(1500);
             Check(_w.MediaBarShownForTest, "на паузе мини-плеер остаётся (можно продолжить)");
+            // светлый вид
+            _w.MediaStyleForTest("light");
+            await Task.Delay(500);
+            Check(_w.MediaLight, "мини-плеер переключается на светлый вид");
+            Capture(_w, "47b-media-light");
+            _w.MediaStyleForTest("dark");
+            // прилипание к левому краю: плеер вертикальный, только кнопки
+            _w.MediaDropForTest(10, 120);
+            await Task.Delay(600);
+            var (card, page) = _w.MediaRectsForTest();
+            Check(_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "left" && card.Left >= page.Left - 1 && card.Left - page.Left < 16 && card.Height > card.Width,
+                $"у левого края мини-плеер прилипает и становится вертикальным (карточка {card.Left - page.Left:0} от края, {card.Width:0}×{card.Height:0})");
+            Capture(_w, "47c-media-left");
+            // смена вида вкладок: плеер остаётся у левого края области страницы и не заходит на боковой список вкладок
+            var layout = _w.Settings.Layout;
+            _w.Settings.Layout = layout == "side" ? "top" : "side";
+            _w.ApplyLayoutForTest();
+            await Task.Delay(1200);
+            (card, page) = _w.MediaRectsForTest();
+            Check(_w.MediaVerticalForTest && card.Left >= page.Left - 1 && card.Left - page.Left < 16 && card.Bottom <= page.Bottom + 1,
+                $"после смены вида вкладок ({_w.Settings.Layout}) мини-плеер у края страницы, не на списке вкладок");
+            Capture(_w, "47d-media-left-" + _w.Settings.Layout);
+            _w.Settings.Layout = layout;
+            _w.ApplyLayoutForTest();
+            await Task.Delay(800);
+            // к правому краю - тоже вертикальный; к нижнему - снова горизонтальный
+            _w.MediaDropForTest(100000, 200);
+            await Task.Delay(400);
+            (card, page) = _w.MediaRectsForTest();
+            Check(_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "right" && page.Right - card.Right < 16, "у правого края мини-плеер тоже вертикальный");
+            _w.MediaDropForTest(300, 100000);
+            await Task.Delay(400);
+            (card, page) = _w.MediaRectsForTest();
+            Check(!_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "bottom" && page.Bottom - card.Bottom < 16, "у нижнего края мини-плеер горизонтальный");
+            Capture(_w, "47e-media-bottom");
+            _w.MediaResetForTest();
             _w.Activate(probe);
             Check(await WaitFor(() => !_w.MediaBarShownForTest, 4), "на самой музыкальной вкладке мини-плеер скрыт");
         }
