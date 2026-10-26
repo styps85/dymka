@@ -273,11 +273,15 @@ window.__dymkaMedia=function(cmd){
     }
 
     /// <summary>К какому краю ближе карточка (или "free"), если до него меньше MediaSnap.</summary>
-    string MediaEdgeAt(double x, double y, Size sz)
+    /// <param name="preferVertical">в углу (рядом два края) - край под текущий вид, чтобы плеер не менял форму</param>
+    string MediaEdgeAt(double x, double y, Size sz, bool? preferVertical = null)
     {
         double W = ContentHost.ActualWidth, H = ContentHost.ActualHeight;
         double l = x + MediaMargin, t = y + MediaMargin, r = W - (x + sz.Width - MediaMargin), b = H - (y + sz.Height - MediaMargin);
-        double best = Math.Min(Math.Min(l, r), Math.Min(t, b));
+        double side = Math.Min(l, r), tb = Math.Min(t, b);
+        if (preferVertical == true && side <= MediaSnap) return l <= r ? "left" : "right";
+        if (preferVertical == false && tb <= MediaSnap) return t <= b ? "top" : "bottom";
+        double best = Math.Min(side, tb);
         if (best > MediaSnap) return "free";
         if (l == best) return "left";
         if (r == best) return "right";
@@ -285,9 +289,9 @@ window.__dymkaMedia=function(cmd){
     }
 
     /// <summary>Отпустили мини-плеер в точке (x, y) области страницы: прилипание к краю и запоминание.</summary>
-    internal void MediaDropAt(double x, double y)
+    internal void MediaDropAt(double x, double y, bool? preferVertical = null)
     {
-        var edge = MediaEdgeAt(x, y, MediaSize());
+        var edge = MediaEdgeAt(x, y, MediaSize(), preferVertical);
         SetMediaVertical(edge is "left" or "right");
         var sz = MediaSize();
         var (minX, maxX, minY, maxY) = MediaRange(sz);
@@ -326,19 +330,64 @@ window.__dymkaMedia=function(cmd){
         if (!_mediaDragPending && !_mediaDragging) return;
         if (e.LeftButton != System.Windows.Input.MouseButtonState.Pressed) { EndMediaDrag(false); return; }
         var p = e.GetPosition(ContentHost);
-        var d = p - _mediaDragStart;
+        var d0 = p - _mediaDragStart;
         if (!_mediaDragging)
         {
-            if (Math.Abs(d.X) < 5 && Math.Abs(d.Y) < 5) return;
+            if (Math.Abs(d0.X) < 5 && Math.Abs(d0.Y) < 5) return;
             _mediaDragging = true;
             MediaCard.CaptureMouse();   // кнопка под курсором отпускается и не сработает
         }
-        // вид меняется сразу, когда плеер подносят к левому или правому краю
-        var edge = MediaEdgeAt(_mediaX0 + d.X, _mediaY0 + d.Y, MediaSize());
-        SetMediaVertical(edge is "left" or "right");
+        MediaDragTo(p);
+        e.Handled = true;
+    }
+
+    /// <summary>Курсор с плеером в точке p области страницы.</summary>
+    void MediaDragTo(Point p)
+    {
+        var d = p - _mediaDragStart;
+        // Вид - по положению курсора, а не карточки: при смене вида карточка меняет размер, и по ней у угла
+        // вид переключался бы туда-обратно (плеер «моргал»). У левого/правого края - вертикальный, у верхнего/нижнего
+        // и в середине - горизонтальный, в углу - не меняется.
+        double W = ContentHost.ActualWidth, H = ContentHost.ActualHeight;
+        // С запасом (гистерезисом): вертикальным плеер становится в 56 точках от бокового края, а горизонтальным
+        // снова - только когда курсор отошёл дальше 96, поэтому дрожание мыши на границе не переключает вид.
+        bool sideIn = p.X < 56 || p.X > W - 56, sideOut = p.X < 96 || p.X > W - 96, tbIn = p.Y < 56 || p.Y > H - 56;
+        bool vertical = _mediaVertical ? sideOut : sideIn && !tbIn;
+        if (vertical != _mediaVertical)
+        {
+            // карточка меняет форму вокруг курсора: точка, за которую держат, остаётся под ним
+            var old = MediaSize();
+            double fx = Math.Clamp((p.X - _mediaPlacedX - MediaMargin) / Math.Max(1, old.Width - 2 * MediaMargin), 0, 1);
+            double fy = Math.Clamp((p.Y - _mediaPlacedY - MediaMargin) / Math.Max(1, old.Height - 2 * MediaMargin), 0, 1);
+            SetMediaVertical(vertical);
+            var nsz = MediaSize();
+            _mediaX0 = p.X - MediaMargin - fx * (nsz.Width - 2 * MediaMargin);
+            _mediaY0 = p.Y - MediaMargin - fy * (nsz.Height - 2 * MediaMargin);
+            _mediaDragStart = p;
+            d = new Vector(0, 0);
+        }
         var (minX, maxX, minY, maxY) = MediaRange(MediaSize());
         PlaceMediaBar(Math.Clamp(_mediaX0 + d.X, minX, maxX), Math.Clamp(_mediaY0 + d.Y, minY, maxY));
-        e.Handled = true;
+    }
+
+    /// <summary>Самопроверка: «перетащить» плеер по точкам (координаты области страницы) и отпустить;
+    /// возвращает, сколько раз по пути менялся вид.</summary>
+    public int MediaDragPathForTest(IEnumerable<Point> path)
+    {
+        _mediaDragStart = new Point(_mediaPlacedX + 30, _mediaPlacedY + 30);
+        _mediaX0 = _mediaPlacedX;
+        _mediaY0 = _mediaPlacedY;
+        _mediaDragging = true;
+        int flips = 0;
+        bool v = _mediaVertical;
+        foreach (var p in path)
+        {
+            MediaDragTo(p);
+            if (_mediaVertical != v) { flips++; v = _mediaVertical; }
+        }
+        _mediaDragging = false;
+        MediaDropAt(_mediaPlacedX, _mediaPlacedY, _mediaVertical);
+        return flips;
     }
 
     void MediaCard_Up(object sender, System.Windows.Input.MouseButtonEventArgs e)
@@ -358,7 +407,7 @@ window.__dymkaMedia=function(cmd){
         _mediaDragPending = false;
         _mediaDragging = false;
         if (MediaCard.IsMouseCaptured) MediaCard.ReleaseMouseCapture();
-        if (was && drop) MediaDropAt(_mediaPlacedX, _mediaPlacedY);
+        if (was && drop) MediaDropAt(_mediaPlacedX, _mediaPlacedY, _mediaVertical);
     }
 
     // ---- оформление: тёмный или светлый плеер

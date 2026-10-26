@@ -186,6 +186,20 @@ public partial class MainWindow
 
     static readonly HttpClient GalleryHttp = new() { Timeout = TimeSpan.FromSeconds(30) };
 
+    /// <summary>Скачивает фон из каталога «Дымки» в папку фонов (если его там ещё нет).</summary>
+    async Task<bool> DownloadGalleryFileAsync(string file, string local)
+    {
+        if (local.Length == 0 || !Wallpapers.Extensions.Contains(Path.GetExtension(local).ToLowerInvariant())) return false;
+        var path = Path.Combine(WallDir, local);
+        if (File.Exists(path)) return true;
+        // скачиваем только из каталога «Дымки»
+        var bytes = await GalleryHttp.GetByteArrayAsync(GalleryBase + Uri.EscapeDataString(Path.GetFileName(file)));
+        Directory.CreateDirectory(WallDir);
+        await File.WriteAllBytesAsync(path, bytes);
+        App.Log("Фон из галереи: " + local);
+        return true;
+    }
+
     /// <summary>Сообщение со страницы галереи: загрузить каталог, скачать или выбрать фон, удалить свой.</summary>
     async void OnGalleryMessage(CoreWebView2 core, JsonElement root)
     {
@@ -226,21 +240,20 @@ public partial class MainWindow
                 var cur = CurrentWallpaper();
                 core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "gallery", items, custom, tagNames, current = cur.Replace("wallpapers/", "") }));
             }
+            else if (type == "gallery-download")
+            {
+                // скачать фон в папку «Дымки», не ставя его (из окна просмотра)
+                var file = root.GetProperty("file").GetString() ?? "";
+                var local = Path.GetFileName(root.GetProperty("local").GetString() ?? "");
+                if (!await DownloadGalleryFileAsync(file, local)) return;
+                core.PostWebMessageAsJson(JsonSerializer.Serialize(new { type = "gallery-downloaded", local }));
+            }
             else if (type == "gallery-use")
             {
                 var file = root.GetProperty("file").GetString() ?? "";
                 var local = root.GetProperty("local").GetString() ?? "";
                 local = Path.GetFileName(local);
-                if (local.Length == 0 || !Wallpapers.Extensions.Contains(Path.GetExtension(local).ToLowerInvariant())) return;
-                var path = Path.Combine(WallDir, local);
-                if (!File.Exists(path))
-                {
-                    // скачиваем только из каталога «Дымки»
-                    var bytes = await GalleryHttp.GetByteArrayAsync(GalleryBase + Uri.EscapeDataString(Path.GetFileName(file)));
-                    Directory.CreateDirectory(WallDir);
-                    await File.WriteAllBytesAsync(path, bytes);
-                    App.Log("Фон из галереи: " + local);
-                }
+                if (!await DownloadGalleryFileAsync(file, local)) return;
                 _settings.Wallpaper = "wallpapers/" + local;
                 _settings.WallpaperOn = true;
                 _settings.WallpaperDay = DateTime.Now.ToString("yyyy-MM-dd");

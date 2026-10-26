@@ -61,7 +61,7 @@ public partial class SettingsWindow : Window
             });
         foreach (var (id, text) in new[] { ("light", "Светлое"), ("dark", "Тёмное"), ("system", "Как в Windows") })
             ThemePanel.Children.Add(new RadioButton { Content = text, Tag = id, GroupName = "theme", Style = chip, IsChecked = _s.Theme == id });
-        foreach (var (id, text) in new[] { ("dark", "Тёмный"), ("light", "Светлый"), ("theme", "Как оформление браузера") })
+        foreach (var (id, text) in new[] { ("light", "Светлый"), ("dark", "Тёмный"), ("theme", "Как оформление браузера") })
             MiniStylePanel.Children.Add(new RadioButton { Content = text, Tag = id, GroupName = "ministyle", Style = chip, IsChecked = _s.MiniPlayerStyle == id });
         MiniPlayerBox.IsChecked = _s.MiniPlayer;
         AskDownloadBox.IsChecked = _s.AskDownloadPath;
@@ -156,7 +156,7 @@ public partial class SettingsWindow : Window
         foreach (RadioButton r in ThemePanel.Children)
             if (r.IsChecked == true) _s.Theme = (string)r.Tag;
         foreach (RadioButton r in MiniStylePanel.Children)
-            if (r.IsChecked == true) _s.MiniPlayerStyle = (string)r.Tag;
+            if (r.IsChecked == true && (string)r.Tag != _s.MiniPlayerStyle) { _s.MiniPlayerStyle = (string)r.Tag; _s.MiniPlayerStyleChosen = true; }
         _s.MiniPlayer = MiniPlayerBox.IsChecked == true;
         _s.AskDownloadPath = AskDownloadBox.IsChecked == true;
         _s.DownloadFolder = _downloadFolder;

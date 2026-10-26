@@ -1132,6 +1132,25 @@ sealed class SelfTest
                     await gc.ExecuteScriptAsync("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
                     await Task.Delay(200);
                     Check(await gc.ExecuteScriptAsync("document.getElementById('pv').hidden") == "true", "предпросмотр закрывается по Esc");
+                    // в просмотре: «Скачать» кладёт фон в папку, не ставя его, затем «Удалить» убирает
+                    var lname = (await gc.ExecuteScriptAsync("(()=>{var c=[...document.querySelectorAll('#catalog .card')].find(x=>x.dataset.local.indexOf('gallery-')===0&&!x.querySelector('.del'));if(!c)return '';c.querySelector('.img').click();return c.dataset.local;})()")).Trim('"');
+                    if (lname.Length > 0)
+                    {
+                        var lpath = Path.Combine(_w.DataDir, "ui", "wallpapers", lname);
+                        var wpBefore = _w.Settings.Wallpaper;
+                        await Task.Delay(300);
+                        Check(await gc.ExecuteScriptAsync("document.getElementById('pvFile').textContent") == "\"Скачать\"", "в просмотре нескачанного фона - кнопка «Скачать»");
+                        await gc.ExecuteScriptAsync("document.getElementById('pvFile').click()");
+                        Check(await WaitFor(() => File.Exists(lpath), 20) && _w.Settings.Wallpaper == wpBefore, "«Скачать» сохраняет фон в папку и не меняет текущий фон");
+                        bool del = false;
+                        for (int i = 0; i < 20 && !del; i++) { await Task.Delay(300); del = await gc.ExecuteScriptAsync("document.getElementById('pvFile').textContent") == "\"Удалить\""; }
+                        Check(del, "после скачивания кнопка становится «Удалить»");
+                        await Task.Delay(300);
+                        Capture(_w, "49d-gallery-preview-delete");
+                        await gc.ExecuteScriptAsync("document.getElementById('pvFile').click()");
+                        Check(await WaitFor(() => !File.Exists(lpath), 10), "«Удалить» убирает скачанный фон с компьютера");
+                        await gc.ExecuteScriptAsync("document.dispatchEvent(new KeyboardEvent('keydown',{key:'Escape'}))");
+                    }
                     await gc.ExecuteScriptAsync("var c=[...document.querySelectorAll('#catalog .card')].find(x=>x.dataset.local.indexOf('gallery-')===0);c.querySelector('.btn.primary').click()");
                     Check(await WaitFor(() => _w.Settings.Wallpaper.StartsWith("wallpapers/gallery-") &&
                                               File.Exists(Path.Combine(_w.DataDir, "ui", _w.Settings.Wallpaper.Replace('/', '\\'))), 30),
@@ -1467,6 +1486,15 @@ sealed class SelfTest
             Check(!_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "bottom" && page.Bottom - card.Bottom < 40 && card.Bottom <= page.Bottom + 1,
                 $"у нижнего края мини-плеер горизонтальный (до края {page.Bottom - card.Bottom:0}, {card.Width:0}×{card.Height:0})");
             Capture(_w, "47e-media-bottom");
+            // перетаскивание в нижний левый угол с дрожанием мыши: вид не должен прыгать туда-обратно
+            (card, page) = _w.MediaRectsForTest();
+            double ph = page.Height, pw = page.Width;
+            var path = new List<Point>();
+            for (int i = 0; i <= 40; i++) path.Add(new Point(pw / 2 - i * (pw / 2 - 30) / 40, ph - 30 + (i % 2 == 0 ? 4 : -4)));
+            for (int i = 0; i < 30; i++) path.Add(new Point(20 + (i % 3) * 12, ph - 20 - (i % 4) * 8));        // дрожание в самом углу
+            for (int i = 0; i < 30; i++) path.Add(new Point(50 + (i % 2) * 14, ph / 2 + (i % 3) * 6));         // у границы бокового края
+            int flips = _w.MediaDragPathForTest(path);
+            Check(flips <= 1, $"перетаскивание к углу: вид мини-плеера не «моргает» (сменился {flips} раз)");
             _w.MediaResetForTest();
             _w.Activate(probe);
             Check(await WaitFor(() => !_w.MediaBarShownForTest, 4), "на самой музыкальной вкладке мини-плеер скрыт");

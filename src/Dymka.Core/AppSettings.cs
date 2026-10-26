@@ -84,7 +84,9 @@ public sealed class AppSettings
 
     /// <summary>Мини-плеер для музыки: включён ли, оформление ("dark", "light", "theme" - как у браузера) и где стоит.</summary>
     public bool MiniPlayer { get; set; } = true;
-    public string MiniPlayerStyle { get; set; } = "dark";
+    public string MiniPlayerStyle { get; set; } = "light";
+    /// <summary>Оформление мини-плеера выбрано вручную (иначе - по умолчанию светлое; в 1.0.64 по умолчанию был тёмный).</summary>
+    public bool MiniPlayerStyleChosen { get; set; }
     /// <summary>Край экрана, к которому прилип мини-плеер: "" (угол страницы), "left", "right", "top", "bottom".</summary>
     public string MiniPlayerEdge { get; set; } = "";
     /// <summary>Положение вдоль края (0..1) или, если не прилип, - доля от ширины и высоты экрана.</summary>
@@ -246,6 +248,7 @@ public sealed class AppSettings
         }
         s.Shortcuts = null;
         if (s.SmartScreenMode is not ("off" or "bank" or "all")) s.SmartScreenMode = "bank";
+        if (!s.MiniPlayerStyleChosen || s.MiniPlayerStyle is not ("dark" or "light" or "theme")) s.MiniPlayerStyle = "light";
         if (s.PrintPagesPerSheet is not (1 or 2 or 4 or 6 or 9 or 16)) s.PrintPagesPerSheet = 1;
         s.PrintScale = Math.Clamp(s.PrintScale, 10, 200);
         s.CleanupOldDays = Math.Clamp(s.CleanupOldDays, 1, 365);

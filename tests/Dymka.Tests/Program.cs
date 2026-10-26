@@ -486,6 +486,14 @@ Eq(DownloadPaths.Unique("D", "новый.docx", taken.Contains), Path.Combine("D
 Eq(DownloadPaths.Safe("a:b?.txt"), "a_b_.txt", "скачивание: недопустимые знаки заменяются");
 Eq(DownloadPaths.Safe(""), "download", "скачивание: пустое имя");
 
+// --- мини-плеер: по умолчанию светлый, выбор вручную сохраняется
+var tmpS = Path.Combine(Path.GetTempPath(), "dymka-test-settings.json");
+File.WriteAllText(tmpS, "{\"MiniPlayerStyle\":\"dark\"}");
+Eq(AppSettings.Load(tmpS).MiniPlayerStyle, "light", "мини-плеер: прежний тёмный по умолчанию становится светлым");
+File.WriteAllText(tmpS, "{\"MiniPlayerStyle\":\"dark\",\"MiniPlayerStyleChosen\":true}");
+Eq(AppSettings.Load(tmpS).MiniPlayerStyle, "dark", "мини-плеер: тёмный, выбранный вручную, остаётся");
+File.Delete(tmpS);
+
 // --- проверка обновлений
 Eq(UpdateCheck.ParseTag("v1.0.54"), new Version(1, 0, 54), "тег v1.0.54");
 Eq(UpdateCheck.ParseTag("1.2"), new Version(1, 2, 0), "тег без третьей части");

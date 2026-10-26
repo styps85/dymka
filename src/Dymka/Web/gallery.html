@@ -43,6 +43,9 @@
   #pv .bar .t b { display: block; font-size: 16px; font-weight: 600; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
   #pv .bar .t span { font-size: 12.5px; color: rgba(255,255,255,.7); }
   #pv .bar .st { font-size: 13px; color: rgba(255,255,255,.8); }
+  #pv .btn.ghost { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.28); color: #fff; display: inline-flex; align-items: center; gap: 7px; }
+  #pv .btn.ghost:hover { background: rgba(255,255,255,.2); border-color: rgba(255,255,255,.45); }
+  #pv .btn.ghost[hidden] { display: none; }
   #pv .nav { position: absolute; top: 50%; transform: translateY(-50%); width: 56px; height: 56px; border-radius: 50%; border: 0; cursor: pointer;
              background: rgba(255,255,255,.9); color: var(--ink); opacity: .35; transition: opacity .15s, transform .15s; display: flex; align-items: center; justify-content: center; }
   #pv .nav:hover { opacity: 1; }
@@ -83,7 +86,7 @@
   <button class="close" type="button" title="Закрыть (Esc)" aria-label="Закрыть"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   <button class="nav prev" type="button" title="Предыдущий (←)" aria-label="Предыдущий"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 5l-7 7 7 7"/></svg></button>
   <div class="frame"><img alt=""></div>
-  <div class="bar"><div class="t"><b></b><span></span></div><span class="st"></span><button class="btn primary" type="button">Поставить</button></div>
+  <div class="bar"><div class="t"><b></b><span></span></div><span class="st"></span><button class="btn ghost" id="pvFile" type="button"></button><button class="btn primary" id="pvSet" type="button">Поставить</button></div>
   <button class="nav next" type="button" title="Следующий (→)" aria-label="Следующий"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 5l7 7-7 7"/></svg></button>
 </div>
 <script>
@@ -160,7 +163,9 @@
   // ---- предпросмотр: крупный фон, стрелки, «Поставить»
   const pv = { el: document.getElementById('pv'), list: null, i: 0, setting: '' };
   const pvImg = pv.el.querySelector('.frame img'), pvFrame = pv.el.querySelector('.frame');
-  const pvSet = pv.el.querySelector('.bar .btn'), pvSt = pv.el.querySelector('.bar .st');
+  const pvSet = document.getElementById('pvSet'), pvFile = document.getElementById('pvFile'), pvSt = pv.el.querySelector('.bar .st');
+  const ICON_DL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4v11M7 10l5 5 5-5M5 20h14"/></svg>';
+  const ICON_DEL = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13"/></svg>';
   function openPreview(list, i) { pv.kind = list === data.custom ? 'custom' : 'items'; pv.list = list; pv.i = i; pv.el.hidden = false; showPreview(); }
   function closePreview() { pv.el.hidden = true; pv.list = null; pvImg.removeAttribute('src'); }
   function showPreview() {
@@ -182,6 +187,13 @@
     pvSet.hidden = isCur;
     pvSet.disabled = pv.setting === it.local;
     pvSet.textContent = pv.setting === it.local ? (it.installed ? 'Ставлю…' : 'Скачиваю…') : 'Поставить';
+    // «Скачать» - если фона ещё нет на компьютере; «Удалить» - если скачан (встроенные фоны не удаляются)
+    const builtin = it.local.startsWith('dymka-');
+    pvFile.hidden = builtin;
+    pvFile.disabled = pv.filing === it.local;
+    if (pv.filing === it.local) pvFile.textContent = it.installed ? 'Удаляю…' : 'Скачиваю…';
+    else if (it.installed) { pvFile.innerHTML = ICON_DEL + '<span>Удалить</span>'; pvFile.title = 'Удалить с компьютера'; }
+    else { pvFile.innerHTML = ICON_DL + '<span>Скачать</span>'; pvFile.title = 'Скачать в папку фонов, не ставя на новую вкладку'; }
   }
   function refreshPreview() {
     // каталог обновился (поставили или удалили фон): тот же фон в новом списке
@@ -196,6 +208,10 @@
   pv.el.querySelector('.nav.next').addEventListener('click', (e) => { e.stopPropagation(); step(1); });
   pv.el.querySelector('.close').addEventListener('click', closePreview);
   pv.el.addEventListener('click', (e) => { if (e.target === pv.el) closePreview(); });
+  pvFile.addEventListener('click', () => {
+    const it = pv.list[pv.i]; pv.filing = it.local; showPreview();
+    send(it.installed ? { type: 'gallery-delete', local: it.local } : { type: 'gallery-download', file: it.file, local: it.local });
+  });
   pvSet.addEventListener('click', () => {
     const it = pv.list[pv.i]; pv.setting = it.local; showPreview();
     send({ type: 'gallery-use', file: it.file, local: it.local });
@@ -211,13 +227,13 @@
 
   if (wv) wv.addEventListener('message', (e) => {
     const m = e.data || {};
-    if (m.type === 'gallery') { data = m; current = m.current || ''; pv.setting = ''; draw(); }
-    else if (m.type === 'gallery-done' || m.type === 'gallery-deleted' || m.type === 'gallery-reload') send({ type: 'gallery-init' });
+    if (m.type === 'gallery') { data = m; current = m.current || ''; pv.setting = ''; pv.filing = ''; draw(); }
+    else if (m.type === 'gallery-done' || m.type === 'gallery-deleted' || m.type === 'gallery-reload' || m.type === 'gallery-downloaded') send({ type: 'gallery-init' });
     else if (m.type === 'gallery-error') {
       const msg = document.getElementById('msg'); msg.hidden = false;
       msg.textContent = 'Не удалось связаться с галереей (' + m.message + '). Проверьте подключение к интернету и обновите страницу (F5).';
       document.querySelectorAll('.btn.primary:disabled').forEach(b => { b.disabled = false; b.textContent = 'Поставить'; });
-      if (pv.list) { pv.setting = ''; showPreview(); }
+      if (pv.list) { pv.setting = ''; pv.filing = ''; showPreview(); }
     }
   });
   document.getElementById('upload').addEventListener('click', () => send({ type: 'gallery-upload' }));
