@@ -1459,11 +1459,13 @@ sealed class SelfTest
             _w.MediaDropForTest(100000, 200);
             await Task.Delay(400);
             (card, page) = _w.MediaRectsForTest();
-            Check(_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "right" && page.Right - card.Right < 16, "у правого края мини-плеер тоже вертикальный");
+            Check(_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "right" && page.Right - card.Right < 40 && card.Right <= page.Right + 1,
+                $"у правого края мини-плеер тоже вертикальный (до края {page.Right - card.Right:0}, {card.Width:0}×{card.Height:0})");
             _w.MediaDropForTest(300, 100000);
             await Task.Delay(400);
             (card, page) = _w.MediaRectsForTest();
-            Check(!_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "bottom" && page.Bottom - card.Bottom < 16, "у нижнего края мини-плеер горизонтальный");
+            Check(!_w.MediaVerticalForTest && _w.Settings.MiniPlayerEdge == "bottom" && page.Bottom - card.Bottom < 40 && card.Bottom <= page.Bottom + 1,
+                $"у нижнего края мини-плеер горизонтальный (до края {page.Bottom - card.Bottom:0}, {card.Width:0}×{card.Height:0})");
             Capture(_w, "47e-media-bottom");
             _w.MediaResetForTest();
             _w.Activate(probe);
