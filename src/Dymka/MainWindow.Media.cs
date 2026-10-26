@@ -167,7 +167,7 @@ window.__dymkaMedia=function(cmd){
     // ================================================================ где стоит мини-плеер
 
     const double MediaMargin = 12;   // поле вокруг карточки внутри окна мини-плеера (для тени)
-    const double MediaGap = 4;       // отступ карточки от края страницы
+    const double MediaGap = 12;      // отступ карточки от края страницы (окно плеера не выходит за страницу - Windows не сдвинет его у края экрана)
     const double MediaSnap = 36;     // ближе этого к краю - прилипает
     bool _mediaVertical;
 
@@ -249,12 +249,27 @@ window.__dymkaMedia=function(cmd){
         return (x, y);
     }
 
+    double _mediaPlacedX, _mediaPlacedY;
+
+    /// <summary>Ставит окно плеера в точку (x, y) области страницы - в экранных координатах, чтобы положение
+    /// не зависело от того, как Windows пересчитывает всплывающие окна при смене вида вкладок.</summary>
     void PlaceMediaBar(double x, double y)
     {
-        // при перемещении окна смещение не меняется - чуть сдвигаем, чтобы окно мини-плеера переехало вместе с браузером
+        _mediaPlacedX = x;
+        _mediaPlacedY = y;
+        var origin = new Point(0, 0);
+        try
+        {
+            var src = PresentationSource.FromVisual(this);
+            if (src?.CompositionTarget != null)
+                origin = src.CompositionTarget.TransformFromDevice.Transform(ContentHost.PointToScreen(new Point(0, 0)));
+        }
+        catch { }
+        MediaBar.Placement = System.Windows.Controls.Primitives.PlacementMode.Absolute;
+        // то же значение окно не двигает - при перемещении браузера чуть сдвигаем
         _mediaNudge = !_mediaNudge;
-        MediaBar.HorizontalOffset = x + (_mediaNudge ? 0.01 : 0);
-        MediaBar.VerticalOffset = y;
+        MediaBar.HorizontalOffset = origin.X + x + (_mediaNudge ? 0.01 : 0);
+        MediaBar.VerticalOffset = origin.Y + y;
     }
 
     /// <summary>К какому краю ближе карточка (или "free"), если до него меньше MediaSnap.</summary>
@@ -302,8 +317,8 @@ window.__dymkaMedia=function(cmd){
         if (e.ClickCount == 2) { ResetMediaPosition(); e.Handled = true; return; }
         _mediaDragPending = true;
         _mediaDragStart = e.GetPosition(ContentHost);
-        _mediaX0 = MediaBar.HorizontalOffset;
-        _mediaY0 = MediaBar.VerticalOffset;
+        _mediaX0 = _mediaPlacedX;
+        _mediaY0 = _mediaPlacedY;
     }
 
     void MediaCard_Move(object sender, System.Windows.Input.MouseEventArgs e)
@@ -343,7 +358,7 @@ window.__dymkaMedia=function(cmd){
         _mediaDragPending = false;
         _mediaDragging = false;
         if (MediaCard.IsMouseCaptured) MediaCard.ReleaseMouseCapture();
-        if (was && drop) MediaDropAt(MediaBar.HorizontalOffset, MediaBar.VerticalOffset);
+        if (was && drop) MediaDropAt(_mediaPlacedX, _mediaPlacedY);
     }
 
     // ---- оформление: тёмный или светлый плеер

@@ -809,7 +809,7 @@
       </Popup>
 
       <!-- ===== Мини-плеер: музыка на другой вкладке ===== -->
-      <Popup x:Name="MediaBar" PlacementTarget="{Binding ElementName=ContentHost}" Placement="Relative" StaysOpen="True"
+      <Popup x:Name="MediaBar" Placement="Absolute" StaysOpen="True"
              AllowsTransparency="True" PopupAnimation="Fade">
         <Border x:Name="MediaCard" Width="384" Margin="12" Padding="7,7,8,7" CornerRadius="16" Background="{DynamicResource MediaBg}"
                 Cursor="SizeAll" ToolTip="Перетащите мышью; у края страницы плеер прилипает. Двойной щелчок - вернуть в угол"
