@@ -8,6 +8,7 @@
         Foreground="{DynamicResource Ink}" UseLayoutRounding="True">
   <Window.Resources>
     <Style x:Key="Tick" TargetType="CheckBox">
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Focusable" Value="False"/>
       <Setter Property="Template">
@@ -48,6 +49,7 @@
       </Setter>
     </Style>
     <Style x:Key="Chip" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Margin" Value="0,0,6,0"/>
       <Setter Property="Template">

@@ -9,6 +9,7 @@
   <Window.Resources>
     <local:HexBrushConverter x:Key="HexBrush"/>
     <Style x:Key="Tab" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
@@ -28,6 +29,7 @@
       </Setter>
     </Style>
     <Style x:Key="Chip" TargetType="RadioButton">
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Margin" Value="0,0,8,8"/>
       <Setter Property="Template">
@@ -53,6 +55,7 @@
       <Setter Property="BorderThickness" Value="1"/>
     </Style>
     <Style x:Key="ListItem" TargetType="ListBoxItem">
+      <Setter Property="Foreground" Value="{DynamicResource Ink}"/>
       <Setter Property="Cursor" Value="Hand"/>
       <Setter Property="Template">
         <Setter.Value>
