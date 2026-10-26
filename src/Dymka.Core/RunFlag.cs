@@ -4,15 +4,15 @@ namespace Dymka.Core;
 /// Если при следующем запуске отметка осталась, а процесса уже нет - прошлый запуск завершился аварийно.</summary>
 public sealed record RunFlag(DateTime Start, int Pid, string Url, DateTime Updated)
 {
-    public string Format() =>
-        $"start={Start:yyyy-MM-dd HH:mm:ss}\npid={Pid}\nurl={Url}\nupdated={Updated:yyyy-MM-dd HH:mm:ss}\n";
+    public string Format() => string.Create(System.Globalization.CultureInfo.InvariantCulture,
+        $"start={Start:yyyy-MM-dd HH:mm:ss}\npid={Pid}\nurl={Url}\nupdated={Updated:yyyy-MM-dd HH:mm:ss}\n");
 
     /// <summary>Разбор отметки. Старый вид (только дата запуска) тоже понимается.</summary>
     public static RunFlag? Parse(string? text)
     {
         if (string.IsNullOrWhiteSpace(text)) return null;
         text = text.Trim();
-        if (!text.Contains('=') && DateTime.TryParse(text, out var old)) return new RunFlag(old, 0, "", old);
+        if (!text.Contains('=') && DateTime.TryParse(text, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var old)) return new RunFlag(old, 0, "", old);
         DateTime start = default, upd = default;
         int pid = 0;
         string url = "";
@@ -23,10 +23,10 @@ public sealed record RunFlag(DateTime Start, int Pid, string Url, DateTime Updat
             if (eq <= 0) continue;
             var k = line[..eq];
             var v = line[(eq + 1)..];
-            if (k == "start") DateTime.TryParse(v, out start);
+            if (k == "start") DateTime.TryParse(v, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out start);
             else if (k == "pid") int.TryParse(v, out pid);
             else if (k == "url") url = v;
-            else if (k == "updated") DateTime.TryParse(v, out upd);
+            else if (k == "updated") DateTime.TryParse(v, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out upd);
         }
         if (start == default) return null;
         return new RunFlag(start, pid, url, upd == default ? start : upd);

@@ -22,7 +22,10 @@ public static class DownloadPaths
     /// <summary>Имя файла без недопустимых в Windows знаков.</summary>
     public static string Safe(string? fileName)
     {
-        var name = Path.GetFileName(fileName ?? "");
+        // только имя после последней черты; Path.GetFileName не подходит - в Windows он принимает «a:» за диск
+        var name = fileName ?? "";
+        int cut = name.LastIndexOfAny(new[] { '/', '\\' });
+        if (cut >= 0) name = name[(cut + 1)..];
         foreach (var c in "<>:\"/\\|?*") name = name.Replace(c, '_');
         name = new string(name.Where(ch => ch >= 32).ToArray()).Trim().TrimEnd('.');
         return name.Length == 0 ? "download" : name;
