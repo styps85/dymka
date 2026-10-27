@@ -441,6 +441,8 @@ window.__dymkaMedia=function(cmd){
 
     public bool MediaLight { get; private set; }
     public void ApplyLayoutForTest() => ApplyLayout();
+    public void CloseByAppForTest() { _closeByApp = true; Close(); }
+    public Task<string> EvalWithGestureForTest(CoreWebView2 core, string js) => EvalWithGestureAsync(core, js);
     public bool MediaVerticalForTest => _mediaVertical;
     public void MediaDropForTest(double x, double y) => MediaDropAt(x, y);
     public void MediaResetForTest() => ResetMediaPosition();

@@ -96,7 +96,7 @@ public partial class MainWindow : Window
 
     /// <summary>В раздельном просмотре щелчок по странице делает её активной.</summary>
     const string FocusScript =
-        "(function(){try{if(window.top!==window)return;window.addEventListener('pointerdown',function(){try{window.chrome.webview.postMessage({__dymka:'focus'});}catch(e){}},true);}catch(e){}})();";
+        "(function(){try{if(window.top!==window)return;var f=function(){try{window.chrome.webview.postMessage({__dymka:'focus'});}catch(e){}};window.addEventListener('pointerdown',f,true);window.addEventListener('keydown',function(e){if(e.key==='Enter'||e.key===' ')f();},true);}catch(e){}})();";
 
     const string GpcScript =
         "try{Object.defineProperty(Navigator.prototype,'globalPrivacyControl',{get:function(){return true},configurable:true});}catch(e){}";
@@ -201,6 +201,7 @@ public partial class MainWindow : Window
                 "Скачать его можно на сайте Microsoft: developer.microsoft.com/microsoft-edge/webview2.",
                 new[] { "Закрыть" });
             _cleanupDone = true;
+            _closeByApp = true;
             Close();
             return;
         }
@@ -209,6 +210,7 @@ public partial class MainWindow : Window
             App.Log("Ошибка запуска движка: " + ex);
             Dialogs.Show(this, "Не удалось запустить браузер", ex.Message, new[] { "Закрыть" });
             _cleanupDone = true;
+            _closeByApp = true;
             Close();
             return;
         }
@@ -1089,7 +1091,11 @@ public partial class MainWindow : Window
             {
                 var kind = dm.GetString();
                 if (kind == "print" && tab == _active) Dispatcher.BeginInvoke(new Action(OpenPrintDialog));
-                else if (kind == "focus" && InSplit(tab) && tab != _active) Activate(tab);
+                else if (kind == "focus")
+                {
+                    _lastPageInput = DateTime.Now;   // нажатие на странице: следующая за ним команда закрыть окно - от страницы
+                    if (InSplit(tab) && tab != _active) Activate(tab);
+                }
                 else if (kind == "pip") OnPipMessage(tab, root);
                 else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit")
                     OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = core.ExecuteScriptAsync }, kind, root);
@@ -1820,6 +1826,7 @@ public partial class MainWindow : Window
         _updating = false;
         if (result == UpdateChecker.PrepareResult.Ready)
         {
+            _closeByApp = true;
             Close();
             return;
         }
@@ -1960,20 +1967,26 @@ public partial class MainWindow : Window
         _settings.Save();
     }
 
-    bool _userClose;
-    DateTime _blockCloseUntil;
+    bool _userClose, _closeByApp;
+    DateTime _blockCloseUntil, _lastPageInput, _lastBlockedClose;
 
     async void OnClosing(object? sender, CancelEventArgs e)
     {
-        if (!_userClose && !_cleanupDone && DateTime.Now < _blockCloseUntil)
+        // Кнопка «Закрыть» на сайте (window.close() во вкладке, открытой страницей) у движка доходит до окна браузера
+        // раньше, чем браузер узнаёт, что закрыть просит страница. Такую команду - сразу после нажатия на странице
+        // или скачивания - отменяем; вкладку закроет обработчик WindowCloseRequested. Если команда повторяется
+        // в течение 3 секунд (окно закрывают ещё раз), пропускаем, чтобы окно всегда можно было закрыть.
+        bool fromPage = DateTime.Now < _blockCloseUntil || DateTime.Now - _lastPageInput < TimeSpan.FromSeconds(2);
+        bool repeated = DateTime.Now - _lastBlockedClose < TimeSpan.FromSeconds(3);
+        if (!_userClose && !_cleanupDone && !_closeByApp && !App.SessionEnding && fromPage && !repeated)
         {
-            // окно пытается закрыть не пользователь, а движок сразу после скачивания - отменяем
             e.Cancel = true;
-            App.Log("Закрытие окна сразу после скачивания отменено (команда шла не от пользователя)");
+            _lastBlockedClose = DateTime.Now;
+            App.Log($"Закрытие окна отменено: команда шла не от пользователя, а от страницы ({RunFlag.SafeUrl(_active?.Url)})");
             return;
         }
-        App.Log("Закрытие окна" + (_userClose ? " пользователем" : ""));
-        if (!_userClose && !_cleanupDone)
+        App.Log("Закрытие окна" + (_userClose ? " пользователем" : _closeByApp ? " браузером" : App.SessionEnding ? " (выход из Windows)" : ""));
+        if (!_userClose && !_cleanupDone && !_closeByApp)
         {
             // окно закрывает не пользователь - записываем, откуда пришла команда, чтобы найти причину
             var st = new StackTrace(1, false).ToString().Split('\n').Select(l => l.Trim()).Where(l => l.Contains("Dymka")).Take(6);

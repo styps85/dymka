@@ -111,6 +111,16 @@ public partial class App : Application
         catch { return "?"; }
     }
 
+    /// <summary>Windows завершает работу или пользователь выходит из системы - окна закрываются без вопросов.</summary>
+    public static bool SessionEnding { get; private set; }
+
+    protected override void OnSessionEnding(SessionEndingCancelEventArgs e)
+    {
+        SessionEnding = true;
+        Log("Выход из Windows - браузер закрывается");
+        base.OnSessionEnding(e);
+    }
+
     protected override void OnExit(ExitEventArgs e)
     {
         Log("Выход из браузера");

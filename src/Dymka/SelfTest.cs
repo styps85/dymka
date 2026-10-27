@@ -1420,6 +1420,30 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "проверка обновлений: " + ex.Message); }
     }
 
+    /// <summary>Кнопка «Закрыть» на сайте: окно, открытое страницей, закрывает само себя (window.close()).
+    /// Должна закрыться только эта вкладка, а не браузер.</summary>
+    async Task TestPageCloseAsync(BrowserTab probe)
+    {
+        try
+        {
+            _w.Activate(probe);
+            await Task.Delay(300);
+            int tabs = _w.Tabs.Count;
+            var res = await _w.EvalWithGestureForTest(probe.Core!,
+                "(function(){var w=window.open('','_blank');if(!w)return 'заблокировано';w.document.write('<title>Подпись</title><button>Закрыть</button><script>setTimeout(function(){window.close()},1500)<\\/script>');w.document.close();return 'ok';})()");
+            Line("окно, открытое страницей: " + res);
+            bool opened = await WaitFor(() => _w.Tabs.Count > tabs, 8);
+            Check(opened, "страница открыла своё окно (во вкладке)");
+            await Task.Delay(400);
+            Capture(_w, "52-page-popup");
+            bool closed = await WaitFor(() => _w.Tabs.Count == tabs, 10);
+            await Task.Delay(1500);
+            Check(closed && Shared.Windows.Contains(_w) && _w.IsLoaded && _w.IsVisible,
+                "кнопка «Закрыть» на сайте закрыла только вкладку страницы, браузер остался открыт");
+        }
+        catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
+    }
+
     /// <summary>Мини-плеер: страница с Media Session в фоновой вкладке, команды «следующий» и «пауза».</summary>
     async Task TestMediaBarAsync(string testDir, BrowserTab probe)
     {
@@ -1581,6 +1605,7 @@ sealed class SelfTest
             Check(ct.Contains("frame-cookie:заблокирован"), "сторонние cookie (во фрейме другого сайта) заблокированы");
 
             await TestMediaBarAsync(testDir, probe);
+            await TestPageCloseAsync(probe);
 
             // расширения: тестовое расширение + тестовая «программа на компьютере» (как у плагинов подписи)
             await TestExtensionsAsync(testDir, probe, startCore);
@@ -1698,6 +1723,6 @@ sealed class SelfTest
         Line(_failed == 0 ? "РЕЗУЛЬТАТ: OK" : $"РЕЗУЛЬТАТ: ОШИБКА (провалов: {_failed})");
         Environment.ExitCode = _failed == 0 ? 0 : 1;
         _w.Topmost = false;
-        _w.Close();
+        _w.CloseByAppForTest();
     }
 }
