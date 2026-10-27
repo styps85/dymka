@@ -264,7 +264,7 @@ sealed class SelfTest
             Capture(w2, "15-second-window");
             w2.Topmost = false;
             _w.Topmost = true;
-            w2.Close();
+            w2.CloseByAppForTest();
             await Task.Delay(1500);
             Check(_w.IsVisible && Shared.Windows.Count == 1, "после закрытия второго окна первое продолжает работать");
 
@@ -423,7 +423,7 @@ sealed class SelfTest
                 Capture(w3, "22-session-restored");
                 w3.Topmost = false;
                 _w.Topmost = true;
-                w3.Close();
+                w3.CloseByAppForTest();
                 await Task.Delay(1500);
                 _w.SaveSessionNow();
                 Check(_w.Settings.Session.Count == 1, "закрытое окно из сеанса убрано");
@@ -976,7 +976,7 @@ sealed class SelfTest
                 "«Перенести в новое окно» открыла вкладку в отдельном окне");
             var w3 = Shared.Windows.LastOrDefault(x => x != _w && x != w2);
             await Task.Delay(800);
-            w3?.Close();
+            w3?.CloseByAppForTest();
         }
         catch (Exception ex)
         {
@@ -985,7 +985,7 @@ sealed class SelfTest
         }
         finally
         {
-            try { w2?.Close(); } catch { }
+            try { w2?.CloseByAppForTest(); } catch { }
             await Task.Delay(800);
         }
     }

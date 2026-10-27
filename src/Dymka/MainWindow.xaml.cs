@@ -542,6 +542,7 @@ public partial class MainWindow : Window
             // страница просит закрыть своё окно (window.close() или окно, открытое ради скачивания файла):
             // закрываем только вкладку, открытую самой страницей, как в Chrome; само окно браузера - никогда
             _blockCloseUntil = DateTime.Now.AddSeconds(5);
+            _lastPageCloseRequest = DateTime.Now;
             App.Log($"Страница просит закрыть окно ({UrlTools.HostOf(tab.Url)}), вкладка открыта страницей: {tab.OpenedByPage}");
             if (tab.OpenedByPage)
                 Dispatcher.BeginInvoke(new Action(() =>
@@ -1967,31 +1968,38 @@ public partial class MainWindow : Window
         _settings.Save();
     }
 
-    bool _userClose, _closeByApp;
-    DateTime _blockCloseUntil, _lastPageInput, _lastBlockedClose;
+    bool _userClose, _closeByApp, _closeCheckPending;
+    DateTime _blockCloseUntil, _lastPageInput, _lastPageCloseRequest;
 
     async void OnClosing(object? sender, CancelEventArgs e)
     {
         // Кнопка «Закрыть» на сайте (window.close() во вкладке, открытой страницей) у движка доходит до окна браузера
-        // раньше, чем браузер узнаёт, что закрыть просит страница. Такую команду - сразу после нажатия на странице
-        // или скачивания - отменяем; вкладку закроет обработчик WindowCloseRequested. Если команда повторяется
-        // в течение 3 секунд (окно закрывают ещё раз), пропускаем, чтобы окно всегда можно было закрыть.
-        bool fromPage = DateTime.Now < _blockCloseUntil || DateTime.Now - _lastPageInput < TimeSpan.FromSeconds(2);
-        bool repeated = DateTime.Now - _lastBlockedClose < TimeSpan.FromSeconds(3);
-        if (!_userClose && !_cleanupDone && !_closeByApp && !App.SessionEnding && fromPage && !repeated)
+        // раньше, чем браузер узнаёт, что закрыть просит страница (WindowCloseRequested приходит следом).
+        // Поэтому команду закрыть окно не от пользователя откладываем на 0,4 с: если за это время страница попросила
+        // закрыть своё окно (или идёт скачивание) - закрывается только вкладка, иначе окно закрывается как обычно.
+        if (!_userClose && !_cleanupDone && !_closeByApp && !App.SessionEnding)
         {
             e.Cancel = true;
-            _lastBlockedClose = DateTime.Now;
-            App.Log($"Закрытие окна отменено: команда шла не от пользователя, а от страницы ({RunFlag.SafeUrl(_active?.Url)})");
+            if (_closeCheckPending) return;
+            _closeCheckPending = true;
+            var asked = DateTime.Now;
+            var stack = string.Join(" <- ", new StackTrace(1, false).ToString().Split('\n').Select(l => l.Trim()).Where(l => l.Contains("Dymka")).Take(6));
+            _ = Dispatcher.InvokeAsync(async () =>
+            {
+                await Task.Delay(400);
+                _closeCheckPending = false;
+                if (_lastPageCloseRequest >= asked.AddSeconds(-1) || DateTime.Now < _blockCloseUntil)
+                {
+                    App.Log($"Закрытие окна отменено: его просила страница, закрывается только её вкладка ({RunFlag.SafeUrl(_active?.Url)})");
+                    return;
+                }
+                App.Log("Закрытие окна по команде не от пользователя" + (stack.Length > 0 ? ": " + stack : "") + $"; активная вкладка: {RunFlag.SafeUrl(_active?.Url)}");
+                _closeByApp = true;
+                Close();
+            });
             return;
         }
         App.Log("Закрытие окна" + (_userClose ? " пользователем" : _closeByApp ? " браузером" : App.SessionEnding ? " (выход из Windows)" : ""));
-        if (!_userClose && !_cleanupDone && !_closeByApp)
-        {
-            // окно закрывает не пользователь - записываем, откуда пришла команда, чтобы найти причину
-            var st = new StackTrace(1, false).ToString().Split('\n').Select(l => l.Trim()).Where(l => l.Contains("Dymka")).Take(6);
-            App.Log("  команда закрытия: " + string.Join(" <- ", st) + $"; активная вкладка: {RunFlag.SafeUrl(_active?.Url)}");
-        }
         SaveWindowBounds();
         bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
         if (!othersOpen && !_cleanupDone)
