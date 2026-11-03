@@ -1533,6 +1533,9 @@ sealed class SelfTest
             var nt2 = await iw.NewTabAsync(null, activate: true, container: "bank");
             Check(nt2.Container == MainWindow.IncognitoId, "новая вкладка в окне инкогнито - тоже инкогнито (контейнер не выбирается)");
             iw.CloseTab(nt2, remember: false);
+            void Map(Microsoft.Web.WebView2.Core.CoreWebView2 c) =>
+                c.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", testDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            Map(it.Core);
             iw.Navigate(it, Url);
             await WaitFor(() => it.Url.Contains("incog.html") && !it.IsLoading, 20);
             var set = await PollScript(it.Core, "location.pathname.indexOf('incog') >= 0 ? (document.cookie='inc=1; path=/; max-age=3600', localStorage.setItem('inc','1'), document.cookie) : ''",
@@ -1543,9 +1546,12 @@ sealed class SelfTest
             iw.Topmost = false;
             _w.Topmost = true;
 
-            var nt = await _w.NewTabAsync(Url, activate: true, container: "work");
-            await WaitFor(() => nt.Core != null && nt.Url.Contains("incog.html") && !nt.IsLoading, 20);
-            Check(!(await nt.Core!.ExecuteScriptAsync("document.cookie")).Contains("inc=1"), "cookie из окна инкогнито не видна в обычном окне");
+            var nt = await _w.NewTabAsync(null, activate: true, container: "work");
+            await WaitFor(() => nt.Core != null && !nt.IsLoading, 20);
+            Map(nt.Core!);
+            _w.Navigate(nt, Url);
+            var normal = await PollScript(nt.Core!, "location.pathname.indexOf('incog') >= 0 ? ('cookie:' + document.cookie) : ''", v => v.Contains("cookie:"), 15);
+            Check(normal.Contains("cookie:") && !normal.Contains("inc=1"), "cookie из окна инкогнито не видна в обычном окне: " + normal);
             _w.CloseTab(nt, remember: false);
             _w.SaveSessionNow();
             Check(!_w.Settings.Session.SelectMany(w => w.Tabs).Any(t => t.Url.Contains("incog.html")) && _w.Settings.LastContainer != MainWindow.IncognitoId,
@@ -1558,6 +1564,7 @@ sealed class SelfTest
             await WaitFor(() => iw2.ActiveTab?.Core != null && iw2.ActiveTab.IsStart && !iw2.ActiveTab.IsLoading, 30);
             await Task.Delay(800);
             var it2 = iw2.ActiveTab!;
+            Map(it2.Core!);
             iw2.Navigate(it2, Url);
             await WaitFor(() => it2.Url.Contains("incog.html") && !it2.IsLoading, 20);
             var left = await PollScript(it2.Core!, "location.pathname.indexOf('incog') >= 0 ? (document.cookie + '|' + localStorage.getItem('inc')) : 'ещё не загружено'",
