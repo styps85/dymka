@@ -372,14 +372,38 @@ public partial class MainWindow : Window
         int pos = Math.Max(idx + 1, afterPinned);
         if (idx >= 0 && pos < _tabs.Count) _tabs.Insert(pos, tab); else _tabs.Add(tab);
 
+        bool firstInContainer = !Shared.Windows.SelectMany(w => w._tabs).Any(t => t != tab && t.Container == tab.Container && t.Core != null);
+        var sw = Stopwatch.StartNew();
         if (activate) Activate(tab);
         else RefreshViews();
         await EnsureViewAsync(tab, string.IsNullOrEmpty(url) ? UrlTools.StartUrl : url, navigate: true);
+        WatchNewTabSpeed(tab, sw, firstInContainer);
         if (activate && tab.IsStart && tab == _active)
         {
             Address.Focus();
         }
         return tab;
+    }
+
+    /// <summary>Сколько открывалась последняя новая вкладка: (контейнер, движок мс, всего мс, первая в контейнере).</summary>
+    public (string container, long engineMs, long totalMs, bool first)? LastNewTabSpeed { get; set; }
+
+    /// <summary>Замер: сколько создаётся страница движка и сколько грузится сама страница. Медленные открытия - в журнал.</summary>
+    void WatchNewTabSpeed(BrowserTab tab, Stopwatch sw, bool first)
+    {
+        long engine = sw.ElapsedMilliseconds;
+        var core = tab.Core;
+        if (core == null) return;
+        void Done(object? _, CoreWebView2NavigationCompletedEventArgs __)
+        {
+            core.NavigationCompleted -= Done;
+            long total = sw.ElapsedMilliseconds;
+            LastNewTabSpeed = (tab.Container, engine, total, first);
+            if (total >= 1000)
+                App.Log($"Новая вкладка [{tab.Container}] открывалась {total / 1000.0:0.0} с: движок {engine / 1000.0:0.0} с, страница {(total - engine) / 1000.0:0.0} с" +
+                        (first ? " (первая в контейнере)" : "") + (tab.IsStart ? "" : $", {UrlTools.HostOf(tab.Url)}"));
+        }
+        core.NavigationCompleted += Done;
     }
 
     readonly Dictionary<BrowserTab, Task> _creating = new();
@@ -621,6 +645,8 @@ public partial class MainWindow : Window
 
         _active = tab;
         CrashDiagnostics.NotePage(tab.Url);
+        // на весь экран была развёрнута другая вкладка - окно возвращается к обычному виду
+        if (_fullscreen && tab.Core?.ContainsFullScreenElement != true) SetFullscreen(false);
         tab.IsActive = true;
         tab.LastActive = DateTime.Now;
         try { PipOnSwitch(old, tab); } catch (Exception ex) { App.Log("Мини-окно с видео: " + ex.Message); }
@@ -669,6 +695,7 @@ public partial class MainWindow : Window
     public void CloseTab(BrowserTab tab, bool remember = true)
     {
         if (!_tabs.Contains(tab)) return;
+        if (tab == _active && _fullscreen) SetFullscreen(false);
         if (InSplit(tab)) EndSplit();
         if (remember && !tab.IsStart && !string.IsNullOrEmpty(tab.Url)) _closed.Push((tab.Container, tab.Url));
 
@@ -1098,7 +1125,7 @@ public partial class MainWindow : Window
                     if (InSplit(tab) && tab != _active) Activate(tab);
                 }
                 else if (kind == "pip") OnPipMessage(tab, root);
-                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit")
+                else if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit" or "form-input" or "form-esc")
                     OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = core.ExecuteScriptAsync }, kind, root);
                 else if (kind == "tr" && tab.TranslateState != TranslateState.None)
                 {
@@ -1633,7 +1660,20 @@ public partial class MainWindow : Window
             }
 
             var target = e.ContextMenuTarget;
+            CoreWebView2ContextMenuItem Item(string label, Action act)
+            {
+                var it = _env!.CreateContextMenuItem(label, null, CoreWebView2ContextMenuItemKind.Command);
+                it.CustomItemSelected += (_, _) => Dispatcher.BeginInvoke(act);
+                return it;
+            }
             if (source != null) AddTranslateMenuItems(source, e);
+            if (source != null)
+            {
+                // сайт мог развернуться на весь экран и спрятать кнопки браузера - выйти и закрыть вкладку можно отсюда
+                if (_fullscreen) items.Insert(0, Item("Выйти из полноэкранного режима (Esc)", ExitFullscreen));
+                items.Add(_env!.CreateContextMenuItem("", null, CoreWebView2ContextMenuItemKind.Separator));
+                items.Add(Item("Закрыть вкладку (Ctrl+W)", () => CloseTab(source)));
+            }
             if (source == null || !target.HasLinkUri) return;
             var link = target.LinkUri;
             if (!link.StartsWith("http://", StringComparison.OrdinalIgnoreCase) && !link.StartsWith("https://", StringComparison.OrdinalIgnoreCase)) return;
@@ -1648,12 +1688,6 @@ public partial class MainWindow : Window
                     items.RemoveAt(i);
                     i--;
                 }
-            }
-            CoreWebView2ContextMenuItem Item(string label, Action act)
-            {
-                var it = _env!.CreateContextMenuItem(label, null, CoreWebView2ContextMenuItemKind.Command);
-                it.CustomItemSelected += (_, _) => Dispatcher.BeginInvoke(act);
-                return it;
             }
             items.Insert(pos, Item("Открыть ссылку рядом", () => _ = OpenLinkBesideAsync(source, link)));
             items.Insert(pos, Item("Открыть ссылку в новом окне", () => OpenWindow(link, source.Container)));
@@ -2066,6 +2100,16 @@ public partial class MainWindow : Window
 
     void Close_Click(object sender, RoutedEventArgs e) { _userClose = true; Close(); }
 
+    /// <summary>Выйти из полноэкранного режима, даже если сайт сам этого не делает.</summary>
+    public void ExitFullscreen()
+    {
+        var core = _active?.Core;
+        SetFullscreen(false);
+        try { _ = core?.ExecuteScriptAsync("try{if(document.fullscreenElement)document.exitFullscreen();}catch(e){}"); } catch { }
+    }
+
+    public bool IsFullscreenForTest => _fullscreen;
+
     void SetFullscreen(bool on)
     {
         if (on == _fullscreen) return;
@@ -2087,6 +2131,7 @@ public partial class MainWindow : Window
             var b = Native.MonitorBounds(this);
             Left = b.Left; Top = b.Top; Width = b.Width; Height = b.Height;
             Topmost = true;
+            ShowToast("Выйти из полноэкранного режима: Esc, F11 или правый щелчок - «Выйти из полноэкранного режима»", seconds: 4);
         }
         else
         {
@@ -2158,7 +2203,8 @@ public partial class MainWindow : Window
         bool alt = (mod & ModifierKeys.Alt) != 0;
         bool handled = true;
 
-        if (ctrl && !shift && key == Key.T) _ = NewTabAsync(null, activate: true);
+        if (_fullscreen && (key == Key.Escape || key == Key.F11) && !ctrl && !alt) ExitFullscreen();
+        else if (ctrl && !shift && key == Key.T) _ = NewTabAsync(null, activate: true);
         else if (ctrl && shift && key == Key.T) ReopenClosed();
         else if (ctrl && (key == Key.W || key == Key.F4)) { if (_active != null) CloseTab(_active); }
         else if ((ctrl && key == Key.L) || (alt && key == Key.D) || key == Key.F6) FocusAddress();

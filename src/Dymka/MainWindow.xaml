@@ -880,8 +880,42 @@
 
       <!-- ===== Подсказка у поля: пароли и карточки ===== -->
       <Popup x:Name="FillPopup" StaysOpen="True" AllowsTransparency="True" PopupAnimation="Fade">
-        <Border Style="{StaticResource PopupCard}" Width="330" Padding="6">
-          <Border x:Name="FillPanel"/>
+        <Border x:Name="FillBox" Width="330" Padding="6,4,6,6">
+          <Border.Style>
+            <!-- полупрозрачная, пока на неё не наведёшь мышь: поля под ней видны -->
+            <Style TargetType="Border" BasedOn="{StaticResource PopupCard}">
+              <Setter Property="Opacity" Value="0.7"/>
+              <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                  <Trigger.EnterActions>
+                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="1" Duration="0:0:0.12"/></Storyboard></BeginStoryboard>
+                  </Trigger.EnterActions>
+                  <Trigger.ExitActions>
+                    <BeginStoryboard><Storyboard><DoubleAnimation Storyboard.TargetProperty="Opacity" To="0.7" Duration="0:0:0.3"/></Storyboard></BeginStoryboard>
+                  </Trigger.ExitActions>
+                </Trigger>
+              </Style.Triggers>
+            </Style>
+          </Border.Style>
+          <DockPanel>
+            <DockPanel x:Name="FillHeader" DockPanel.Dock="Top" Height="28" Margin="6,0,0,2" Background="Transparent" Cursor="SizeAll"
+                       ToolTip="Перетащите, чтобы подсказка не закрывала поля"
+                       MouseLeftButtonDown="FillHeader_Down" MouseMove="FillHeader_Move" MouseLeftButtonUp="FillHeader_Up"
+                       LostMouseCapture="FillHeader_LostCapture">
+              <Button x:Name="FillCloseBtn" DockPanel.Dock="Right" Style="{StaticResource SmallIconButton}" Cursor="Hand"
+                      ToolTip="Скрыть подсказку на этой странице (Esc - скрыть до следующего поля)" Click="FillClose_Click">
+                <local:Glyph Data="{StaticResource IcClose}" Size="11" StrokeWidth="2.4" Foreground="{DynamicResource Muted}"/>
+              </Button>
+              <local:Glyph DockPanel.Dock="Left" Data="{StaticResource IcDots}" Filled="True" Size="14" Foreground="{DynamicResource Faint}"
+                           VerticalAlignment="Center" Margin="0,0,8,0"/>
+              <TextBlock x:Name="FillHeaderText" FontSize="12" Foreground="{DynamicResource Muted}" VerticalAlignment="Center"
+                         TextTrimming="CharacterEllipsis"/>
+            </DockPanel>
+            <ScrollViewer x:Name="FillScroll" MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
+                          Focusable="False">
+              <Border x:Name="FillPanel"/>
+            </ScrollViewer>
+          </DockPanel>
         </Border>
       </Popup>
 

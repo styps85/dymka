@@ -651,6 +651,42 @@ sealed class SelfTest
             string addr = await PollScript(core, Q("addr"), s => s.Contains("Мира"), 5);
             Check(addr.Contains("Мира"), "для поля «Адрес» адрес выбирается в подсказке (рабочий)");
 
+            // много карточек: подсказка оставляет только подходящие к введённому, полупрозрачна, двигается и скрывается
+            v.Data!.Cards.Add(new Dymka.Core.Card { Title = "Должник Петров", LastName = "Петров", FirstName = "Олег", Inn = "660100000001" });
+            v.Data.Cards.Add(new Dymka.Core.Card { Title = "Должник Сидорова", LastName = "Сидорова", FirstName = "Анна", Inn = "660200000002" });
+            v.Save();
+            await core.ExecuteScriptAsync("document.getElementById('comment').focus();document.getElementById('last').value='';document.getElementById('last').focus()");
+            Check(await WaitFor(() => _w.FillRowsForTest.Count(r => !r.StartsWith("Управление")) == 3, 6), "подсказка: три карточки");
+            await Task.Delay(500);
+            Check(Math.Abs(_w.FillOpacityForTest - 0.7) < 0.05, $"подсказка полупрозрачна, пока на ней нет мыши: {_w.FillOpacityForTest:0.00}");
+            string Type(string text) => $"(function(){{var e=document.getElementById('last');e.value={System.Text.Json.JsonSerializer.Serialize(text)};e.dispatchEvent(new Event('input',{{bubbles:true}}));}})()";
+            await core.ExecuteScriptAsync(Type("СИДОР"));
+            Check(await WaitFor(() => _w.FillRowsForTest.Count(r => !r.StartsWith("Управление")) == 1 && _w.FillRowsForTest.Contains("Должник Сидорова"), 4),
+                "ввод «СИДОР» - в подсказке осталась только «Должник Сидорова»: " + string.Join(", ", _w.FillRowsForTest));
+            await Task.Delay(400);
+            Capture(_w, "32b-fill-filter");
+            await core.ExecuteScriptAsync(Type("6601"));
+            Check(await WaitFor(() => _w.FillRowsForTest.Contains("Должник Петров") && !_w.FillRowsForTest.Contains("Должник Сидорова"), 4), "ввод цифр ИНН - осталась карточка с этим ИНН");
+            await core.ExecuteScriptAsync(Type("ничего такого"));
+            Check(await WaitFor(() => !_w.FillOpenForTest, 4), "ничего не подходит к введённому - подсказка убирается");
+            await core.ExecuteScriptAsync(Type(""));
+            Check(await WaitFor(() => _w.FillOpenForTest && _w.FillRowsForTest.Count(r => !r.StartsWith("Управление")) == 3, 4), "введённое стёрто - подсказка вернулась со всеми карточками");
+            var before = _w.FillOffsetForTest;
+            _w.FillMoveForTest(260, 90);
+            await core.ExecuteScriptAsync("document.getElementById('first').focus()");
+            await Task.Delay(300);
+            await WaitFor(() => _w.FillOpenForTest, 4);
+            var after = _w.FillOffsetForTest;
+            Check(_w.FillOpenForTest && Math.Abs(after.x - before.x - 260) < 2 && Math.Abs(after.y - before.y - 90) < 2,
+                $"перетащенная подсказка остаётся на новом месте и у следующего поля: {before} → {after}");
+            Capture(_w, "32c-fill-moved");
+            _w.FillHideForTest();
+            await core.ExecuteScriptAsync("document.getElementById('middle').focus()");
+            await Task.Delay(1200);
+            Check(!_w.FillOpenForTest, "крестик: подсказка больше не появляется на этой странице");
+            v.Data.Cards.RemoveAll(c => c.Title.StartsWith("Должник"));
+            v.Save();
+
             // главный пароль: хранилище закрывается, подсказка просит его ввести
             v.SetMasterPassword("Мастер-пароль-1");
             v.Lock();
@@ -1444,6 +1480,56 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
     }
 
+    /// <summary>Сколько открывается новая вкладка в разных контейнерах (первая и следующие) - для сведения.</summary>
+    async Task TestNewTabSpeedAsync()
+    {
+        try
+        {
+            var opened = new List<BrowserTab>();
+            foreach (var c in new[] { "bank", "bank", "bank", "personal", "personal", "work" })
+            {
+                _w.LastNewTabSpeed = null;
+                var t = await _w.NewTabAsync(null, activate: true, container: c);
+                opened.Add(t);
+                await WaitFor(() => _w.LastNewTabSpeed != null, 15);
+                await Task.Delay(300);
+                if (_w.LastNewTabSpeed is { } sp)
+                    Line($"ИНФО новая вкладка [{sp.container}]{(sp.first ? " первая" : "")}: движок {sp.engineMs} мс, всего {sp.totalMs} мс");
+                await Task.Delay(400);
+            }
+            foreach (var t in opened) _w.CloseTab(t, remember: false);
+            await Task.Delay(500);
+            Check(true, "замер открытия новых вкладок выполнен");
+        }
+        catch (Exception ex) { Check(false, "замер новых вкладок: " + ex.Message); }
+    }
+
+    /// <summary>Сайт на весь экран: выход по команде браузера; закрытие такой вкладки возвращает окну обычный вид.</summary>
+    async Task TestFullscreenAsync()
+    {
+        try
+        {
+            var ft = await _w.NewTabAsync("https://trackers.dymka-test.org/form.html", activate: true);
+            await WaitFor(() => ft.Core != null && ft.Url.Contains("form.html") && !ft.IsLoading, 20);
+            await Task.Delay(500);
+            const string Fs = "document.documentElement.requestFullscreen().then(function(){return 'ok'},function(e){return 'ошибка '+e})";
+            Line("на весь экран: " + await _w.EvalWithGestureForTest(ft.Core!, Fs));
+            Check(await WaitFor(() => _w.IsFullscreenForTest, 6), "сайт развернулся на весь экран");
+            await Task.Delay(600);
+            Capture(_w, "53-fullscreen");
+            _w.ExitFullscreen();
+            Check(await WaitFor(() => !_w.IsFullscreenForTest, 4) && await PollScript(ft.Core!, "!!document.fullscreenElement", s => s == "false", 4) == "false",
+                "«Выйти из полноэкранного режима» возвращает обычный вид и выводит сайт из полноэкранного режима");
+            await _w.EvalWithGestureForTest(ft.Core!, Fs);
+            await WaitFor(() => _w.IsFullscreenForTest, 6);
+            _w.CloseTab(ft);
+            Check(await WaitFor(() => !_w.IsFullscreenForTest, 4) && !_w.Tabs.Contains(ft), "закрытие вкладки, развёрнутой на весь экран, возвращает окну кнопки и вкладки");
+            await Task.Delay(500);
+            Capture(_w, "54-after-fullscreen-close");
+        }
+        catch (Exception ex) { Check(false, "полноэкранный режим: " + ex.Message); }
+    }
+
     /// <summary>Мини-плеер: страница с Media Session в фоновой вкладке, команды «следующий» и «пауза».</summary>
     async Task TestMediaBarAsync(string testDir, BrowserTab probe)
     {
@@ -1606,6 +1692,10 @@ sealed class SelfTest
 
             await TestMediaBarAsync(testDir, probe);
             await TestPageCloseAsync(probe);
+            await TestFullscreenAsync();
+            await TestNewTabSpeedAsync();
+            _w.ActivateForTest(probe);
+            await Task.Delay(300);
 
             // расширения: тестовое расширение + тестовая «программа на компьютере» (как у плагинов подписи)
             await TestExtensionsAsync(testDir, probe, startCore);

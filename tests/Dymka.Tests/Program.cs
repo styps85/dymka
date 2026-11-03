@@ -331,6 +331,27 @@ Eq(fill.ContainsKey(10), false, "неизвестное поле не трога
 var fill2 = FormFill.Build(card, new[] { F(0, "Адрес") }, chosenAddress: 1);
 Eq(fill2[0].Value, "г. Екатеринбург, ул. Мира, 2", "для поля «Адрес» без уточнения - адрес, выбранный в подсказке");
 
+// --- отбор вариантов подсказки по введённому
+{
+    var c1 = new Card { Title = "Должник Ёлкин", LastName = "Ёлкин", FirstName = "Пётр", MiddleName = "Иванович", Inn = "661234567890", Snils = "123-456-789 01" };
+    c1.Addresses.Add(new CardAddress { Label = "Домашний", Postcode = "620000", Text = "г. Екатеринбург, ул. Ленина, 1" });
+    var t1 = FillFilter.SearchText(c1);
+    Eq(FillFilter.Matches("", t1), true, "фильтр: пустой ввод - все варианты");
+    Eq(FillFilter.Matches("елк", t1), true, "фильтр: часть фамилии, «е» вместо «ё»");
+    Eq(FillFilter.Matches("ЛКИН", t1), true, "фильтр: середина слова, без учёта регистра");
+    Eq(FillFilter.Matches("пётр елкин", t1), true, "фильтр: несколько слов в любом порядке");
+    Eq(FillFilter.Matches("иванов", t1), true, "фильтр: часть отчества");
+    Eq(FillFilter.Matches("петров", t1), false, "фильтр: нет такого слова - вариант скрыт");
+    Eq(FillFilter.Matches("6612 3456", t1), true, "фильтр: цифры ИНН с пробелом");
+    Eq(FillFilter.Matches("12345678901", t1), true, "фильтр: СНИЛС без дефисов");
+    Eq(FillFilter.Matches("ленина", t1), true, "фильтр: по адресу");
+    Eq(FillFilter.Matches("  Ёлкин   П ", t1), true, "фильтр: лишние пробелы");
+    Eq(FillFilter.Matches("9999", t1), false, "фильтр: чужие цифры");
+    Eq(FillFilter.Matches("7890123", t1), false, "фильтр: цифры соседних полей (ИНН и СНИЛС) не склеиваются");
+    Eq(FillFilter.Matches("Ив", FillFilter.SearchText(new PasswordEntry { Username = "ivanov@mail.ru", Host = "mail.ru" })), false, "фильтр: кириллица не путается с латиницей");
+    Eq(FillFilter.Matches("ivan", FillFilter.SearchText(new PasswordEntry { Username = "ivanov@mail.ru", Host = "mail.ru" })), true, "фильтр: логин");
+}
+
 // --- поля поиска и подсказки при вводе
 Eq(K("", ph: "Искать в Яндекс или ввести адрес"), FieldKind.None, "поле поиска стартовой страницы - не адрес");
 Eq(K("Поиск по сайту"), FieldKind.None, "поле «Поиск» не анкета");

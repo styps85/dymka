@@ -83,10 +83,24 @@ public partial class MainWindow
     bool _fillBlurHooked;
     List<FieldInfo>? _fillFields;
 
+    /// <summary>Строка подсказки. Search - текст для отбора по введённому (null - строка видна всегда).</summary>
     sealed record FillRow(string Title, string Sub, Action Act, List<(string label, Action act)>? Chips = null, bool Muted = false,
-        string? Badge = null, string? BadgeColor = null, string? Right = null, string? BadgeFore = null);
+        string? Badge = null, string? BadgeColor = null, string? Right = null, string? BadgeFore = null, string? Search = null);
 
+    /// <summary>Строки, видимые сейчас (после отбора по введённому).</summary>
     readonly List<FillRow> _fillRows = new();
+    /// <summary>Все строки подсказки для текущего поля.</summary>
+    List<FillRow> _fillAll = new();
+    string _fillHeaderText = "", _fillQuery = "";
+    BrowserTab? _fillTab;
+    /// <summary>Подсказка скрыта отбором (ничего не нашлось) - вернётся, если стереть лишнее.</summary>
+    bool _fillFilteredOut;
+    /// <summary>Подсказка скрыта крестиком - на этой странице сама не появляется.</summary>
+    (BrowserTab tab, string url)? _fillHiddenOn;
+    /// <summary>Куда вы перетащили подсказку на этой странице.</summary>
+    (BrowserTab tab, string url, double x, double y)? _fillMovedTo;
+
+    bool FillHiddenHere(BrowserTab tab) => _fillHiddenOn is { } h && h.tab == tab && h.url == tab.Url;
 
     static List<FieldInfo> ParseFields(JsonElement root) =>
         root.GetProperty("fields").EnumerateArray().Select(f => new FieldInfo(
@@ -125,7 +139,7 @@ public partial class MainWindow
                     var root = doc.RootElement;
                     if (root.ValueKind != JsonValueKind.Object || !root.TryGetProperty("__dymka", out var k)) return;
                     var kind = k.GetString();
-                    if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit")
+                    if (kind is "pw-focus" or "card-focus" or "form-blur" or "pw-submit" or "card-submit" or "form-input" or "form-esc")
                         OnFormMessage(tab, new FormTarget { Source = e.Source, Exec = frame.ExecuteScriptAsync, InFrame = true, Frame = frame }, kind, root);
                 }
                 catch (Exception ex) { App.Log("Сообщение из фрейма: " + ex.Message); }
@@ -153,11 +167,25 @@ public partial class MainWindow
                     {
                         _fillBlurTimer.Stop();
                         if (FillPopup.Child is UIElement c && c.IsMouseOver) return;
+                        if (FillHeader.IsMouseCaptured) return;
                         FillPopup.IsOpen = false;
+                        _fillFilteredOut = false;
                     };
                 }
                 _fillBlurTimer.Stop();
                 _fillBlurTimer.Start();
+                break;
+            case "form-input":
+                // вы вводите текст в поле: в подсказке остаются варианты, где есть введённое
+                if (tab == _fillTab && (FillPopup.IsOpen || _fillFilteredOut))
+                {
+                    _fillQuery = Str(root, "v");
+                    RenderFillPopup();
+                }
+                break;
+            case "form-esc":
+                if (FillPopup.IsOpen) FillPopup.IsOpen = false;
+                _fillFilteredOut = false;
                 break;
             case "pw-submit":
                 OnPasswordSubmitted(tab, target, Str(root, "user"), Str(root, "pass"));
@@ -176,7 +204,7 @@ public partial class MainWindow
     void ShowPasswordHints(BrowserTab tab, FormTarget target, JsonElement rect)
     {
         var v = TheVault;
-        if (!v.Exists) return;
+        if (!v.Exists || FillHiddenHere(tab)) return;
         var host = target.Host;
         if (host.Length == 0) return;
         _fillRows.Clear();
@@ -192,21 +220,23 @@ public partial class MainWindow
         {
             var entries = Vault.ForHost(v.Data!.Passwords, host);
             if (entries.Count == 0) return;
-            foreach (var e in entries.Take(8))
+            foreach (var e in entries)
             {
                 var entry = e;
                 _fillRows.Add(new FillRow(entry.Username.Length > 0 ? entry.Username : "(без логина)",
-                    "••••••••" + (entry.Host != host ? "  ·  " + entry.Host : ""), () => FillLogin(target, entry)));
+                    "••••••••" + (entry.Host != host ? "  ·  " + entry.Host : ""), () => FillLogin(target, entry), Search: FillFilter.SearchText(entry)));
             }
         }
         _fillRows.Add(new FillRow("Управление паролями…", "", () => OpenVaultWindow("passwords"), Muted: true));
-        OpenFillPopup(tab, rect, target.InFrame);
+        OpenFillPopup(tab, rect, target.InFrame, "Сохранённые пароли");
     }
 
     void ShowCardHints(BrowserTab tab, FormTarget target, JsonElement rect, int focus, List<FieldInfo> fields, bool forced = false)
     {
         var v = TheVault;
         if ((!_settings.OfferAutofill && !forced) || !v.Exists) return;
+        if (forced) _fillHiddenOn = null;
+        else if (FillHiddenHere(tab)) return;
         var kinds = FormFill.ClassifyAll(fields);
         // поле оплаты - подсказка с банковскими картами
         if (focus >= 0 && focus < kinds.Length && FormFill.IsBankCardField(kinds[focus]))
@@ -258,11 +288,11 @@ public partial class MainWindow
                         chips.Add((card.Addresses[i].Label, () => FillCard(target, card, idx)));
                     }
                 }
-                _fillRows.Add(new FillRow(card.Title, sub, () => FillCard(target, card, null), chips));
+                _fillRows.Add(new FillRow(card.Title, sub, () => FillCard(target, card, null), chips, Search: FillFilter.SearchText(card)));
             }
         }
         _fillRows.Add(new FillRow("Управление карточками…", "", () => OpenVaultWindow("cards"), Muted: true));
-        OpenFillPopup(tab, rect, target.InFrame);
+        OpenFillPopup(tab, rect, target.InFrame, "Заполнить из карточки");
     }
 
     void ShowBankCardHints(BrowserTab tab, FormTarget target, JsonElement rect, List<FieldInfo> fields, bool forced)
@@ -290,16 +320,68 @@ public partial class MainWindow
             {
                 var card = c;
                 _fillRows.Add(new FillRow(card.Title, card.Sub, () => FillBankCard(tab, target, card),
-                    Badge: card.BadgeText, BadgeColor: card.BadgeColor, Right: "•• " + card.Last4, BadgeFore: card.BadgeFore));
+                    Badge: card.BadgeText, BadgeColor: card.BadgeColor, Right: "•• " + card.Last4, BadgeFore: card.BadgeFore,
+                    Search: FillFilter.SearchText(card)));
             }
         }
         _fillRows.Add(new FillRow("Управление банковскими картами…", "", () => OpenVaultWindow("bankcards"), Muted: true));
-        OpenFillPopup(tab, rect, target.InFrame);
+        OpenFillPopup(tab, rect, target.InFrame, "Банковские карты");
     }
 
-    void OpenFillPopup(BrowserTab tab, JsonElement rect, bool inFrame)
+    void OpenFillPopup(BrowserTab tab, JsonElement rect, bool inFrame, string header)
     {
         _fillBlurTimer.Stop();
+        _fillAll = _fillRows.ToList();
+        _fillHeaderText = header;
+        _fillQuery = "";
+        _fillTab = tab;
+        _fillFilteredOut = false;
+        FillPopup.PlacementTarget = tab.View;
+        FillPopup.Placement = PlacementMode.Relative;
+        if (inFrame && tab.View != null)
+        {
+            // во фрейме координаты поля - внутри фрейма; ставим подсказку у указателя мыши
+            var pt = System.Windows.Input.Mouse.GetPosition(tab.View);
+            bool inside = pt.X >= 0 && pt.Y >= 0 && pt.X <= tab.View.ActualWidth && pt.Y <= tab.View.ActualHeight;
+            FillPopup.HorizontalOffset = inside ? pt.X - 30 : 40;
+            FillPopup.VerticalOffset = inside ? pt.Y + 16 : 40;
+        }
+        else
+        {
+            double zoom = 1;
+            try { zoom = tab.View?.ZoomFactor ?? 1; } catch { }
+            FillPopup.HorizontalOffset = rect.GetProperty("x").GetDouble() * zoom - 14;
+            FillPopup.VerticalOffset = rect.GetProperty("y").GetDouble() * zoom - 2;
+        }
+        if (_fillMovedTo is { } m && m.tab == tab && m.url == tab.Url)
+        {
+            // вы перетащили подсказку на этой странице - она остаётся там, куда её поставили
+            FillPopup.HorizontalOffset = m.x;
+            FillPopup.VerticalOffset = m.y;
+        }
+        FillPopup.IsOpen = false;
+        RenderFillPopup();
+    }
+
+    /// <summary>Строит подсказку из вариантов, подходящих к введённому в поле.</summary>
+    void RenderFillPopup()
+    {
+        var q = _fillQuery;
+        var shown = _fillAll.Where(r => r.Search == null || r.Muted || FillFilter.Matches(q, r.Search)).ToList();
+        bool anyChoice = shown.Any(r => !r.Muted && r.Search != null);
+        bool hasChoices = _fillAll.Any(r => !r.Muted && r.Search != null);
+        _fillRows.Clear();
+        if (hasChoices && !anyChoice)
+        {
+            // ничего не подходит к введённому - подсказка не мешает; сотрёте лишнее - вернётся
+            FillPopup.IsOpen = false;
+            _fillFilteredOut = true;
+            return;
+        }
+        _fillFilteredOut = false;
+        _fillRows.AddRange(shown);
+        int total = _fillAll.Count(r => !r.Muted && r.Search != null), found = shown.Count(r => !r.Muted && r.Search != null);
+        FillHeaderText.Text = _fillHeaderText + (FillFilter.Normalize(q).Length > 0 && found < total ? $"  ·  {found} из {total}" : "");
         var panel = new StackPanel();
         foreach (var row in _fillRows)
         {
@@ -359,26 +441,68 @@ public partial class MainWindow
             }
         }
         FillPanel.Child = panel;
-        FillPopup.PlacementTarget = tab.View;
-        FillPopup.Placement = PlacementMode.Relative;
-        if (inFrame && tab.View != null)
-        {
-            // во фрейме координаты поля - внутри фрейма; ставим подсказку у указателя мыши
-            var pt = System.Windows.Input.Mouse.GetPosition(tab.View);
-            bool inside = pt.X >= 0 && pt.Y >= 0 && pt.X <= tab.View.ActualWidth && pt.Y <= tab.View.ActualHeight;
-            FillPopup.HorizontalOffset = inside ? pt.X - 30 : 40;
-            FillPopup.VerticalOffset = inside ? pt.Y + 16 : 40;
-        }
-        else
-        {
-            double zoom = 1;
-            try { zoom = tab.View?.ZoomFactor ?? 1; } catch { }
-            FillPopup.HorizontalOffset = rect.GetProperty("x").GetDouble() * zoom - 14;
-            FillPopup.VerticalOffset = rect.GetProperty("y").GetDouble() * zoom - 2;
-        }
-        FillPopup.IsOpen = false;
-        FillPopup.IsOpen = true;
+        FillScroll.ScrollToTop();
+        if (!FillPopup.IsOpen) FillPopup.IsOpen = true;
     }
+
+    // перетаскивание подсказки за заголовок
+    Point _fillDragStart;
+    double _fillDragX, _fillDragY;
+
+    void FillHeader_Down(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        _fillDragStart = e.GetPosition(this);
+        _fillDragX = FillPopup.HorizontalOffset;
+        _fillDragY = FillPopup.VerticalOffset;
+        FillHeader.CaptureMouse();
+        e.Handled = true;
+    }
+
+    void FillHeader_Move(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (!FillHeader.IsMouseCaptured) return;
+        var p = e.GetPosition(this);
+        double w = _fillTab?.View?.ActualWidth ?? ActualWidth, h = _fillTab?.View?.ActualHeight ?? ActualHeight;
+        FillPopup.HorizontalOffset = Math.Clamp(_fillDragX + p.X - _fillDragStart.X, -20, Math.Max(0, w - 80));
+        FillPopup.VerticalOffset = Math.Clamp(_fillDragY + p.Y - _fillDragStart.Y, -20, Math.Max(0, h - 50));
+    }
+
+    void FillHeader_Up(object sender, System.Windows.Input.MouseButtonEventArgs e)
+    {
+        if (FillHeader.IsMouseCaptured) FillHeader.ReleaseMouseCapture();
+    }
+
+    void FillHeader_LostCapture(object sender, System.Windows.Input.MouseEventArgs e)
+    {
+        if (_fillTab != null && (Math.Abs(FillPopup.HorizontalOffset - _fillDragX) > 2 || Math.Abs(FillPopup.VerticalOffset - _fillDragY) > 2))
+            _fillMovedTo = (_fillTab, _fillTab.Url, FillPopup.HorizontalOffset, FillPopup.VerticalOffset);
+    }
+
+    void FillClose_Click(object sender, RoutedEventArgs e) => HideFillOnPage();
+
+    /// <summary>Крестик: подсказка больше не появляется сама на этой странице (до перехода на другую).</summary>
+    void HideFillOnPage()
+    {
+        FillPopup.IsOpen = false;
+        _fillFilteredOut = false;
+        if (_fillTab == null) return;
+        _fillHiddenOn = (_fillTab, _fillTab.Url);
+        ShowToast("Подсказка скрыта на этой странице. Вернуть: правый щелчок по полю - «Заполнить карточкой…»", seconds: 5);
+    }
+
+    // для самопроверки
+    public void FillTypeForTest(string text) { _fillQuery = text; RenderFillPopup(); }
+    public bool FillOpenForTest => FillPopup.IsOpen;
+    public double FillOpacityForTest => FillBox.Opacity;
+    public void FillMoveForTest(double dx, double dy)
+    {
+        _fillDragX = FillPopup.HorizontalOffset; _fillDragY = FillPopup.VerticalOffset;
+        FillPopup.HorizontalOffset += dx; FillPopup.VerticalOffset += dy;
+        FillHeader_LostCapture(this, null!);
+    }
+    public (double x, double y) FillOffsetForTest => (FillPopup.HorizontalOffset, FillPopup.VerticalOffset);
+    public void FillHideForTest() => HideFillOnPage();
+
 
     void FillLogin(FormTarget target, PasswordEntry entry)
     {

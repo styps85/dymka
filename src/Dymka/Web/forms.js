@@ -136,6 +136,17 @@
     post({ __dymka: 'card-focus', rect: rectOf(el), focus: idx, fields: describe(list) });
   }, true);
   document.addEventListener('focusout', function () { if (!filling) post({ __dymka: 'form-blur' }); }, true);
+  // ввод в поле: подсказка оставляет только подходящие варианты (пароли не отправляются никогда)
+  var inputTimer = 0;
+  document.addEventListener('input', function (e) {
+    if (filling) return;
+    var el = e.composedPath ? e.composedPath()[0] : e.target;
+    if (el !== lastFocus || !(el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement)) return;
+    if (typeOf(el) === 'password') return;
+    clearTimeout(inputTimer);
+    inputTimer = setTimeout(function () { post({ __dymka: 'form-input', v: String(el.value || '').slice(0, 100) }); }, 120);
+  }, true);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') post({ __dymka: 'form-esc' }); }, true);
 
   // после входа: предложить сохранить пароль
   function capture(scope) {
