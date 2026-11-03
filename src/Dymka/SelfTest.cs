@@ -1535,7 +1535,9 @@ sealed class SelfTest
             iw.CloseTab(nt2, remember: false);
             iw.Navigate(it, Url);
             await WaitFor(() => it.Url.Contains("incog.html") && !it.IsLoading, 20);
-            await it.Core.ExecuteScriptAsync("document.cookie='inc=1; path=/; max-age=3600'; localStorage.setItem('inc','1')");
+            var set = await PollScript(it.Core, "location.pathname.indexOf('incog') >= 0 ? (document.cookie='inc=1; path=/; max-age=3600', localStorage.setItem('inc','1'), document.cookie) : ''",
+                v => v.Contains("inc=1"), 15);
+            Check(set.Contains("inc=1"), "в окне инкогнито сайт сохраняет cookie (пока окно открыто): " + set);
             var exts = await it.Core.Profile.GetBrowserExtensionsAsync();
             Line("ИНФО расширений в окне инкогнито: " + exts.Count);
             iw.Topmost = false;
@@ -1553,11 +1555,13 @@ sealed class SelfTest
             Check(await WaitFor(() => !Shared.Windows.Contains(iw), 10), "окно инкогнито закрылось, обычное работает");
             await Task.Delay(3000);
             var iw2 = _w.OpenIncognito();
-            await WaitFor(() => iw2.ActiveTab?.Core != null && !iw2.ActiveTab.IsLoading, 30);
+            await WaitFor(() => iw2.ActiveTab?.Core != null && iw2.ActiveTab.IsStart && !iw2.ActiveTab.IsLoading, 30);
+            await Task.Delay(800);
             var it2 = iw2.ActiveTab!;
             iw2.Navigate(it2, Url);
             await WaitFor(() => it2.Url.Contains("incog.html") && !it2.IsLoading, 20);
-            var left = await it2.Core!.ExecuteScriptAsync("document.cookie + '|' + localStorage.getItem('inc')");
+            var left = await PollScript(it2.Core!, "location.pathname.indexOf('incog') >= 0 ? (document.cookie + '|' + localStorage.getItem('inc')) : 'ещё не загружено'",
+                v => v.Contains("|"), 15);
             Check(!left.Contains("inc=1") && left.Contains("|null"), "после закрытия окна инкогнито его cookie и данные сайтов удалены: " + left);
             iw2.CloseByAppForTest();
             await WaitFor(() => !Shared.Windows.Contains(iw2), 10);

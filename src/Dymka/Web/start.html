@@ -57,6 +57,12 @@
   .incog svg { display: block; margin: 0 auto 12px; }
   .incog b { display: block; color: #E6EAF0; font-size: 20px; margin-bottom: 8px; }
   body.incognito .time, body.incognito .date { color: #E6EAF0; }
+  body.incognito { color-scheme: dark; }
+  body.incognito form.search, body.incognito .sugg { background: #241F2E; color: #E6EAF0; box-shadow: 0 1px 2px rgba(0,0,0,.3), 0 10px 26px rgba(0,0,0,.25); }
+  body.incognito form.search input { color: #E6EAF0; }
+  body.incognito form.search input::placeholder, body.incognito .sugg div span.h { color: #8F879E; }
+  body.incognito .sugg { border-color: #3A3248; }
+  body.incognito .sugg div:hover, body.incognito .sugg div.sel { background: #2E2645; }
   .grid { width: 100%; max-width: 640px; display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 12px; }
   .tile { width: 96px; flex: none; position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-decoration: none; color: var(--ink2); font-size: 12px; font-weight: 500; border-radius: 16px; padding: 6px 4px; }
   .tile .ic {

@@ -103,21 +103,46 @@ static class AppInstall
         }
     }
 
+    /// <summary>Ярлык через IShellLinkW (Юникод: имя «Дымка.lnk» кириллицей; WScript.Shell сохранял его как «?????»).</summary>
     static void MakeShortcut(string link, string target)
     {
-        var shellType = Type.GetTypeFromProgID("WScript.Shell") ?? throw new InvalidOperationException("WScript.Shell недоступен");
-        dynamic shell = Activator.CreateInstance(shellType)!;
+        var sl = (IShellLinkW)new ShellLink();
         try
         {
-            dynamic sc = shell.CreateShortcut(link);
-            sc.TargetPath = target;
-            sc.WorkingDirectory = Path.GetDirectoryName(target);
-            sc.IconLocation = target + ",0";
-            sc.Description = "Дымка - лёгкий конфиденциальный браузер";
-            sc.Save();
-            System.Runtime.InteropServices.Marshal.FinalReleaseComObject(sc);
+            sl.SetPath(target);
+            sl.SetWorkingDirectory(Path.GetDirectoryName(target)!);
+            sl.SetIconLocation(target, 0);
+            sl.SetDescription("Дымка - лёгкий конфиденциальный браузер");
+            ((System.Runtime.InteropServices.ComTypes.IPersistFile)sl).Save(link, true);
         }
-        finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(shell); }
+        finally { System.Runtime.InteropServices.Marshal.FinalReleaseComObject(sl); }
+    }
+
+    [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.Guid("00021401-0000-0000-C000-000000000046")]
+    class ShellLink { }
+
+    [System.Runtime.InteropServices.ComImport, System.Runtime.InteropServices.InterfaceType(System.Runtime.InteropServices.ComInterfaceType.InterfaceIsIUnknown),
+     System.Runtime.InteropServices.Guid("000214F9-0000-0000-C000-000000000046")]
+    interface IShellLinkW
+    {
+        void GetPath([System.Runtime.InteropServices.Out, System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder file, int cch, IntPtr fd, int flags);
+        void GetIDList(out IntPtr pidl);
+        void SetIDList(IntPtr pidl);
+        void GetDescription([System.Runtime.InteropServices.Out, System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder name, int cch);
+        void SetDescription([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string name);
+        void GetWorkingDirectory([System.Runtime.InteropServices.Out, System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder dir, int cch);
+        void SetWorkingDirectory([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string dir);
+        void GetArguments([System.Runtime.InteropServices.Out, System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder args, int cch);
+        void SetArguments([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string args);
+        void GetHotkey(out short key);
+        void SetHotkey(short key);
+        void GetShowCmd(out int cmd);
+        void SetShowCmd(int cmd);
+        void GetIconLocation([System.Runtime.InteropServices.Out, System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] System.Text.StringBuilder path, int cch, out int icon);
+        void SetIconLocation([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string path, int icon);
+        void SetRelativePath([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string rel, int reserved);
+        void Resolve(IntPtr hwnd, int flags);
+        void SetPath([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPWStr)] string file);
     }
 
     static void Register()
