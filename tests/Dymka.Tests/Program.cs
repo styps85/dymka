@@ -375,6 +375,58 @@ Eq(fill2[0].Value, "г. Екатеринбург, ул. Мира, 2", "для п
     Eq(back.PreloadNewTab, true, "заготовка новой вкладки включена по умолчанию");
 }
 
+// --- обновление: манифест, подпись, докачка
+{
+    var data = new byte[300_000];
+    new Random(5).NextBytes(data);
+    var dir = Path.Combine(Path.GetTempPath(), "dymka-dl-" + Guid.NewGuid());
+    Directory.CreateDirectory(dir);
+    var src = Path.Combine(dir, "src.bin");
+    File.WriteAllBytes(src, data);
+    var desc = UpdateManifest.Describe(src);
+    Eq(desc.Size, 300_000L, "манифест: размер файла");
+    var m = new UpdateManifest { Version = "1.0.70", Files = { desc, new UpdateFile("a.zip", 5, "AB") } };
+    using (var key = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256))
+    {
+        var pub = Convert.ToBase64String(key.ExportSubjectPublicKeyInfo());
+        m.Sign(key);
+        var back = UpdateManifest.Parse(m.ToJson())!;
+        Eq(back.Verify(pub), true, "манифест: подпись проверяется после сохранения");
+        back.Files[0] = back.Files[0] with { Sha256 = new string('0', 64) };
+        Eq(back.Verify(pub), false, "манифест: подменённая сумма - подпись не сходится");
+        using var other = System.Security.Cryptography.ECDsa.Create(System.Security.Cryptography.ECCurve.NamedCurves.nistP256);
+        Eq(m.Verify(Convert.ToBase64String(other.ExportSubjectPublicKeyInfo())), false, "манифест: чужой ключ не подходит");
+    }
+    Eq(UpdateManifest.Parse("{\"Format\":1,\"Version\":\"1.0.70\",\"Files\":[{\"Name\":\"Dymka-update.zip\",\"Size\":10,\"Sha256\":\"ab\"}],\"Signature\":\"\"}")?.File("Dymka-update.zip")?.Size, 10L,
+        "манифест из сборки (PowerShell) читается");
+
+    // обрыв на середине -> докачка с того же места
+    var srv = new FlakyServer(data, dropAfter: 120_000, supportsRange: true);
+    var http = new HttpClient(srv);
+    var outFile = Path.Combine(dir, "out.bin");
+    var logs = new List<string>();
+    var err = ResumableDownload.RunAsync(http, "https://x/f", outFile, data.Length, desc.Sha256, log: logs.Add,
+        options: new ResumableDownload.Options { Backoff = _ => TimeSpan.Zero }).GetAwaiter().GetResult();
+    Eq(err, null, "докачка: файл скачан после обрыва");
+    Eq(File.Exists(outFile) && File.ReadAllBytes(outFile).AsSpan().SequenceEqual(data), true, "докачка: файл целый");
+    Eq(srv.RangeStarts.Contains(120_000), true, "докачка: второй запрос продолжил с места обрыва: " + string.Join(",", srv.RangeStarts));
+    // сервер без докачки - скачивает заново
+    File.Delete(outFile);
+    var srv2 = new FlakyServer(data, dropAfter: 50_000, supportsRange: false);
+    err = ResumableDownload.RunAsync(new HttpClient(srv2), "https://x/f", outFile, data.Length, desc.Sha256,
+        options: new ResumableDownload.Options { Backoff = _ => TimeSpan.Zero }).GetAwaiter().GetResult();
+    Eq(err == null && File.ReadAllBytes(outFile).AsSpan().SequenceEqual(data), true, "сервер без докачки: файл скачан заново целиком");
+    // неверная сумма - файл не принимается
+    File.Delete(outFile);
+    err = ResumableDownload.RunAsync(new HttpClient(new FlakyServer(data, 0, true)), "https://x/f", outFile, data.Length, new string('1', 64),
+        options: new ResumableDownload.Options { Backoff = _ => TimeSpan.Zero }).GetAwaiter().GetResult();
+    Eq(err != null && err.Contains("контрольная сумма") && !File.Exists(outFile), true, "чужая контрольная сумма - обновление не принимается");
+    Eq(ResumableDownload.Describe(new HttpRequestException("The SSL connection could not be established, see inner exception.",
+        new System.Security.Authentication.AuthenticationException("Authentication failed because the remote party sent a TLS alert: 'HandshakeFailure'."))).Contains("HandshakeFailure"),
+        true, "ошибка соединения записывается вместе с внутренней причиной");
+    Directory.Delete(dir, true);
+}
+
 // --- поля поиска и подсказки при вводе
 Eq(K("", ph: "Искать в Яндекс или ввести адрес"), FieldKind.None, "поле поиска стартовой страницы - не адрес");
 Eq(K("Поиск по сайту"), FieldKind.None, "поле «Поиск» не анкета");
@@ -584,4 +636,39 @@ sealed class FakeProtector(byte k = 0x5A) : IKeyProtector
 {
     public byte[] Protect(byte[] d) => d.Select(b => (byte)(b ^ k)).Prepend(k).ToArray();
     public byte[] Unprotect(byte[] d) => d[0] != k ? throw new System.Security.Cryptography.CryptographicException("чужая учётная запись") : d.Skip(1).Select(b => (byte)(b ^ k)).ToArray();
+}
+
+/// <summary>Сервер для проверки докачки: отдаёт файл, рвёт соединение после dropAfter байт (один раз), умеет Range.</summary>
+sealed class FlakyServer(byte[] data, int dropAfter, bool supportsRange) : HttpMessageHandler
+{
+    public readonly List<long> RangeStarts = new();
+    bool _dropped;
+    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
+    {
+        long from = req.Headers.Range?.Ranges.FirstOrDefault()?.From ?? 0;
+        RangeStarts.Add(from);
+        if (!supportsRange) from = 0;
+        var slice = data.AsSpan((int)from).ToArray();
+        Stream body = new MemoryStream(slice);
+        if (!_dropped && dropAfter > 0) { _dropped = true; body = new DropStream(body, dropAfter - (int)from); }
+        var resp = new HttpResponseMessage(from > 0 ? System.Net.HttpStatusCode.PartialContent : System.Net.HttpStatusCode.OK) { Content = new StreamContent(body) };
+        resp.Content.Headers.ContentLength = slice.Length;
+        return Task.FromResult(resp);
+    }
+}
+
+sealed class DropStream(Stream inner, int limit) : Stream
+{
+    int _read;
+    public override int Read(byte[] buffer, int offset, int count)
+    {
+        if (_read >= limit) throw new IOException("Соединение разорвано удалённой стороной");
+        int n = inner.Read(buffer, offset, Math.Min(count, limit - _read));
+        _read += n;
+        return n;
+    }
+    public override bool CanRead => true; public override bool CanSeek => false; public override bool CanWrite => false;
+    public override long Length => inner.Length; public override long Position { get => _read; set => throw new NotSupportedException(); }
+    public override void Flush() { } public override long Seek(long o, SeekOrigin s) => throw new NotSupportedException();
+    public override void SetLength(long v) => throw new NotSupportedException(); public override void Write(byte[] b, int o, int c) => throw new NotSupportedException();
 }

@@ -56,6 +56,19 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
           Compress-Archive -Path dist/folder/Dymka -DestinationPath dist/Dymka-folder.zip
 
+      - name: Файлы обновления (сжатый Dymka.exe и манифест с контрольными суммами)
+        run: |
+          Compress-Archive -Path dist/single/Dymka.exe -DestinationPath dist/Dymka-update.zip -CompressionLevel Optimal -Force
+          $files = @("dist/single/Dymka.exe", "dist/Dymka-update.zip", "dist/Dymka-folder.zip") | ForEach-Object {
+            $i = Get-Item $_
+            [ordered]@{ Name = $i.Name; Size = $i.Length; Sha256 = (Get-FileHash $_ -Algorithm SHA256).Hash.ToLowerInvariant() }
+          }
+          $m = [ordered]@{ Format = 1; Version = "1.0.${{ github.run_number }}"; Files = @($files); Signature = "" }
+          $m | ConvertTo-Json -Depth 4 | Set-Content dist/update.json -Encoding utf8NoBOM
+          Get-Content dist/update.json
+          $mb = [math]::Round((Get-Item dist/Dymka-update.zip).Length / 1MB)
+          Write-Host "::notice title=Файл обновления::Dymka-update.zip - $mb МБ (Dymka.exe - $([math]::Round((Get-Item dist/single/Dymka.exe).Length / 1MB)) МБ)"
+
       - name: Самопроверка собранной программы (со снимками экрана)
         run: |
           $dir = Join-Path $env:RUNNER_TEMP "selftest"
@@ -126,5 +139,6 @@ jobs:
 
           Dymka.exe - браузер одним файлом, установка не нужна.
           Dymka-folder.zip - то же самое в виде папки: запускается быстрее. Распакуйте и запускайте Dymka.exe.
+          Dymka-update.zip и update.json - для автоматического обновления (скачивать не нужно).
           "@
-          gh release create $tag dist/single/Dymka.exe dist/Dymka-folder.zip --title "Дымка 1.0.${{ github.run_number }}" --notes $notes --latest
+          gh release create $tag dist/single/Dymka.exe dist/Dymka-folder.zip dist/Dymka-update.zip dist/update.json --title "Дымка 1.0.${{ github.run_number }}" --notes $notes --latest

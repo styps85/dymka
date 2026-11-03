@@ -264,6 +264,13 @@ public partial class MainWindow : Window
         if (first && _settings.AutoUpdateLists && _selfTestDir == null && DateTime.Now - _settings.LastListUpdate > TimeSpan.FromDays(7))
             _ = UpdateListsAsync();
 
+        if (first && _selfTestDir == null && MemTestFile == null)
+        {
+            AppInstall.NoteRunningVersion();
+            if (AppInstall.CanInstall && !AppInstall.RunningInstalled && !_settings.InstallOfferDeclined)
+                _ = OfferInstallAsync();
+        }
+
         if (first && _settings.CheckUpdates && _selfTestDir == null && MemTestFile == null)
             _ = CheckUpdatesAsync(silent: true);
 
@@ -271,6 +278,46 @@ public partial class MainWindow : Window
             _ = new SelfTest(this, _selfTestDir).RunAsync();
         else if (MemTestFile != null)
             _ = RunMemTestAsync(MemTestFile);
+    }
+
+    /// <summary>Запущена не установленная копия (например, из «Загрузок») - предложить установку в папку пользователя.</summary>
+    async Task OfferInstallAsync()
+    {
+        await Task.Delay(2500);
+        if (!IsLoaded || _closingForGood) return;
+        var installed = AppInstall.InstalledVersion;
+        var here = Path.GetDirectoryName(Environment.ProcessPath) ?? "";
+        var (i, _) = Dialogs.Show(this,
+            installed == null ? "Установить «Дымку» на компьютер?" : $"Обновить установленную «Дымку» до {App.VersionText}?",
+            $"Сейчас «Дымка» запущена из папки:\n{here}\n\n" +
+            "После установки она будет запускаться с ярлыка на рабочем столе и из меню «Пуск» и обновляться сама, " +
+            "без запроса прав администратора. Старые копии (например, из «Загрузок» или Program Files) будут открывать установленную. " +
+            "Настройки, пароли, карточки и вкладки сохранятся.",
+            new[] { "Установить", "Не сейчас", "Больше не предлагать" });
+        if (i == 2) { _settings.InstallOfferDeclined = true; _settings.Save(); return; }
+        if (i != 0) return;
+        var err = await Task.Run(AppInstall.Install);
+        if (err != null)
+        {
+            Dialogs.Show(this, "Не удалось установить", err, new[] { "Понятно" });
+            return;
+        }
+        Dialogs.Show(this, "«Дымка» установлена",
+            $"Браузер установлен в папку\n{AppInstall.InstallDir}\nи сейчас перезапустится уже оттуда - вкладки откроются снова.\n\n" +
+            "Ярлыки - на рабочем столе и в меню «Пуск». Чтобы закрепить «Дымку» на панели задач, щёлкните правой кнопкой по её значку " +
+            "на панели задач - «Закрепить на панели задач» (старый закреплённый значок открепите).\n\n" +
+            $"Файл, из которого браузер запущен сейчас, больше не нужен - его можно удалить:\n{Environment.ProcessPath}",
+            new[] { "Перезапустить" });
+        RelaunchAfterExit(AppInstall.InstalledExe);
+        _closeByApp = true;
+        Close();
+    }
+
+    /// <summary>Запустить программу, когда этот процесс завершится (после установки или обновления).</summary>
+    static void RelaunchAfterExit(string exe)
+    {
+        var ps = $"Wait-Process -Id {Environment.ProcessId} -ErrorAction SilentlyContinue; Start-Sleep -Milliseconds 800; Start-Process -FilePath '{exe.Replace("'", "''")}'";
+        Process.Start(new ProcessStartInfo("powershell.exe", $"-NoProfile -WindowStyle Hidden -Command \"{ps}\"") { UseShellExecute = false, CreateNoWindow = true });
     }
 
     /// <summary>Контейнер первой вкладки нового окна (null - последний выбранный).</summary>
@@ -1878,8 +1925,8 @@ public partial class MainWindow : Window
         _updating = true;
         UpdateItemText.Text = "Скачиваю обновление…";
         var result = UpdateChecker.PrepareResult.Failed;
-        try { result = await UpdateChecker.PrepareAsync(u); }
-        catch (Exception ex) { App.Log("Обновление: " + ex.Message); }
+        try { result = await UpdateChecker.PrepareAsync(u, st => Dispatcher.BeginInvoke(new Action(() => UpdateItemText.Text = st))); }
+        catch (Exception ex) { App.Log("Обновление: " + ResumableDownload.Describe(ex)); }
         _updating = false;
         if (result == UpdateChecker.PrepareResult.Ready)
         {
@@ -1897,9 +1944,13 @@ public partial class MainWindow : Window
             if (j == 0) await InstallUpdateAsync();
             return;
         }
-        Dialogs.Show(this, "Не удалось обновить автоматически",
-            "Откроется страница выпуска: скачайте новую версию и замените ею старый файл (или папку).",
-            new[] { "Открыть" });
+        var (k, _) = Dialogs.Show(this, "Не удалось обновить автоматически",
+            (UpdateChecker.LastError.Length > 0 ? "Причина: " + UpdateChecker.LastError + "\n\n" : "") +
+            "Скачанная часть сохранена: при следующей попытке скачивание продолжится с того же места. " +
+            "Можно также открыть страницу выпуска и скачать новую версию вручную.",
+            new[] { "Попробовать ещё раз", "Открыть страницу выпуска", "Позже" });
+        if (k == 0) { await InstallUpdateAsync(); return; }
+        if (k != 1) return;
         _ = NewTabAsync(u.PageUrl, activate: true);
     }
 

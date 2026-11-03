@@ -213,6 +213,8 @@ public sealed class AppSettings
     public List<ExtensionEntry> Extensions { get; set; } = new();
     /// <summary>Держать готовую скрытую новую вкладку текущего контейнера: она открывается мгновенно (около 30-50 МБ памяти).</summary>
     public bool PreloadNewTab { get; set; } = true;
+    /// <summary>Не предлагать установку в папку пользователя (вы нажали «Больше не предлагать»).</summary>
+    public bool InstallOfferDeclined { get; set; }
     /// <summary>Расширения, которые поставила сама «Дымка» (удалять можно только их, а не встроенные компоненты движка).</summary>
     public List<string> ManagedExtensionIds { get; set; } = new();
 

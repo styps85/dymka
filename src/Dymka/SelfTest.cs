@@ -1512,6 +1512,30 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
     }
 
+    /// <summary>Установка в папку пользователя: файл, ярлыки, запись в Windows, переадресация старых копий, удаление.</summary>
+    async Task TestInstallAsync()
+    {
+        try
+        {
+            if (!AppInstall.CanInstall) { Line("ИНФО установка проверяется только в сборке одним файлом"); return; }
+            var err = await Task.Run(AppInstall.Install);
+            Check(err == null, "установка в папку пользователя: " + (err ?? "без ошибок"));
+            Check(File.Exists(AppInstall.InstalledExe) && AppInstall.InstalledVersion == UpdateChecker.Current,
+                $"в {AppInstall.InstallDir} установлена версия {AppInstall.InstalledVersion}");
+            var desk = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory), "Дымка.lnk");
+            var start = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.Programs), "Дымка.lnk");
+            Check(File.Exists(desk) && File.Exists(start), "ярлыки на рабочем столе и в меню «Пуск» созданы");
+            using (var k = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(@"Software\Microsoft\Windows\CurrentVersion\Uninstall\Dymka"))
+                Check(k?.GetValue("UninstallString") is string u && u.Contains("--uninstall") && k.GetValue("DisplayVersion") as string == UpdateChecker.Current.ToString(),
+                    "«Дымка» появилась в списке установленных приложений Windows");
+            Check(AppInstall.ShouldForward(out _), "копия из другой папки открывает установленную (та не старее)");
+            AppInstall.Uninstall(Path.Combine(_dir, "нет-такой-папки"), removeData: false);
+            Check(await WaitFor(() => !File.Exists(AppInstall.InstalledExe), 15) && !File.Exists(desk) && !File.Exists(start),
+                "удаление убирает программу и ярлыки (данные браузера остаются)");
+        }
+        catch (Exception ex) { Check(false, "установка: " + ex.Message); }
+    }
+
     /// <summary>Сколько открывается новая вкладка: первая в контейнере, обычная и из заготовки.</summary>
     async Task TestNewTabSpeedAsync()
     {
@@ -1735,6 +1759,7 @@ sealed class SelfTest
             await TestPageCloseAsync(probe);
             await TestFullscreenAsync();
             await TestNewTabSpeedAsync();
+            await TestInstallAsync();
             _w.ActivateForTest(probe);
             await Task.Delay(300);
 

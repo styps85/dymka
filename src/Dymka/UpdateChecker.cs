@@ -5,7 +5,9 @@ using Dymka.Core;
 
 namespace Dymka;
 
-sealed record UpdateInfo(Version Version, string PageUrl, string? ExeUrl, string? ZipUrl);
+/// <summary>Найденная версия. ManifestUrl - update.json с размерами и суммами файлов, UpdateZipUrl - сжатый Dymka.exe
+/// (в 2,5 раза меньше); у старых выпусков их нет - тогда качается сам Dymka.exe.</summary>
+sealed record UpdateInfo(Version Version, string PageUrl, string? ExeUrl, string? ZipUrl, string? ManifestUrl = null, string? UpdateZipUrl = null);
 
 /// <summary>Итог проверки: Update - новая версия (или null, если её нет); Error - проверить не удалось.</summary>
 sealed record UpdateResult(UpdateInfo? Update, string? Error)
@@ -88,7 +90,7 @@ static class UpdateChecker
         if (v == null) return new UpdateResult(null, "GitHub вернул выпуск без номера версии.");
         if (v <= Current) return UpdateResult.UpToDate;
 
-        string? exe = null, zip = null;
+        string? exe = null, zip = null, manifest = null, upd = null;
         if (root.TryGetProperty("assets", out var assets))
             foreach (var a in assets.EnumerateArray())
             {
@@ -96,9 +98,11 @@ static class UpdateChecker
                 var url = a.GetProperty("browser_download_url").GetString();
                 if (name == "Dymka.exe") exe = url;
                 else if (name == "Dymka-folder.zip") zip = url;
+                else if (name == "update.json") manifest = url;
+                else if (name == "Dymka-update.zip") upd = url;
             }
         var page = root.TryGetProperty("html_url", out var h) ? h.GetString() ?? UpdateCheck.TagUrl(v) : UpdateCheck.TagUrl(v);
-        return new UpdateResult(new UpdateInfo(v, page, exe, zip), null);
+        return new UpdateResult(new UpdateInfo(v, page, exe, zip, manifest, upd), null);
     }
 
     /// <summary>github.com/.../releases/latest отвечает перенаправлением на .../releases/tag/v1.0.N.</summary>
@@ -117,7 +121,8 @@ static class UpdateChecker
         if (v <= Current) return UpdateResult.UpToDate;
         // Ссылки на файлы выпуска предсказуемы и тоже не расходуют лимит API.
         return new UpdateResult(new UpdateInfo(v, UpdateCheck.TagUrl(v),
-            UpdateCheck.DownloadUrl(v, "Dymka.exe"), UpdateCheck.DownloadUrl(v, "Dymka-folder.zip")), null);
+            UpdateCheck.DownloadUrl(v, "Dymka.exe"), UpdateCheck.DownloadUrl(v, "Dymka-folder.zip"),
+            UpdateCheck.DownloadUrl(v, "update.json"), UpdateCheck.DownloadUrl(v, "Dymka-update.zip")), null);
     }
 
     static string? Header(HttpResponseMessage resp, string name) =>
@@ -145,10 +150,73 @@ static class UpdateChecker
 
     public enum PrepareResult { Ready, Cancelled, Failed }
 
+    /// <summary>Почему не удалось скачать обновление (для журнала и сообщения).</summary>
+    public static string LastError { get; private set; } = "";
+
+    /// <summary>Клиент для скачивания: без общего таймаута (большой файл на медленной связи качается долго),
+    /// зависшее соединение обрывает сама докачка.</summary>
+    static HttpClient NewDownloadClient()
+    {
+        var http = new HttpClient(new HttpClientHandler { AllowAutoRedirect = true }) { Timeout = Timeout.InfiniteTimeSpan };
+        http.DefaultRequestHeaders.UserAgent.ParseAdd("Dymka/" + Current);
+        return http;
+    }
+
+    /// <summary>update.json выпуска (null - его нет или не скачался: тогда качаем без сверки сумм, как раньше).</summary>
+    static async Task<UpdateManifest?> FetchManifestAsync(HttpClient http, UpdateInfo u)
+    {
+        if (u.ManifestUrl == null) return null;
+        for (int i = 1; i <= 3; i++)
+        {
+            try
+            {
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+                var json = await http.GetStringAsync(u.ManifestUrl, cts.Token);
+                var m = UpdateManifest.Parse(json);
+                if (m != null && UpdateCheck.ParseTag(m.Version) == u.Version) return m;
+                App.Log("Обновление: манифест выпуска не подходит к версии " + u.Version);
+                return null;
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound) { return null; }
+            catch (Exception ex)
+            {
+                App.Log($"Обновление: манифест, попытка {i}: {ResumableDownload.Describe(ex)}");
+                await Task.Delay(TimeSpan.FromSeconds(2 * i));
+            }
+        }
+        return null;
+    }
+
+    static async Task DownloadChecked(HttpClient http, string url, string path, UpdateFile? info, Action<string>? status, string what)
+    {
+        DateTime last = DateTime.MinValue;
+        var err = await ResumableDownload.RunAsync(http, url, path, info?.Size ?? 0, info?.Sha256,
+            progress: (got, total) =>
+            {
+                if (DateTime.Now - last < TimeSpan.FromMilliseconds(400)) return;
+                last = DateTime.Now;
+                status?.Invoke(total > 0 ? $"Скачиваю обновление: {got / 1048576} из {total / 1048576} МБ" : $"Скачиваю обновление: {got / 1048576} МБ");
+            },
+            log: m => App.Log($"Обновление, {what}: {m}"));
+        if (err != null) throw new IOException(err);
+    }
+
     /// <summary>Скачивает обновление и запускает замену файлов после закрытия браузера.
     /// Если папка программы защищена (Program Files), файлы заменяет PowerShell с правами администратора
     /// (окно разрешения Windows), а браузер после обновления запускается снова уже без этих прав.</summary>
-    public static async Task<PrepareResult> PrepareAsync(UpdateInfo u)
+    public static async Task<PrepareResult> PrepareAsync(UpdateInfo u, Action<string>? status = null)
+    {
+        LastError = "";
+        try { return await PrepareCoreAsync(u, status); }
+        catch (Exception ex)
+        {
+            LastError = ResumableDownload.Describe(ex);
+            App.Log("Обновление не скачано: " + LastError);
+            return PrepareResult.Failed;
+        }
+    }
+
+    static async Task<PrepareResult> PrepareCoreAsync(UpdateInfo u, Action<string>? status)
     {
         var exePath = Environment.ProcessPath;
         if (string.IsNullOrEmpty(exePath)) return PrepareResult.Failed;
@@ -159,22 +227,45 @@ static class UpdateChecker
         Directory.CreateDirectory(work);
         var flag = Path.Combine(work, "done.flag");
         try { File.Delete(flag); } catch { }
-        using var http = NewClient(600);
+        using var http = NewDownloadClient();
         string copy;
         int pid = Environment.ProcessId;
+        var manifest = await FetchManifestAsync(http, u);
+        App.Log($"Обновление до {u.Version}: " + (manifest != null ? "манифест получен, файлы сверяются по контрольным суммам" : "манифеста нет, качаю как раньше"));
 
         if (IsSingleFile)
         {
-            if (u.ExeUrl == null) return PrepareResult.Failed;
             var newExe = Path.Combine(work, "Dymka.exe");
-            await Download(http, u.ExeUrl, newExe);
+            if (manifest?.File("Dymka-update.zip") is { } zipInfo && u.UpdateZipUrl != null)
+            {
+                // сжатый файл: ~90 МБ вместо ~240
+                var zipPath = Path.Combine(work, "Dymka-update.zip");
+                await DownloadChecked(http, u.UpdateZipUrl, zipPath, zipInfo, status, "Dymka-update.zip");
+                status?.Invoke("Распаковываю обновление…");
+                await Task.Run(() =>
+                {
+                    using var z = System.IO.Compression.ZipFile.OpenRead(zipPath);
+                    var entry = z.Entries.FirstOrDefault(e => e.Name.Equals("Dymka.exe", StringComparison.OrdinalIgnoreCase))
+                                ?? throw new IOException("в архиве обновления нет Dymka.exe");
+                    entry.ExtractToFile(newExe, true);
+                });
+                var exeInfo = manifest.File("Dymka.exe");
+                if (exeInfo != null && !UpdateManifest.Sha256Of(newExe).Equals(exeInfo.Sha256, StringComparison.OrdinalIgnoreCase))
+                    throw new IOException("распакованный Dymka.exe не совпал с выпуском по контрольной сумме");
+                try { File.Delete(zipPath); } catch { }
+            }
+            else
+            {
+                if (u.ExeUrl == null) return PrepareResult.Failed;
+                await DownloadChecked(http, u.ExeUrl, newExe, manifest?.File("Dymka.exe"), status, "Dymka.exe");
+            }
             copy = $"Copy-Item -LiteralPath '{Esc(newExe)}' -Destination '{Esc(exePath)}' -Force -ErrorAction Stop";
         }
         else
         {
             if (u.ZipUrl == null) return PrepareResult.Failed;
             var zip = Path.Combine(work, "Dymka-folder.zip");
-            await Download(http, u.ZipUrl, zip);
+            await DownloadChecked(http, u.ZipUrl, zip, manifest?.File("Dymka-folder.zip"), status, "Dymka-folder.zip");
             var unpacked = Path.Combine(work, "unpacked");
             if (Directory.Exists(unpacked)) Directory.Delete(unpacked, true);
             System.IO.Compression.ZipFile.ExtractToDirectory(zip, unpacked);
@@ -239,16 +330,6 @@ static class UpdateChecker
     }
 
     static string Esc(string path) => path.Replace("'", "''");
-
-    static async Task Download(HttpClient http, string url, string path)
-    {
-        using var resp = await http.GetAsync(url, HttpCompletionOption.ResponseHeadersRead);
-        resp.EnsureSuccessStatusCode();
-        await using var fs = File.Create(path + ".part");
-        await resp.Content.CopyToAsync(fs);
-        fs.Close();
-        File.Move(path + ".part", path, true);
-    }
 
     static bool CanWrite(string dir)
     {

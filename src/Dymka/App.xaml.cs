@@ -75,6 +75,29 @@ public partial class App : Application
         Directory.CreateDirectory(dataDir);
         _logPath = Path.Combine(dataDir, "log.txt");
 
+        if (args.Contains("--uninstall"))
+        {
+            var (i, wipe) = Dialogs.Show(null, "Удалить «Дымку»?",
+                "Будут удалены программа, ярлыки и запись в списке приложений Windows. Настройки, пароли, карточки и плитки " +
+                "останутся в папке данных, если не отметить пункт ниже:\n" + dataDir,
+                new[] { "Удалить", "Отмена" }, defaultIndex: 1, checkbox: "Удалить и данные браузера (пароли, карточки, настройки)");
+            if (i == 0) AppInstall.Uninstall(dataDir, wipe);
+            Shutdown();
+            return;
+        }
+        // запущена старая копия (из «Загрузок», Program Files), а установлена такая же или новее - открываем установленную
+        if (selfTest == null && memTest == null && AppInstall.ShouldForward(out var installedVersion))
+        {
+            Log($"Запущена копия {VersionText} из {Environment.ProcessPath}; установлена версия {installedVersion} - открываю её");
+            try
+            {
+                AppInstall.Forward(args.ToArray());
+                Shutdown();
+                return;
+            }
+            catch (Exception ex) { Log("Не удалось открыть установленную копию: " + ex.Message); }
+        }
+
         DispatcherUnhandledException += OnUnhandled;
         // ошибки вне окна (фоновые потоки, обратные вызовы движка) - иначе браузер закрывается молча
         AppDomain.CurrentDomain.UnhandledException += (_, ev) =>
