@@ -247,7 +247,7 @@ static class UpdateChecker
                     using var z = System.IO.Compression.ZipFile.OpenRead(zipPath);
                     var entry = z.Entries.FirstOrDefault(e => e.Name.Equals("Dymka.exe", StringComparison.OrdinalIgnoreCase))
                                 ?? throw new IOException("в архиве обновления нет Dymka.exe");
-                    entry.ExtractToFile(newExe, true);
+                    System.IO.Compression.ZipFileExtensions.ExtractToFile(entry, newExe, true);
                 });
                 var exeInfo = manifest.File("Dymka.exe");
                 if (exeInfo != null && !UpdateManifest.Sha256Of(newExe).Equals(exeInfo.Sha256, StringComparison.OrdinalIgnoreCase))

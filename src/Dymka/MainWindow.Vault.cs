@@ -598,7 +598,7 @@ public partial class MainWindow
 
     void OnPasswordSubmitted(BrowserTab tab, FormTarget target, string user, string pass)
     {
-        if (!_settings.OfferSavePasswords || pass.Length == 0) return;
+        if (!_settings.OfferSavePasswords || pass.Length == 0 || _incognito) return;
         var url = target.Source;
         var host = UrlTools.HostOf(url).ToLowerInvariant();
         if (host.Length == 0 || host == UrlTools.StartHost) return;
@@ -658,7 +658,7 @@ public partial class MainWindow
 
     void OnCardSubmitted(FormTarget target, List<FieldInfo> fields, List<string> values)
     {
-        if (!_settings.OfferSaveCards) return;
+        if (!_settings.OfferSaveCards || _incognito) return;
         var card = FormFill.CardFromForm(fields, values);
         if (card == null) return;
         var v = TheVault;

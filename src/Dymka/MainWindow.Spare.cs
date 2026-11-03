@@ -21,7 +21,7 @@ public partial class MainWindow
     /// <summary>Подготовить заготовку через delay (повторный вызов переносит срок).</summary>
     void ScheduleSpare(TimeSpan delay)
     {
-        if (!_settings.PreloadNewTab) return;
+        if (!_settings.PreloadNewTab || _incognito) return;
         _spareTimer ??= new DispatcherTimer();
         _spareTimer.Stop();
         _spareTimer.Interval = delay;

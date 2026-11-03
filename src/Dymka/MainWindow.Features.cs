@@ -104,6 +104,7 @@ public partial class MainWindow
     void SavePinned()
     {
         _settings.Pinned = Shared.Windows
+            .Where(w => !w._incognito)
             .SelectMany(w => w._tabs)
             .Where(t => t.IsPinned && !t.IsStart && !string.IsNullOrEmpty(t.Url))
             .Select(t => new PinnedSite { Container = t.Container, Url = t.Url, Title = t.Title })
@@ -188,9 +189,9 @@ public partial class MainWindow
 
     // ===================================================================== окна и контейнеры
 
-    public MainWindow OpenWindow(string? url, string? container, SessionWindow? restore = null)
+    public MainWindow OpenWindow(string? url, string? container, SessionWindow? restore = null, bool? incognito = null)
     {
-        var w = new MainWindow(_settings, _dataDir, null, url) { InitialContainer = container, RestoreFrom = restore };
+        var w = new MainWindow(_settings, _dataDir, null, url) { InitialContainer = container, RestoreFrom = restore, Incognito = incognito ?? _incognito };
         var b = WindowState == WindowState.Normal ? new Rect(Left, Top, Width, Height) : RestoreBounds;
         w.WindowStartupLocation = WindowStartupLocation.Manual;
         w.WindowState = WindowState.Normal;
@@ -206,7 +207,7 @@ public partial class MainWindow
     void NewWindow_Click(object sender, RoutedEventArgs e)
     {
         ClosePopups();
-        OpenWindow(null, _container);
+        OpenWindow(null, _incognito ? null : _container, incognito: false);
     }
 
     /// <summary>Переключение контейнера на стартовой странице: пустая вкладка переезжает в выбранный контейнер.</summary>
@@ -233,7 +234,7 @@ public partial class MainWindow
 
     public async Task MoveToContainerAsync(BrowserTab tab, string container)
     {
-        if (tab.Container == container) return;
+        if (tab.Container == container || RefuseInIncognito()) return;
         if (!_tabs.Contains(tab)) return;
         App.Log($"Перенос вкладки {UrlTools.HostOf(tab.Url)}: {tab.Container} -> {container}");
         var nt = new BrowserTab(container) { Url = tab.Url, Title = tab.Title, IsPinned = tab.IsPinned };

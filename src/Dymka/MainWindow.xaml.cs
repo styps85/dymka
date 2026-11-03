@@ -175,6 +175,7 @@ public partial class MainWindow : Window
         {
             try
             {
+                if (_incognito) continue;   // окно инкогнито всегда тёмное
                 if (t.View != null) t.View.DefaultBackgroundColor = ThemeManager.PageBackground;
                 if (t.Core != null) t.Core.Profile.PreferredColorScheme = ThemeManager.WebScheme;
             }
@@ -428,6 +429,7 @@ public partial class MainWindow : Window
             ScheduleSpare(TimeSpan.FromSeconds(2));
             return spare;
         }
+        if (_incognito) container = IncognitoId;   // в окне инкогнито все вкладки - закрытые
         var tab = new BrowserTab(container ?? _container);
         tab.PropertyChanged += OnTabPropertyChanged;
         if (!string.IsNullOrEmpty(url)) tab.Url = url;
@@ -490,17 +492,18 @@ public partial class MainWindow : Window
             var view = new WebView2
             {
                 Visibility = IsShown(tab) ? Visibility.Visible : Visibility.Hidden,
-                DefaultBackgroundColor = ThemeManager.PageBackground,
+                DefaultBackgroundColor = _incognito ? ThemeManager.IncognitoPageBackground : ThemeManager.PageBackground,
             };
             Grid.SetRow(view, 1);
             Grid.SetColumn(view, tab == _splitRight ? 2 : 0);
             view.GotFocus += (_, _) => { if (InSplit(tab) && tab != _active) Activate(tab); };
             tab.View = view;
             ContentHost.Children.Add(view);
-            MarkContainerUsed(tab.Container);
+            if (!_incognito) MarkContainerUsed(tab.Container);
             var env = await AcquireEnvAsync();
             var opts = env.CreateCoreWebView2ControllerOptions();
             opts.ProfileName = tab.Container;
+            if (_incognito) opts.IsInPrivateModeEnabled = true;
             await view.EnsureCoreWebView2Async(env, opts);
             if ((!_tabs.Contains(tab) && tab != _spare) || tab.View != view)
             {
@@ -509,7 +512,7 @@ public partial class MainWindow : Window
                 return;
             }
             ConfigureCore(tab, view.CoreWebView2, env);
-            await EnsureExtensionsAsync(tab.Container, view.CoreWebView2);
+            if (!_incognito) await EnsureExtensionsAsync(tab.Container, view.CoreWebView2);
             if (navigate && !string.IsNullOrEmpty(url))
                 NavigateCore(view.CoreWebView2, url);
             if (tab == _active)
@@ -580,7 +583,7 @@ public partial class MainWindow : Window
             // трекеры блокирует сам браузер по своим спискам: так счётчик на щите честный, а выключение блокировки на сайте
             // действительно выключает её (встроенная «строгая» защита движка срабатывала бы до нас и мимо исключений)
             core.Profile.PreferredTrackingPreventionLevel = CoreWebView2TrackingPreventionLevel.Basic;
-            core.Profile.PreferredColorScheme = ThemeManager.WebScheme;
+            core.Profile.PreferredColorScheme = _incognito ? CoreWebView2PreferredColorScheme.Dark : ThemeManager.WebScheme;
             s.IsPasswordAutosaveEnabled = false;
             s.IsGeneralAutofillEnabled = false;
         }
@@ -717,7 +720,7 @@ public partial class MainWindow : Window
         tab.LastActive = DateTime.Now;
         try { PipOnSwitch(old, tab); } catch (Exception ex) { App.Log("Мини-окно с видео: " + ex.Message); }
 
-        if (tab.Container != _container)
+        if (tab.Container != _container && !_incognito)
         {
             _container = tab.Container;
             _settings.LastContainer = _container;
@@ -854,6 +857,12 @@ public partial class MainWindow : Window
 
     void UpdateContainerUi()
     {
+        if (_incognito)
+        {
+            ContainerDot.Fill = BrushCache.Get("#A88BFA");
+            ContainerName.Text = "Инкогнито";
+            return;
+        }
         var info = AppSettings.ContainerById(_container);
         foreach (var c in _containers) c.IsCurrent = c.Id == _container;
         ContainerDot.Fill = BrushCache.Get(info.Color);
@@ -863,7 +872,7 @@ public partial class MainWindow : Window
     void SwitchContainer(string id)
     {
         ClosePopups();
-        if (id == _container) return;
+        if (id == _container || RefuseInIncognito()) return;
         _container = id;
         _settings.LastContainer = id;
         UpdateContainerUi();
@@ -880,6 +889,7 @@ public partial class MainWindow : Window
 
     void ContainerChip_Click(object sender, RoutedEventArgs e)
     {
+        if (RefuseInIncognito()) return;
         RefreshViews();
         ContainerMenu.IsOpen = true;
     }
@@ -1281,13 +1291,15 @@ public partial class MainWindow : Window
     void SendStartData(BrowserTab owner, CoreWebView2 core)
     {
         var info = AppSettings.ContainerById(owner.Container);
+        bool inc = _incognito;
         var data = new
         {
             type = "data",
+            incognito = inc,
             container = info.Id,
             containerName = info.Name,
-            containers = AppSettings.Containers.Select(c => new { id = c.Id, name = c.Name, color = c.Color }),
-            shortcuts = _settings.ShortcutsFor(owner.Container).Select(s =>
+            containers = inc ? Enumerable.Empty<object>() : AppSettings.Containers.Select(c => (object)new { id = c.Id, name = c.Name, color = c.Color }),
+            shortcuts = (inc ? new List<Shortcut>() : _settings.ShortcutsFor(owner.Container)).Select(s =>
             {
                 var tab = new BrowserTab("x") { Url = s.Url, Title = s.Title };
                 return new
@@ -1302,7 +1314,7 @@ public partial class MainWindow : Window
             sleeping = _tabs.Count(t => t.IsSleeping),
             clearOnExit = _settings.ClearCookiesOnExit,
             engine = _settings.Engine.Name,
-            wallpaper = CurrentWallpaper(),
+            wallpaper = inc ? "" : CurrentWallpaper(),
             wp = WallpaperInfo(),
             clock = _settings.ShowClock,
             stats = _settings.ShowStartStats,
@@ -2110,7 +2122,15 @@ public partial class MainWindow : Window
         _spareTimer?.Stop();
         DisposeSpare();
         SaveWindowBounds();
-        bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
+        if (_incognito)
+        {
+            // окно инкогнито: сеанс не сохраняется, данные закрытого режима движок удаляет сам
+            _closingForGood = true;
+            foreach (var t in _tabs.ToList()) DisposeView(t);
+            App.Log("Окно инкогнито закрыто");
+            return;
+        }
+        bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood && !w._incognito);
         if (!othersOpen && !_cleanupDone)
         {
             // последнее окно: запоминаем вкладки всех окон и больше сеанс не трогаем
@@ -2290,7 +2310,8 @@ public partial class MainWindow : Window
         else if (alt && key == Key.Right) Forward_Click(this, new RoutedEventArgs());
         else if (ctrl && key == Key.J) Downloads_Click(this, new RoutedEventArgs());
         else if (ctrl && !shift && key == Key.P) OpenPrintDialog();
-        else if (ctrl && !shift && key == Key.N) OpenWindow(null, _container);
+        else if (ctrl && !shift && key == Key.N) OpenWindow(null, _incognito ? null : _container, incognito: false);
+        else if (ctrl && shift && key == Key.N) OpenIncognito();
         else if (ctrl && shift && key == Key.A) OpenTabSearch();
         else if (key == Key.Escape && _active?.IsLoading == true && !Address.IsKeyboardFocused)
         {

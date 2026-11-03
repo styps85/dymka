@@ -48,6 +48,15 @@
   .seg .dot { width: 8px; height: 8px; border-radius: 4px; }
   .empty { width: 100%; max-width: 640px; text-align: center; color: var(--muted); font-size: 13px; margin-top: -14px; }
   /* плитки по центру: неполный ряд не прижимается влево */
+  /* окно инкогнито: без плиток, контейнеров и фона - только поиск и пояснение */
+  body.incognito { background: #18151F !important; background-image: none !important; color: #E6EAF0; }
+  body.incognito #seg, body.incognito #grid, body.incognito #empty, body.incognito .stats, body.incognito .stats-btn,
+  body.incognito .ntp-btn, body.incognito .ntp { display: none !important; }
+  .incog { display: none; max-width: 520px; text-align: center; color: #C2C9D4; font-size: 14.5px; line-height: 1.55; }
+  body.incognito .incog { display: block; }
+  .incog svg { display: block; margin: 0 auto 12px; }
+  .incog b { display: block; color: #E6EAF0; font-size: 20px; margin-bottom: 8px; }
+  body.incognito .time, body.incognito .date { color: #E6EAF0; }
   .grid { width: 100%; max-width: 640px; display: flex; flex-wrap: wrap; justify-content: center; gap: 18px 12px; }
   .tile { width: 96px; flex: none; position: relative; display: flex; flex-direction: column; align-items: center; gap: 10px; text-decoration: none; color: var(--ink2); font-size: 12px; font-weight: 500; border-radius: 16px; padding: 6px 4px; }
   .tile .ic {
@@ -204,6 +213,12 @@
     <div class="sugg" id="sugg" hidden></div>
   </form>
 
+  <div class="incog" id="incog">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#A88BFA" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 11.5H21M6.5 11.5L8.2 5.5H15.8L17.5 11.5"/><circle cx="8.5" cy="17" r="3"/><circle cx="15.5" cy="17" r="3"/><path d="M11.5 16.4Q12 15.9 12.5 16.4"/></svg>
+    <b>Окно инкогнито</b>
+    История, cookie, кэш и данные сайтов этого окна хранятся только в памяти и удаляются, когда вы закрываете последнее окно инкогнито.
+    Вкладки не восстанавливаются при следующем запуске. Скачанные файлы остаются в папке загрузок.
+  </div>
   <div class="seg" id="seg" role="tablist" aria-label="Контейнер"></div>
   <div class="grid" id="grid"></div>
   <div class="empty" id="empty" hidden></div>
@@ -326,6 +341,7 @@
   }
 
   function render(d) {
+    document.body.classList.toggle('incognito', !!d.incognito);
     renderNtp(d);
     if (d.wallpaper) {
       document.body.classList.add('wp');

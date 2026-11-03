@@ -97,7 +97,7 @@ public partial class MainWindow
     {
         foreach (var list in _settings.ShortcutsByContainer.Values)
             foreach (var s in list) yield return (s.Title, s.Url);
-        foreach (var w in Shared.Windows)
+        foreach (var w in Shared.Windows.Where(w => !w._incognito || w == this))
             foreach (var t in w._tabs.Where(t => !t.IsStart && t.Url.StartsWith("http")))
                 yield return (t.Title, t.Url);
         var v = Shared.Vault;

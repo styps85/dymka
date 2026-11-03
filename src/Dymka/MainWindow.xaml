@@ -310,7 +310,17 @@
                 <TextBlock Text="Дымка" FontSize="15" FontWeight="Bold" Margin="10,0,0,0" VerticalAlignment="Center"/>
               </StackPanel>
             </Button>
-            <Border Background="{DynamicResource Segment}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
+            <Border x:Name="IncognitoBadge" Background="{DynamicResource AccentSoft}" CornerRadius="12" Padding="12,8" Margin="0,8,0,0"
+                    Visibility="Collapsed" ToolTip="История, cookie и данные сайтов этого окна удаляются, когда вы его закрываете">
+              <StackPanel Orientation="Horizontal">
+                <local:Glyph Data="{StaticResource IcIncognito}" Size="18" Foreground="{DynamicResource Accent}" Margin="0,0,10,0" VerticalAlignment="Center"/>
+                <StackPanel>
+                  <TextBlock Text="Инкогнито" FontWeight="Bold" Foreground="{DynamicResource Ink}"/>
+                  <TextBlock Text="ничего не сохраняется" FontSize="11.5" Foreground="{DynamicResource Muted}"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+            <Border x:Name="ContainerSegBox" Background="{DynamicResource Segment}" CornerRadius="12" Padding="4" Margin="0,8,0,0">
               <ItemsControl x:Name="ContainerSeg" ItemTemplate="{StaticResource ContainerSegTemplate}" Focusable="False">
                 <ItemsControl.ItemsPanel>
                   <ItemsPanelTemplate>
@@ -626,6 +636,11 @@
               <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+N" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
                 <local:Glyph Data="{StaticResource IcNewWindow}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
                 <TextBlock Text="Новое окно" VerticalAlignment="Center"/></DockPanel>
+            </Button>
+            <Button Style="{StaticResource MenuRow}" Click="Incognito_Click">
+              <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+N" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>
+                <local:Glyph Data="{StaticResource IcIncognito}" Size="16" Foreground="{DynamicResource Ink2}" Margin="0,0,12,0"/>
+                <TextBlock Text="Новое окно инкогнито" VerticalAlignment="Center"/></DockPanel>
             </Button>
             <Button Style="{StaticResource MenuRow}" Click="ReopenClosed_Click" x:Name="ReopenItem">
               <DockPanel><TextBlock DockPanel.Dock="Right" Text="Ctrl+Shift+T" Foreground="{DynamicResource Muted}" FontSize="12" VerticalAlignment="Center"/>

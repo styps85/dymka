@@ -1512,6 +1512,61 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
     }
 
+    /// <summary>Окно инкогнито: закрытый режим движка, свои cookie, не попадает в сеанс, данные исчезают после закрытия.</summary>
+    async Task TestIncognitoAsync(string testDir)
+    {
+        try
+        {
+            File.WriteAllText(Path.Combine(testDir, "incog.html"), "<!doctype html><meta charset=\"utf-8\"><title>Проверка инкогнито</title><h1>Страница</h1>");
+            const string Url = "https://trackers.dymka-test.org/incog.html";
+            var iw = _w.OpenIncognito();
+            Check(await WaitFor(() => iw.IsLoaded && iw.ActiveTab?.Core != null && !iw.ActiveTab.IsLoading, 30), "открылось окно инкогнито");
+            var it = iw.ActiveTab!;
+            Check(it.Core!.Profile.IsInPrivateModeEnabled && it.Container == MainWindow.IncognitoId, "вкладки окна открываются в закрытом режиме движка");
+            Check(await PollScript(it.Core, "document.body.classList.contains('incognito')", v => v == "true", 8) == "true",
+                "новая вкладка инкогнито - с пояснением, без плиток и контейнеров");
+            _w.Topmost = false;
+            iw.Topmost = true;
+            iw.Activate();
+            await Task.Delay(900);
+            Capture(iw, "56-incognito");
+            var nt2 = await iw.NewTabAsync(null, activate: true, container: "bank");
+            Check(nt2.Container == MainWindow.IncognitoId, "новая вкладка в окне инкогнито - тоже инкогнито (контейнер не выбирается)");
+            iw.CloseTab(nt2, remember: false);
+            iw.Navigate(it, Url);
+            await WaitFor(() => it.Url.Contains("incog.html") && !it.IsLoading, 20);
+            await it.Core.ExecuteScriptAsync("document.cookie='inc=1; path=/; max-age=3600'; localStorage.setItem('inc','1')");
+            var exts = await it.Core.Profile.GetBrowserExtensionsAsync();
+            Line("ИНФО расширений в окне инкогнито: " + exts.Count);
+            iw.Topmost = false;
+            _w.Topmost = true;
+
+            var nt = await _w.NewTabAsync(Url, activate: true, container: "work");
+            await WaitFor(() => nt.Core != null && nt.Url.Contains("incog.html") && !nt.IsLoading, 20);
+            Check(!(await nt.Core!.ExecuteScriptAsync("document.cookie")).Contains("inc=1"), "cookie из окна инкогнито не видна в обычном окне");
+            _w.CloseTab(nt, remember: false);
+            _w.SaveSessionNow();
+            Check(!_w.Settings.Session.SelectMany(w => w.Tabs).Any(t => t.Url.Contains("incog.html")) && _w.Settings.LastContainer != MainWindow.IncognitoId,
+                "вкладки инкогнито не попадают в сохранённый сеанс");
+
+            iw.CloseByAppForTest();
+            Check(await WaitFor(() => !Shared.Windows.Contains(iw), 10), "окно инкогнито закрылось, обычное работает");
+            await Task.Delay(3000);
+            var iw2 = _w.OpenIncognito();
+            await WaitFor(() => iw2.ActiveTab?.Core != null && !iw2.ActiveTab.IsLoading, 30);
+            var it2 = iw2.ActiveTab!;
+            iw2.Navigate(it2, Url);
+            await WaitFor(() => it2.Url.Contains("incog.html") && !it2.IsLoading, 20);
+            var left = await it2.Core!.ExecuteScriptAsync("document.cookie + '|' + localStorage.getItem('inc')");
+            Check(!left.Contains("inc=1") && left.Contains("|null"), "после закрытия окна инкогнито его cookie и данные сайтов удалены: " + left);
+            iw2.CloseByAppForTest();
+            await WaitFor(() => !Shared.Windows.Contains(iw2), 10);
+            _w.Activate();
+            await Task.Delay(500);
+        }
+        catch (Exception ex) { Check(false, "окно инкогнито: " + ex.Message); }
+    }
+
     /// <summary>Установка в папку пользователя: файл, ярлыки, запись в Windows, переадресация старых копий, удаление.</summary>
     async Task TestInstallAsync()
     {
@@ -1760,6 +1815,7 @@ sealed class SelfTest
             await TestFullscreenAsync();
             await TestNewTabSpeedAsync();
             await TestInstallAsync();
+            await TestIncognitoAsync(testDir);
             _w.ActivateForTest(probe);
             await Task.Delay(300);
 

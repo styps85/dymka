@@ -82,6 +82,26 @@ static class ThemeManager
         _ = changed;
     }
 
+    /// <summary>Цвета окна инкогнито: всегда тёмные, с фиолетовым акцентом - чтобы окно не спутать с обычным.</summary>
+    public static ResourceDictionary IncognitoPalette()
+    {
+        var accent = new Dictionary<string, string>
+        {
+            ["Accent"] = "#A88BFA", ["AccentSoft"] = "#2E2645", ["AccentSoft2"] = "#3A3058",
+            ["Strip"] = "#120F18", ["Ground"] = "#18151F", ["Segment"] = "#201B2A", ["TabHover"] = "#28222F",
+        };
+        var d = new ResourceDictionary();
+        foreach (var (key, _, darkHex) in Palette)
+        {
+            var b = new SolidColorBrush((Color)ColorConverter.ConvertFromString(accent.TryGetValue(key, out var a) ? a : darkHex)!);
+            b.Freeze();
+            d[key] = b;
+        }
+        return d;
+    }
+
+    public static System.Drawing.Color IncognitoPageBackground => System.Drawing.Color.FromArgb(0x18, 0x15, 0x1F);
+
     /// <summary>В Windows выбран тёмный режим для приложений.</summary>
     public static bool SystemIsDark()
     {

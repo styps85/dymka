@@ -188,7 +188,7 @@ public partial class MainWindow
             return;
         }
         _settings.Session = Shared.Windows
-            .Where(w => w._sessionReady && !w._closingForGood)
+            .Where(w => w._sessionReady && !w._closingForGood && !w._incognito)
             .Select(w => w.CaptureSession())
             .Where(s => s.Tabs.Count > 0)
             .ToList();
@@ -357,7 +357,8 @@ public partial class MainWindow
 
     List<TabSearchItem> SearchTabs(string query)
     {
-        var windows = Shared.Windows.Where(w => !w._closingForGood).ToList();
+        // из обычного окна вкладки инкогнито не видны
+        var windows = Shared.Windows.Where(w => !w._closingForGood && (!w._incognito || w == this)).ToList();
         var all = windows.SelectMany(w => w._tabs.Select(t => (w, t))).ToList();
         var byId = all.ToDictionary(x => x.t.Id);
         var found = TabCleanup.Search(all.Select(x => x.w.InfoOf(x.t)), query);
