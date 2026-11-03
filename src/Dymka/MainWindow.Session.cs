@@ -71,6 +71,7 @@ public partial class MainWindow
     async Task RecoverEngineAsync(CoreWebView2Environment dead)
     {
         App.Log("Движок упал - перезапускаю, вкладок в окне: " + _tabs.Count);
+        DisposeSpare();
         ClosePopups();
         _printWindow?.Close();
         if (_splitLeft != null) EndSplit();

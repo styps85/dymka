@@ -36,13 +36,15 @@ public partial class ExtensionsWindow : Window
         InstalledList.Children.Clear();
         InstalledHint.Text = _s.Extensions.Count == 0
             ? "Пока ни одного. Добавьте нужные из списка ниже."
-            : "Выключенное расширение остаётся в «Дымке», но не работает.";
+            : "Отметьте контейнеры, где расширение нужно: в остальных оно не загружается, и новые вкладки там открываются быстрее. " +
+              "Выключенное расширение остаётся в «Дымке», но не работает нигде.";
         foreach (var e in _s.Extensions.ToList())
         {
             var entry = e;
             var icon = FindIcon(Path.Combine(_dir, entry.Id));
             var toggle = new CheckBox { Style = (Style)FindResource("Switch"), IsChecked = entry.Enabled, VerticalAlignment = VerticalAlignment.Center };
-            toggle.Click += (_, _) => { entry.Enabled = toggle.IsChecked == true; Changed = true; };
+            var places = PlacesFor(entry);
+            toggle.Click += (_, _) => { entry.Enabled = toggle.IsChecked == true; Changed = true; places.IsEnabled = entry.Enabled; };
             var remove = new Button
             {
                 Content = "Удалить", Style = (Style)FindResource("SecondaryButton"), Height = 32, Padding = new Thickness(12, 0, 12, 0),
@@ -55,7 +57,9 @@ public partial class ExtensionsWindow : Window
                 Changed = true;
                 Render();
             };
-            InstalledList.Children.Add(Row(icon, entry.Name, $"{entry.Source} · версия {entry.Version}", null, remove, toggle));
+            bool older = ExtensionEntry.HasNewerCopy(entry, _s.Extensions);
+            InstalledList.Children.Add(Row(icon, entry.Name, $"{entry.Source} · версия {entry.Version}" +
+                (older ? " · есть более новая версия этого расширения, эту копию можно удалить" : ""), null, remove, toggle, extra: places));
         }
 
         FoundList.Children.Clear();
@@ -98,7 +102,41 @@ public partial class ExtensionsWindow : Window
         }
     }
 
-    UIElement Row(ImageSource? icon, string name, string meta, string? desc, UIElement action, UIElement? toggle, bool highlight = false)
+    /// <summary>«Работает в:» и отметки контейнеров. Хотя бы один контейнер остаётся отмеченным.</summary>
+    WrapPanel PlacesFor(ExtensionEntry entry)
+    {
+        var wrap = new WrapPanel { Margin = new Thickness(0, 7, 0, 0), IsEnabled = entry.Enabled };
+        wrap.Children.Add(new TextBlock { Text = "Работает в:", FontSize = 12, Foreground = (Brush)FindResource("Muted"), VerticalAlignment = VerticalAlignment.Center, Margin = new Thickness(0, 0, 8, 0) });
+        var boxes = new List<(CheckBox box, string id)>();
+        foreach (var c in AppSettings.Containers)
+        {
+            var label = new StackPanel { Orientation = Orientation.Horizontal };
+            label.Children.Add(new System.Windows.Shapes.Ellipse { Width = 8, Height = 8, Fill = BrushCache.Get(c.Color), Margin = new Thickness(0, 0, 6, 0), VerticalAlignment = VerticalAlignment.Center });
+            label.Children.Add(new TextBlock { Text = c.Name, VerticalAlignment = VerticalAlignment.Center });
+            var box = new CheckBox { Style = (Style)FindResource("PlaceChip"), Content = label, IsChecked = entry.Containers == null || entry.Containers.Contains(c.Id), Tag = c.Id };
+            boxes.Add((box, c.Id));
+            box.Click += (_, _) =>
+            {
+                var on = boxes.Where(b => b.box.IsChecked == true).Select(b => b.id).ToList();
+                if (on.Count == 0) { box.IsChecked = true; return; }   // совсем без контейнеров - это просто «выключено»
+                entry.SetContainers(on);
+                Changed = true;
+            };
+            wrap.Children.Add(box);
+        }
+        return wrap;
+    }
+
+    /// <summary>Для самопроверки: оставить расширение только в указанных контейнерах.</summary>
+    public void SetPlacesForTest(string id, params string[] containers)
+    {
+        var e = _s.Extensions.First(x => x.Id == id);
+        e.SetContainers(containers);
+        Changed = true;
+        Render();
+    }
+
+    UIElement Row(ImageSource? icon, string name, string meta, string? desc, UIElement action, UIElement? toggle, bool highlight = false, UIElement? extra = null)
     {
         var grid = new Grid { Margin = new Thickness(0, 6, 0, 6) };
         grid.ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(48) });
@@ -131,6 +169,7 @@ public partial class ExtensionsWindow : Window
                 Text = desc.Length > 160 ? desc[..159] + "…" : desc, FontSize = 12.5, Foreground = (Brush)FindResource("Ink2"),
                 Margin = new Thickness(0, 4, 0, 0), TextWrapping = TextWrapping.Wrap,
             });
+        if (extra != null) text.Children.Add(extra);
         Grid.SetColumn(text, 1);
         grid.Children.Add(text);
 

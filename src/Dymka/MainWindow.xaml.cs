@@ -181,6 +181,8 @@ public partial class MainWindow : Window
             catch (Exception ex) { App.Log("Оформление страницы: " + ex.Message); }
         }
         try { UpdateToolbar(); ApplyMediaStyle(); } catch (Exception ex) { App.Log("Оформление: " + ex.Message); }
+        // заготовка новой вкладки сделана в прежнем оформлении - готовим заново
+        if (_spare != null) { DisposeSpare(); ScheduleSpare(TimeSpan.FromSeconds(2)); }
     }
 
     // ===================================================================== запуск
@@ -256,6 +258,8 @@ public partial class MainWindow : Window
         _sleepTimer.Start();
         _memTimer.Start();
         UpdateMemory();
+        ScheduleSpare(TimeSpan.FromSeconds(4));
+        Activated += (_, _) => { if (_spare == null) ScheduleSpare(TimeSpan.FromSeconds(2)); };
 
         if (first && _settings.AutoUpdateLists && _selfTestDir == null && DateTime.Now - _settings.LastListUpdate > TimeSpan.FromDays(7))
             _ = UpdateListsAsync();
@@ -363,6 +367,20 @@ public partial class MainWindow : Window
 
     public async Task<BrowserTab> NewTabAsync(string? url, bool activate, string? container = null)
     {
+        if (string.IsNullOrEmpty(url) && activate && TakeSpare(container ?? _container) is { } spare)
+        {
+            // готовая заготовка: показывается сразу, следующая готовится в фоне
+            var sw0 = Stopwatch.StartNew();
+            spare.PropertyChanged += OnTabPropertyChanged;
+            int si = _active != null ? _tabs.IndexOf(_active) : -1;
+            int sp = Math.Max(si + 1, _tabs.Count(t => t.IsPinned));
+            if (si >= 0 && sp < _tabs.Count) _tabs.Insert(sp, spare); else _tabs.Add(spare);
+            Activate(spare);
+            if (spare == _active) Address.Focus();
+            LastNewTabSpeed = (spare.Container, 0, sw0.ElapsedMilliseconds, false, true);
+            ScheduleSpare(TimeSpan.FromSeconds(2));
+            return spare;
+        }
         var tab = new BrowserTab(container ?? _container);
         tab.PropertyChanged += OnTabPropertyChanged;
         if (!string.IsNullOrEmpty(url)) tab.Url = url;
@@ -378,6 +396,7 @@ public partial class MainWindow : Window
         else RefreshViews();
         await EnsureViewAsync(tab, string.IsNullOrEmpty(url) ? UrlTools.StartUrl : url, navigate: true);
         WatchNewTabSpeed(tab, sw, firstInContainer);
+        ScheduleSpare(TimeSpan.FromSeconds(3));
         if (activate && tab.IsStart && tab == _active)
         {
             Address.Focus();
@@ -386,7 +405,7 @@ public partial class MainWindow : Window
     }
 
     /// <summary>Сколько открывалась последняя новая вкладка: (контейнер, движок мс, всего мс, первая в контейнере).</summary>
-    public (string container, long engineMs, long totalMs, bool first)? LastNewTabSpeed { get; set; }
+    public (string container, long engineMs, long totalMs, bool first, bool spare)? LastNewTabSpeed { get; set; }
 
     /// <summary>Замер: сколько создаётся страница движка и сколько грузится сама страница. Медленные открытия - в журнал.</summary>
     void WatchNewTabSpeed(BrowserTab tab, Stopwatch sw, bool first)
@@ -398,7 +417,7 @@ public partial class MainWindow : Window
         {
             core.NavigationCompleted -= Done;
             long total = sw.ElapsedMilliseconds;
-            LastNewTabSpeed = (tab.Container, engine, total, first);
+            LastNewTabSpeed = (tab.Container, engine, total, first, false);
             if (total >= 1000)
                 App.Log($"Новая вкладка [{tab.Container}] открывалась {total / 1000.0:0.0} с: движок {engine / 1000.0:0.0} с, страница {(total - engine) / 1000.0:0.0} с" +
                         (first ? " (первая в контейнере)" : "") + (tab.IsStart ? "" : $", {UrlTools.HostOf(tab.Url)}"));
@@ -436,7 +455,7 @@ public partial class MainWindow : Window
             var opts = env.CreateCoreWebView2ControllerOptions();
             opts.ProfileName = tab.Container;
             await view.EnsureCoreWebView2Async(env, opts);
-            if (!_tabs.Contains(tab) || tab.View != view)
+            if ((!_tabs.Contains(tab) && tab != _spare) || tab.View != view)
             {
                 ContentHost.Children.Remove(view);
                 view.Dispose();
@@ -656,6 +675,7 @@ public partial class MainWindow : Window
             _container = tab.Container;
             _settings.LastContainer = _container;
             UpdateContainerUi();
+            ScheduleSpare(TimeSpan.FromSeconds(2));   // заготовка - для нового контейнера
         }
 
         if (tab.View == null)
@@ -1764,6 +1784,8 @@ public partial class MainWindow : Window
             foreach (var t in _tabs)
                 try { if (t.Core != null) t.Core.Settings.IsReputationCheckingRequired = _settings.UseSmartScreen(t.Container); } catch { }
             if (w.UpdateListsRequested) _ = UpdateListsAsync();
+            if (!_settings.PreloadNewTab) foreach (var win in Shared.Windows) win.DisposeSpare();
+            else ScheduleSpare(TimeSpan.FromSeconds(1));
             if (w.VideoTranslationChanged)
             {
                 _ = ResyncExtensionsAsync();
@@ -2034,6 +2056,8 @@ public partial class MainWindow : Window
             return;
         }
         App.Log("Закрытие окна" + (_userClose ? " пользователем" : _closeByApp ? " браузером" : App.SessionEnding ? " (выход из Windows)" : ""));
+        _spareTimer?.Stop();
+        DisposeSpare();
         SaveWindowBounds();
         bool othersOpen = Shared.Windows.Any(w => w != this && w.IsLoaded && !w._closingForGood);
         if (!othersOpen && !_cleanupDone)

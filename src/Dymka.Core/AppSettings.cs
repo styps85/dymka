@@ -23,6 +23,22 @@ public sealed class ExtensionEntry
     public string Version { get; set; } = "";
     public string Source { get; set; } = "";
     public bool Enabled { get; set; } = true;
+    /// <summary>Контейнеры, где расширение работает. null - во всех.</summary>
+    public List<string>? Containers { get; set; }
+
+    /// <summary>Работает ли расширение в контейнере (включено и разрешено там).</summary>
+    public bool WorksIn(string container) => Enabled && (Containers == null || Containers.Contains(container));
+
+    /// <summary>Задать контейнеры. Все контейнеры - null (так новые контейнеры тоже получат расширение).</summary>
+    public void SetContainers(IEnumerable<string> ids)
+    {
+        var list = ids.Distinct().ToList();
+        Containers = AppSettings.Containers.All(c => list.Contains(c.Id)) ? null : list;
+    }
+
+    /// <summary>Есть ли среди расширений то же самое более новой версии (старую копию можно удалить).</summary>
+    public static bool HasNewerCopy(ExtensionEntry e, IEnumerable<ExtensionEntry> all) =>
+        all.Any(o => o != e && o.Name == e.Name && System.Version.TryParse(o.Version, out var ov) && System.Version.TryParse(e.Version, out var ev) && ov > ev);
 }
 
 public sealed record ContainerInfo(string Id, string Name, string Color);
@@ -195,6 +211,8 @@ public sealed class AppSettings
 
     public List<PinnedSite> Pinned { get; set; } = new();
     public List<ExtensionEntry> Extensions { get; set; } = new();
+    /// <summary>Держать готовую скрытую новую вкладку текущего контейнера: она открывается мгновенно (около 30-50 МБ памяти).</summary>
+    public bool PreloadNewTab { get; set; } = true;
     /// <summary>Расширения, которые поставила сама «Дымка» (удалять можно только их, а не встроенные компоненты движка).</summary>
     public List<string> ManagedExtensionIds { get; set; } = new();
 

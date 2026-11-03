@@ -96,6 +96,8 @@ public partial class MainWindow
         foreach (var win in Shared.Windows.ToList())
             foreach (var t in win._tabs.Where(t => t.IsStart && t.Core != null).ToList())
                 try { win.SendStartData(t, t.Core!); } catch { }
+        foreach (var win in Shared.Windows.ToList())
+            if (win._spare?.Core is { } sc) try { win.SendStartData(win._spare, sc); } catch { }
     }
 
     /// <summary>Команда из меню новой вкладки.</summary>

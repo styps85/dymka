@@ -352,6 +352,29 @@ Eq(fill2[0].Value, "г. Екатеринбург, ул. Мира, 2", "для п
     Eq(FillFilter.Matches("ivan", FillFilter.SearchText(new PasswordEntry { Username = "ivanov@mail.ru", Host = "mail.ru" })), true, "фильтр: логин");
 }
 
+// --- расширения по контейнерам
+{
+    var e = new ExtensionEntry { Id = "a", Name = "Рутокен", Version = "1.0.5.0" };
+    Eq(e.WorksIn("bank"), true, "расширение по умолчанию работает во всех контейнерах");
+    e.SetContainers(new[] { "work" });
+    Eq(e.WorksIn("work") && !e.WorksIn("bank") && !e.WorksIn("personal"), true, "расширение только в «Работе»");
+    e.SetContainers(AppSettings.Containers.Select(c => c.Id));
+    Eq(e.Containers == null, true, "все контейнеры - без списка");
+    e.Enabled = false;
+    Eq(e.WorksIn("work"), false, "выключенное не работает нигде");
+    var newer = new ExtensionEntry { Id = "b", Name = "Рутокен", Version = "1.1.0.0" };
+    Eq(ExtensionEntry.HasNewerCopy(e, new[] { e, newer }), true, "старая копия расширения распознаётся");
+    Eq(ExtensionEntry.HasNewerCopy(newer, new[] { e, newer }), false, "новая копия - не дубль");
+    var ftmp = Path.Combine(Path.GetTempPath(), "dymka-ext-" + Guid.NewGuid() + ".json");
+    var es = AppSettings.Load(ftmp);
+    es.Extensions.Add(new ExtensionEntry { Id = "x", Containers = new() { "work" } });
+    es.Save();
+    var back = AppSettings.Load(ftmp);
+    File.Delete(ftmp);
+    Eq(back.Extensions[0].Containers?.SingleOrDefault(), "work", "контейнеры расширения сохраняются в настройках");
+    Eq(back.PreloadNewTab, true, "заготовка новой вкладки включена по умолчанию");
+}
+
 // --- поля поиска и подсказки при вводе
 Eq(K("", ph: "Искать в Яндекс или ввести адрес"), FieldKind.None, "поле поиска стартовой страницы - не адрес");
 Eq(K("Поиск по сайту"), FieldKind.None, "поле «Поиск» не анкета");

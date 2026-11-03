@@ -130,6 +130,14 @@
             <WrapPanel x:Name="SleepPanel"/>
             <TextBlock Text="Спящая вкладка не занимает память и загружается заново, когда вы к ней возвращаетесь. Вкладки, где играет звук, не засыпают."
                        Style="{StaticResource Hint}"/>
+            <DockPanel Margin="0,14,0,0">
+              <CheckBox x:Name="PreloadTabBox" DockPanel.Dock="Right" Style="{StaticResource Switch}" VerticalAlignment="Center"/>
+              <StackPanel Margin="0,0,16,0">
+                <TextBlock Text="Готовить новую вкладку заранее"/>
+                <TextBlock Style="{StaticResource Hint}"
+                           Text="Новая вкладка открывается мгновенно: браузер держит одну готовую скрытую стартовую страницу текущего контейнера. Занимает около 30-50 МБ памяти."/>
+              </StackPanel>
+            </DockPanel>
           </StackPanel>
         </Border>
 

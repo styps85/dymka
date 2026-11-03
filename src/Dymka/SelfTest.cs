@@ -174,6 +174,38 @@ sealed class SelfTest
             string nm = await PollScript(core, "document.documentElement.getAttribute('data-nm')", v => v != "null" && v.Length > 4, 20);
             Line("ИНФО связь расширения с программой на компьютере (native messaging): " + nm);
             Check(nm.Contains("pong"), "native messaging работает - плагины подписи смогут связаться со своей программой");
+
+            // расширение только в «Работе»: в «Личном» оно стоит, но выключено и на страницы не встраивается
+            var extDir = Path.Combine(_w.DataDir, "extensions", TestExtensionId);
+            Directory.CreateDirectory(extDir);
+            foreach (var f in Directory.GetFiles(ext)) File.Copy(f, Path.Combine(extDir, Path.GetFileName(f)), true);
+            var entry = new Dymka.Core.ExtensionEntry { Id = TestExtensionId, Name = "Dymka NM test", Version = "1.0", Source = "проверка" };
+            _w.Settings.Extensions.Add(entry);
+            var pt = await _w.NewTabAsync("https://trackers.dymka-test.org/nm.html", activate: true, container: "personal");
+            await WaitFor(() => pt.Core != null && pt.Url.Contains("nm.html") && !pt.IsLoading, 20);
+            var ewin = new ExtensionsWindow(_w.Settings, Path.Combine(_w.DataDir, "extensions")) { Owner = _w, Topmost = true };
+            ewin.Show();
+            ewin.SetPlacesForTest(TestExtensionId, "work");
+            await Task.Delay(1500);
+            Capture(ewin, "16b-extensions-places");
+            ewin.Close();
+            await _w.ResyncExtensionsAsync();
+            var pExts = await pt.Core!.Profile.GetBrowserExtensionsAsync();
+            var wExts = await core.Profile.GetBrowserExtensionsAsync();
+            Line("ИНФО расширение по контейнерам: Личное - " + string.Join(", ", pExts.Where(x => x.Id == TestExtensionId).Select(x => x.IsEnabled ? "вкл" : "выкл")) +
+                 "; Работа - " + string.Join(", ", wExts.Where(x => x.Id == TestExtensionId).Select(x => x.IsEnabled ? "вкл" : "выкл")));
+            Check(pExts.Any(x => x.Id == TestExtensionId && !x.IsEnabled) && wExts.Any(x => x.Id == TestExtensionId && x.IsEnabled),
+                "расширение только в «Работе»: там включено, в «Личном» выключено");
+            pt.Core.Reload();
+            await Task.Delay(500);
+            await WaitFor(() => !pt.IsLoading, 15);
+            await Task.Delay(1500);
+            Check(await pt.Core.ExecuteScriptAsync("document.documentElement.getAttribute('data-ext')") == "null",
+                "в контейнере, где расширение выключено, оно на страницу не встраивается");
+            entry.Containers = null;
+            await _w.ResyncExtensionsAsync();
+            _w.CloseTab(pt, remember: false);
+            _w.ActivateForTest(probe);
         }
         catch (Exception ex)
         {
@@ -1480,26 +1512,35 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
     }
 
-    /// <summary>Сколько открывается новая вкладка в разных контейнерах (первая и следующие) - для сведения.</summary>
+    /// <summary>Сколько открывается новая вкладка: первая в контейнере, обычная и из заготовки.</summary>
     async Task TestNewTabSpeedAsync()
     {
         try
         {
             var opened = new List<BrowserTab>();
-            foreach (var c in new[] { "bank", "bank", "bank", "personal", "personal", "work" })
+            var spareTimes = new List<long>();
+            foreach (var c in new[] { "bank", "bank", "bank", "personal", "personal" })
             {
+                // перед повтором в том же контейнере ждём, пока браузер приготовит заготовку
+                bool expectSpare = _w.ActiveTab?.Container == c && await WaitFor(() => _w.SpareReadyForTest(c), 10);
                 _w.LastNewTabSpeed = null;
                 var t = await _w.NewTabAsync(null, activate: true, container: c);
                 opened.Add(t);
                 await WaitFor(() => _w.LastNewTabSpeed != null, 15);
-                await Task.Delay(300);
+                await WaitFor(() => t.Core != null && !t.IsLoading, 10);
                 if (_w.LastNewTabSpeed is { } sp)
-                    Line($"ИНФО новая вкладка [{sp.container}]{(sp.first ? " первая" : "")}: движок {sp.engineMs} мс, всего {sp.totalMs} мс");
-                await Task.Delay(400);
+                {
+                    Line($"ИНФО новая вкладка [{sp.container}]{(sp.spare ? " из заготовки" : sp.first ? " первая" : "")}: движок {sp.engineMs} мс, всего {sp.totalMs} мс");
+                    if (sp.spare) spareTimes.Add(sp.totalMs);
+                    if (expectSpare) Check(sp.spare, $"новая вкладка [{c}] взята из готовой заготовки");
+                }
+                await Task.Delay(300);
             }
+            Check(spareTimes.Count >= 2 && spareTimes.All(x => x < 150), "вкладка из заготовки открывается мгновенно: " + string.Join(", ", spareTimes.Select(x => x + " мс")));
+            Check(opened.All(t => t.IsStart && t.Core != null), "все новые вкладки - рабочие стартовые страницы");
+            Capture(_w, "55-spare-tab");
             foreach (var t in opened) _w.CloseTab(t, remember: false);
             await Task.Delay(500);
-            Check(true, "замер открытия новых вкладок выполнен");
         }
         catch (Exception ex) { Check(false, "замер новых вкладок: " + ex.Message); }
     }

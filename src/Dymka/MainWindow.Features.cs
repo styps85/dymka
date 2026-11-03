@@ -499,9 +499,10 @@ public partial class MainWindow
                     _settings.ManagedExtensionIds.Remove(ext.Id);
                     _settings.Save();
                 }
-                else if (ext.IsEnabled != entry.Enabled)
+                else if (ext.IsEnabled != entry.WorksIn(container))
                 {
-                    await ext.EnableAsync(entry.Enabled);
+                    // расширение может работать не во всех контейнерах: в остальных оно стоит, но выключено
+                    await ext.EnableAsync(entry.WorksIn(container));
                 }
             }
             catch (Exception ex)
@@ -520,7 +521,7 @@ public partial class MainWindow
             {
                 var added = await core.Profile.AddBrowserExtensionAsync(folder);
                 if (!_settings.ManagedExtensionIds.Contains(added.Id)) { _settings.ManagedExtensionIds.Add(added.Id); _settings.Save(); }
-                if (!entry.Enabled) await added.EnableAsync(false);
+                if (!entry.WorksIn(container)) await added.EnableAsync(false);
             }
             catch (Exception ex)
             {
@@ -582,6 +583,7 @@ public partial class MainWindow
     public async Task ResyncExtensionsAsync()
     {
         Shared.ExtensionsSynced.Clear();
+        foreach (var w in Shared.Windows) { w.DisposeSpare(); w.ScheduleSpare(TimeSpan.FromSeconds(3)); }
         foreach (var w in Shared.Windows)
             foreach (var group in w._tabs.Where(t => t.Core != null).GroupBy(t => t.Container))
                 await w.EnsureExtensionsAsync(group.Key, group.First().Core!);
