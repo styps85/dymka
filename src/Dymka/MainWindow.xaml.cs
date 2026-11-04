@@ -1684,8 +1684,28 @@ public partial class MainWindow : Window
         LayoutItemText.Text = side ? "Вкладки сверху" : "Вкладки сбоку";
         LayoutGlyph.Data = (Geometry)FindResource(side ? "IcLayoutTop" : "IcLayoutSide");
         ReopenItem.IsEnabled = _closed.Count > 0;
+        FitMenuToScreen();
         MainMenu.IsOpen = true;
     }
+
+    /// <summary>Меню не длиннее, чем помещается от кнопки до низа экрана (над панелью задач); остальное - прокруткой.</summary>
+    void FitMenuToScreen()
+    {
+        try
+        {
+            var work = Native.MonitorWorkArea(this);
+            var dpi = VisualTreeHelper.GetDpi(this);
+            var bottom = MenuBtn.PointToScreen(new Point(0, MenuBtn.ActualHeight));
+            double top = bottom.Y / dpi.DpiScaleY + MainMenu.VerticalOffset;
+            // поля карточки меню: тень и отступы (PopupCard 6+20, Padding 6+6) и небольшой запас
+            double avail = work.Bottom - top - 50;
+            MainMenuScroll.MaxHeight = Math.Max(240, avail);
+            MainMenuScroll.ScrollToTop();
+        }
+        catch (Exception ex) { App.Log("Высота меню: " + ex.Message); }
+    }
+
+    public double MenuMaxHeightForTest => MainMenuScroll.MaxHeight;
 
     public void OpenMenuForTest() => Menu_Click(this, new RoutedEventArgs());
 

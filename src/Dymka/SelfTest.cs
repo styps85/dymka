@@ -2024,6 +2024,9 @@ sealed class SelfTest
             _w.OpenMenuForTest();
             await Task.Delay(800);
             Capture(_w, "05-menu");
+            var work = Native.MonitorWorkArea(_w);
+            Line($"ИНФО меню: не выше {_w.MenuMaxHeightForTest:0} точек, рабочая область экрана {work.Height:0}");
+            Check(_w.MenuMaxHeightForTest < work.Height, "меню ограничено высотой экрана и прокручивается, если не помещается");
             _w.ClosePopups();
 
             _w.Activate(third);

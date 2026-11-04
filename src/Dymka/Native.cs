@@ -165,6 +165,19 @@ static class Native
             (info.rcMonitor.Bottom - info.rcMonitor.Top) / dpi.DpiScaleY);
     }
 
+    /// <summary>Рабочая область монитора окна - без панели задач (в единицах WPF).</summary>
+    public static Rect MonitorWorkArea(Window w)
+    {
+        var hwnd = new WindowInteropHelper(w).Handle;
+        var mon = MonitorFromWindow(hwnd, 2);
+        var info = new MONITORINFO { cbSize = Marshal.SizeOf<MONITORINFO>() };
+        if (mon == IntPtr.Zero || !GetMonitorInfo(mon, ref info)) return SystemParameters.WorkArea;
+        var dpi = VisualTreeHelper.GetDpi(w);
+        return new Rect(info.rcWork.Left / dpi.DpiScaleX, info.rcWork.Top / dpi.DpiScaleY,
+            (info.rcWork.Right - info.rcWork.Left) / dpi.DpiScaleX,
+            (info.rcWork.Bottom - info.rcWork.Top) / dpi.DpiScaleY);
+    }
+
     /// <summary>Снимок области экрана, занятой окном (вместе с содержимым WebView2 и всплывающими панелями).</summary>
 
     /// <summary>Снимок всего основного экрана (для самопроверки окон движка поверх «Дымки»).</summary>

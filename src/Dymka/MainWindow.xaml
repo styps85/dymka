@@ -620,6 +620,8 @@
       <Popup x:Name="MainMenu" PlacementTarget="{Binding ElementName=MenuBtn}" Placement="Bottom" StaysOpen="False"
              AllowsTransparency="True" PopupAnimation="Fade" HorizontalOffset="-292" VerticalOffset="2">
         <Border Style="{StaticResource PopupCard}" Width="330" Padding="6">
+          <!-- на невысоком экране меню прокручивается: высота ограничивается рабочей областью экрана при открытии -->
+          <ScrollViewer x:Name="MainMenuScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
           <StackPanel>
             <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="12,9" Margin="0,0,0,6">
               <DockPanel>
@@ -720,6 +722,7 @@
                 <TextBlock Text="О программе" VerticalAlignment="Center"/></DockPanel>
             </Button>
           </StackPanel>
+          </ScrollViewer>
         </Border>
       </Popup>
 
