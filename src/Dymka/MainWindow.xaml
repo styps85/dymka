@@ -622,6 +622,9 @@
         <Border Style="{StaticResource PopupCard}" Width="330" Padding="6">
           <!-- на невысоком экране меню прокручивается: высота ограничивается рабочей областью экрана при открытии -->
           <ScrollViewer x:Name="MainMenuScroll" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Focusable="False">
+            <ScrollViewer.Resources>
+              <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
+            </ScrollViewer.Resources>
           <StackPanel>
             <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="12,9" Margin="0,0,0,6">
               <DockPanel>
@@ -931,6 +934,9 @@
             </DockPanel>
             <ScrollViewer x:Name="FillScroll" MaxHeight="340" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled"
                           Focusable="False">
+            <ScrollViewer.Resources>
+              <Style TargetType="ScrollBar" BasedOn="{StaticResource ThinScroll}"/>
+            </ScrollViewer.Resources>
               <Border x:Name="FillPanel"/>
             </ScrollViewer>
           </DockPanel>
