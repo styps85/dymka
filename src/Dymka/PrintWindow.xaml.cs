@@ -203,7 +203,17 @@ public partial class PrintWindow : Window
         HideError();
         try
         {
-            using var pdf = await _core.PrintToPdfStreamAsync(BuildLayoutSettings());
+            Stream pdf;
+            try { pdf = await _core.PrintToPdfStreamAsync(BuildLayoutSettings()); }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                // встроенный просмотрщик PDF иногда ещё не готов (E_HANDLE) - повторяем через мгновение
+                App.Log("Предпросмотр печати: повтор после " + ex.Message);
+                await Task.Delay(700);
+                if (gen != _generation) return;
+                pdf = await _core.PrintToPdfStreamAsync(BuildLayoutSettings());
+            }
+            using var _pdf = pdf;
             var ms = new MemoryStream();
             await pdf.CopyToAsync(ms);
             ms.Position = 0;
