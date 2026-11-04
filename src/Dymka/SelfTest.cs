@@ -1512,6 +1512,82 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
     }
 
+    /// <summary>Синхронизация через папку: свой набор, шифрование, получение карточки, плиток и закреплённой вкладки
+    /// с «другого компьютера», удаление пароля, удалённого там.</summary>
+    async Task TestSyncAsync()
+    {
+        var tilesBefore = _w.Settings.ShortcutsFor("work").ToList();
+        try
+        {
+            var folder = Path.Combine(_dir, "sync");
+            Directory.CreateDirectory(folder);
+            Check(SyncService.Create(folder, "Тест", "короткий") != null, "синхронизация: короткий пароль для набора не принимается");
+            Check(SyncService.Create(folder, "Тест", "Пароль-самопроверки-1") == null, "синхронизация: набор создан");
+            Check(SyncService.Join(folder, "Тест", "Неверный-пароль-123") != null, "синхронизация: с чужим паролем к набору не подключиться");
+            Check(SyncService.Join(folder, "Тест", "Пароль-самопроверки-1") == null, "синхронизация: со своим паролем подключение есть");
+            var v = Shared.Vault;
+            var d = v.Data!;
+            var pw = new Dymka.Core.PasswordEntry { Host = "sync.dymka-test.org", Url = "https://sync.dymka-test.org/", Username = "ivanov-sync", Password = "секрет-синхронизации" };
+            d.Passwords.Add(pw);
+            v.Save();
+            SyncService.RunOnce("самопроверка");
+            var ownPath = Path.Combine(SyncService.SetDir, SyncService.OwnFileName);
+            Check(File.Exists(ownPath) && SyncService.ReadOwnForTest().Records.Any(r => r.Id == "pw:" + pw.Id), "свой файл компьютера записан, пароль в нём есть");
+            var raw = File.ReadAllBytes(ownPath);
+            Check(!System.Text.Encoding.UTF8.GetString(raw).Contains("ivanov-sync") && !System.Text.Encoding.Unicode.GetString(raw).Contains("ivanov-sync"),
+                "файл синхронизации зашифрован: логина в нём не видно");
+
+            // «другой компьютер»: новая карточка, плитки «Работы», закреплённая вкладка и удаление пароля
+            var later = DateTime.UtcNow.AddMinutes(2);
+            var card = new Dymka.Core.Card { Title = "Карточка с ноутбука", LastName = "Петров", FirstName = "Олег" };
+            var tiles = new List<Dymka.Core.Shortcut> { new() { Title = "Федресурс", Url = "https://fedresurs.ru/" } };
+            var pinned = new List<Dymka.Core.PinnedSite> { new() { Container = "work", Url = "https://kad.arbitr.ru/", Title = "Картотека" } };
+            string J<T>(T x) => System.Text.Json.JsonSerializer.Serialize(x);
+            SyncService.WriteRemoteForTest("Ноутбук", new Dymka.Core.SyncDocument
+            {
+                Computer = "Ноутбук", Written = later,
+                Records =
+                {
+                    new() { Id = "card:" + card.Id, Kind = "card", Stamp = later, Json = J(card) },
+                    new() { Id = "tiles:work", Kind = "tiles", Stamp = later, Json = J(tiles) },
+                    new() { Id = "pinned", Kind = "pinned", Stamp = later, Json = J(pinned) },
+                },
+                Deleted = { ["pw:" + pw.Id] = later },
+            });
+            SyncService.RunOnce("самопроверка");
+            Line("ИНФО синхронизация: " + SyncService.Status);
+            Check(d.Cards.Any(c => c.Title == "Карточка с ноутбука"), "карточка с другого компьютера появилась здесь");
+            Check(d.Passwords.All(p => p.Id != pw.Id), "пароль, удалённый на другом компьютере, удалён и здесь");
+            Check(_w.Settings.ShortcutsFor("work").Any(x => x.Url.Contains("fedresurs")), "плитки «Работы» пришли с другого компьютера");
+            Check(_w.Tabs.Any(t => t.IsPinned && t.Url.Contains("kad.arbitr.ru")), "закреплённая на другом компьютере вкладка появилась здесь");
+            var own = SyncService.ReadOwnForTest();
+            Check(own.Records.Any(r => r.Id == "card:" + card.Id) && own.Deleted.ContainsKey("pw:" + pw.Id), "свой файл обновлён: в нём карточка и отметка об удалении");
+            // повторный проход без изменений файл не переписывает
+            var wt = File.GetLastWriteTimeUtc(ownPath);
+            await Task.Delay(1100);
+            SyncService.RunOnce("самопроверка");
+            Check(File.GetLastWriteTimeUtc(ownPath) == wt, "без изменений свой файл не переписывается");
+
+            var sw = new SettingsWindow(_w.Settings, 0) { Owner = _w, StartSection = "sync", Topmost = true };
+            sw.Show();
+            await Task.Delay(1800);
+            Capture(sw, "57-sync-settings");
+            sw.Close();
+
+            // уборка: тестовые данные обратно
+            d.Cards.RemoveAll(c => c.Title == "Карточка с ноутбука");
+            v.Save();
+            foreach (var t in _w.Tabs.Where(t => t.IsPinned && t.Url.Contains("kad.arbitr.ru")).ToList()) { _w.SetPinned(t, false); _w.CloseTab(t, remember: false); }
+            SyncService.Disconnect();
+        }
+        catch (Exception ex) { Check(false, "синхронизация: " + ex.Message); }
+        finally
+        {
+            _w.Settings.ShortcutsByContainer["work"] = tilesBefore;
+            _w.Settings.Save();
+        }
+    }
+
     /// <summary>Страницы с компьютера (file:///): отдельное хранилище, которое очистка при закрытии не стирает; сайты - в контейнере.</summary>
     async Task TestLocalFilesAsync(string testDir)
     {
@@ -1871,6 +1947,7 @@ sealed class SelfTest
             await TestInstallAsync();
             await TestIncognitoAsync(testDir);
             await TestLocalFilesAsync(testDir);
+            await TestSyncAsync();
             _w.ActivateForTest(probe);
             await Task.Delay(300);
 

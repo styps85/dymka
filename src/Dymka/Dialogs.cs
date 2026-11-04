@@ -179,4 +179,57 @@ static class Dialogs
         try { win.ShowDialog(); } catch { }
         return result;
     }
+
+    /// <summary>Запрос строки текста. validate возвращает текст ошибки или null.</summary>
+    public static string? AskText(Window? owner, string title, string message, string initial = "", Func<string, string?>? validate = null)
+    {
+        var res = Application.Current.Resources;
+        string? result = null;
+        var win = new Window
+        {
+            Title = title, WindowStyle = WindowStyle.None, AllowsTransparency = true, Background = Brushes.Transparent,
+            ResizeMode = ResizeMode.NoResize, SizeToContent = SizeToContent.WidthAndHeight, ShowInTaskbar = owner == null,
+            WindowStartupLocation = owner != null && owner.IsVisible ? WindowStartupLocation.CenterOwner : WindowStartupLocation.CenterScreen,
+            FontFamily = (FontFamily)res["UiFont"], Foreground = (Brush)res["Ink"], Topmost = owner?.Topmost ?? false,
+        };
+        if (owner != null && owner.IsVisible) win.Owner = owner;
+        var stack = new StackPanel();
+        stack.Children.Add(new TextBlock { Text = title, FontSize = 17, FontWeight = FontWeights.Bold, TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 0, 0, 10) });
+        stack.Children.Add(new TextBlock { Text = message, FontSize = 13.5, TextWrapping = TextWrapping.Wrap, Foreground = (Brush)res["Ink2"], LineHeight = 20 });
+        var box = new TextBox
+        {
+            Text = initial, FontSize = 14, Height = 38, Padding = new Thickness(8, 0, 8, 0), VerticalContentAlignment = VerticalAlignment.Center,
+            BorderBrush = (Brush)res["LineStrong"], BorderThickness = new Thickness(1.5), Background = (Brush)res["Field"],
+            Foreground = (Brush)res["Ink"], Margin = new Thickness(0, 14, 0, 0),
+        };
+        stack.Children.Add(box);
+        var error = new TextBlock { FontSize = 12.5, Foreground = new SolidColorBrush(Color.FromRgb(0xC2, 0x35, 0x2E)), TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 8, 0, 0), Visibility = Visibility.Collapsed };
+        stack.Children.Add(error);
+        var row = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 18, 0, 0) };
+        var ok = new Button { Content = "Готово", Style = (Style)res["PrimaryButton"], MinWidth = 96, IsDefault = true };
+        var cancel = new Button { Content = "Отмена", Style = (Style)res["SecondaryButton"], MinWidth = 96, IsCancel = true, Margin = new Thickness(8, 0, 0, 0) };
+        row.Children.Add(ok);
+        row.Children.Add(cancel);
+        stack.Children.Add(row);
+        ok.Click += (_, _) =>
+        {
+            var t = box.Text.Trim();
+            if (t.Length == 0) { error.Text = "Введите значение"; error.Visibility = Visibility.Visible; return; }
+            var err = validate?.Invoke(t);
+            if (err != null) { error.Text = err; error.Visibility = Visibility.Visible; box.Focus(); return; }
+            result = t;
+            win.DialogResult = true;
+        };
+        win.Content = new Border
+        {
+            Background = (Brush)Application.Current.FindResource("Surface"), CornerRadius = new CornerRadius(16),
+            BorderBrush = (Brush)res["Line"], BorderThickness = new Thickness(1), Padding = new Thickness(24, 22, 24, 20),
+            Margin = new Thickness(20), Width = 440, Child = stack,
+            Effect = new DropShadowEffect { BlurRadius = 30, ShadowDepth = 8, Direction = 270, Opacity = 0.18, Color = Color.FromRgb(0x1B, 0x22, 0x30) },
+        };
+        win.Loaded += (_, _) => { box.Focus(); box.SelectAll(); };
+        win.MouseLeftButtonDown += (_, e) => { if (e.ButtonState == MouseButtonState.Pressed) try { win.DragMove(); } catch { } };
+        try { win.ShowDialog(); } catch { }
+        return result;
+    }
 }

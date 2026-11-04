@@ -33,7 +33,13 @@ public partial class SettingsWindow : Window
         Loaded += (_, _) =>
         {
             if (StartSection == "video") VideoCard.BringIntoView();
+            if (StartSection == "sync") SyncCard.BringIntoView();
         };
+
+        UpdateSyncUi();
+        Action onSync = () => Dispatcher.BeginInvoke(new Action(UpdateSyncUi));
+        SyncService.StatusChanged += onSync;
+        Closed += (_, _) => SyncService.StatusChanged -= onSync;
 
         LayoutTop.IsChecked = _s.Layout != "side";
         LayoutSide.IsChecked = _s.Layout == "side";
@@ -186,6 +192,95 @@ public partial class SettingsWindow : Window
     {
         DownloadFolderText.Text = _downloadFolder.Length > 0 ? _downloadFolder : "«Загрузки» Windows (как в Edge и Chrome)";
         DownloadFolderResetBtn.IsEnabled = _downloadFolder.Length > 0;
+    }
+
+    // ===================================================================== синхронизация
+
+    void UpdateSyncUi()
+    {
+        bool on = _s.SyncConfigured;
+        SyncStatusText.Text = on ? SyncService.Status + "\nПапка набора: " + SyncService.SetDir
+                                 : "Не настроена. Нажмите «Настроить…», чтобы создать свой набор или подключиться к нему с другого компьютера.";
+        SyncSetupBtn.Content = on ? "Другой набор…" : "Настроить…";
+        SyncNowBtn.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+        SyncOffBtn.Visibility = on ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    /// <summary>Папка Dropbox этого компьютера (по настройкам самого Dropbox), иначе %USERPROFILE%\Dropbox.</summary>
+    static string DropboxRoot()
+    {
+        try
+        {
+            var info = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dropbox", "info.json");
+            if (File.Exists(info))
+            {
+                using var doc = System.Text.Json.JsonDocument.Parse(File.ReadAllText(info));
+                foreach (var kind in new[] { "business", "personal" })
+                    if (doc.RootElement.TryGetProperty(kind, out var k) && k.TryGetProperty("path", out var p) && Directory.Exists(p.GetString()))
+                        return p.GetString()!;
+            }
+        }
+        catch { }
+        return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Dropbox");
+    }
+
+    string SuggestSyncFolder()
+    {
+        if (_s.SyncFolder.Length > 0 && Directory.Exists(_s.SyncFolder)) return _s.SyncFolder;
+        var root = DropboxRoot();
+        var projects = Path.Combine(root, "проекты Клод");
+        if (Directory.Exists(projects))
+        {
+            var f = Path.Combine(projects, "Дымка-синхронизация");
+            try { Directory.CreateDirectory(f); return f; } catch { }
+        }
+        return Directory.Exists(root) ? root : Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments);
+    }
+
+    void SyncSetup_Click(object sender, RoutedEventArgs e)
+    {
+        var dlg = new Microsoft.Win32.OpenFolderDialog { Title = "Папка синхронизации в Dropbox (одна на всех: у каждого в ней свой набор)", InitialDirectory = SuggestSyncFolder() };
+        if (dlg.ShowDialog(this) != true) return;
+        var folder = dlg.FolderName;
+        var sets = SyncService.ExistingSets(folder);
+        var msg = (sets.Count > 0 ? $"В этой папке уже есть наборы: {string.Join(", ", sets)}.\n\n" : "В этой папке пока нет наборов.\n\n") +
+                  "Введите имя своего набора - например, свою фамилию. Если такой набор уже есть, вы подключитесь к нему своим паролем, если нет - он будет создан.";
+        var name = Dialogs.AskText(this, "Набор синхронизации", msg, _s.SyncSet);
+        if (name == null) return;
+        name = SyncCrypto.SafeName(name);
+        var existing = sets.FirstOrDefault(x => string.Equals(x, name, StringComparison.OrdinalIgnoreCase));
+        string? pw;
+        if (existing != null)
+            pw = Dialogs.AskPassword(this, $"Подключение к набору «{existing}»",
+                "Введите пароль синхронизации этого набора - тот, что задали на первом компьютере.", confirm: false,
+                validate: p => SyncService.Join(folder, existing, p));
+        else
+            pw = Dialogs.AskPassword(this, $"Новый набор «{name}»",
+                $"Придумайте пароль синхронизации - не короче {SyncCrypto.MinPasswordLength} символов. Его нужно будет ввести на каждом вашем компьютере. " +
+                "Если его забыть, прочитать набор не сможет никто, но данные на компьютерах останутся.", confirm: true,
+                validate: p => SyncService.Create(folder, name, p));
+        if (pw == null) return;
+        SyncService.RunOnce("настройка");
+        UpdateSyncUi();
+        Dialogs.Show(this, "Синхронизация включена",
+            SyncService.Status + "\n\nНа другом компьютере откройте «Настройки» - «Синхронизация», выберите ту же папку, введите имя набора «" + _s.SyncSet + "» и тот же пароль.",
+            new[] { "Понятно" });
+    }
+
+    void SyncNow_Click(object sender, RoutedEventArgs e)
+    {
+        SyncService.RunOnce("вручную");
+        UpdateSyncUi();
+    }
+
+    void SyncOff_Click(object sender, RoutedEventArgs e)
+    {
+        var (i, _) = Dialogs.Show(this, "Отключить синхронизацию?",
+            "Этот компьютер перестанет получать и отправлять изменения. Пароли, карточки и плитки на нём останутся, файлы набора в Dropbox тоже не удаляются.",
+            new[] { "Отключить", "Отмена" }, defaultIndex: 1);
+        if (i != 0) return;
+        SyncService.Disconnect();
+        UpdateSyncUi();
     }
 
     void DownloadFolder_Click(object sender, RoutedEventArgs e)

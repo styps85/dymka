@@ -259,6 +259,12 @@ public partial class MainWindow : Window
         _sleepTimer.Start();
         _memTimer.Start();
         UpdateMemory();
+        if (first)
+        {
+            SyncService.Start(_settings, _dataDir);
+            if (_settings.SyncConfigured && _selfTestDir == null && MemTestFile == null)
+                _ = Dispatcher.InvokeAsync(async () => { await Task.Delay(5000); SyncService.RunOnce("запуск браузера"); });
+        }
         ScheduleSpare(TimeSpan.FromSeconds(4));
         Activated += (_, _) => { if (_spare == null) ScheduleSpare(TimeSpan.FromSeconds(2)); };
 
@@ -2169,6 +2175,7 @@ public partial class MainWindow : Window
             // последнее окно: запоминаем вкладки всех окон и больше сеанс не трогаем
             SaveSessionNow();
             Shared.SessionFrozen = true;
+            SyncService.RunOnce("закрытие браузера");
         }
         if (othersOpen)
         {

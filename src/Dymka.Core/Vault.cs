@@ -242,6 +242,9 @@ public sealed class Vault
     public VaultState State => _data != null ? VaultState.Unlocked : _file == null ? VaultState.Empty : VaultState.Locked;
     public bool IsUnlocked => _data != null;
 
+    /// <summary>Открытые данные без отметки «пользовались» (для фоновой синхронизации: не мешает автоблокировке).</summary>
+    public VaultData? Peek => _data ?? (HasMasterPassword ? null : Data);
+
     /// <summary>Данные хранилища. Без главного пароля открывается само; с главным паролем - только после Unlock.</summary>
     public VaultData? Data
     {

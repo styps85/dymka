@@ -428,6 +428,58 @@ Eq(fill2[0].Value, "г. Екатеринбург, ул. Мира, 2", "для п
     Directory.Delete(dir, true);
 }
 
+// --- синхронизация: шифрование и слияние данных компьютеров
+{
+    var t0 = new DateTime(2026, 11, 1, 10, 0, 0);
+    Eq(SyncCrypto.CheckPassword("короткий") != null, true, "синхронизация: короткий пароль не принимается");
+    Eq(SyncCrypto.CheckPassword("Длинный-пароль-2026"), null, "синхронизация: длинный пароль подходит");
+    var (info, key) = SyncCrypto.CreateSet("Длинный-пароль-2026", t0);
+    var infoBack = System.Text.Json.JsonSerializer.Deserialize<SyncSetInfo>(System.Text.Json.JsonSerializer.Serialize(info))!;
+    Eq(SyncCrypto.OpenSet(infoBack, "Длинный-пароль-2026")?.SequenceEqual(key), true, "синхронизация: свой пароль открывает набор");
+    Eq(SyncCrypto.OpenSet(infoBack, "Чужой-пароль-коллеги"), null, "синхронизация: чужой пароль набор не открывает");
+    var sealedDoc = SyncCrypto.Seal(key, new SyncDocument { Computer = "Кабинет", Records = { new SyncRecord { Id = "pw:1", Kind = "password", Json = "{\"p\":\"секрет\"}" } } });
+    Eq(System.Text.Encoding.UTF8.GetString(sealedDoc).Contains("секрет"), false, "синхронизация: в файле нет открытого текста");
+    Eq(SyncCrypto.Open(key, sealedDoc).Records[0].Json.Contains("секрет"), true, "синхронизация: файл расшифровывается своим ключом");
+    var tampered = (byte[])sealedDoc.Clone(); tampered[^1] ^= 1;
+    bool rejected = false; try { SyncCrypto.Open(key, tampered); } catch (System.Security.Cryptography.CryptographicException) { rejected = true; }
+    Eq(rejected, true, "синхронизация: изменённый файл не принимается");
+    var otherKey = SyncCrypto.CreateSet("Пароль-Пигильцева-1", t0).key;
+    rejected = false; try { SyncCrypto.Open(otherKey, sealedDoc); } catch (System.Security.Cryptography.CryptographicException) { rejected = true; }
+    Eq(rejected, true, "синхронизация: ключом чужого набора файл не открыть");
+    Eq(SyncCrypto.SafeName("Семенов/../Г.В.:"), "Семенов_.._Г.В._", "синхронизация: имя набора без опасных символов");
+
+    string Mac(string j) => SyncCrypto.Mac(key, j);
+    Dictionary<string, (string kind, string json)> L(params (string id, string json)[] r) => r.ToDictionary(x => x.id, x => ("k", x.json));
+    // компьютер A: два пароля, первая синхронизация
+    var aLocal = L(("pw:1", "a1"), ("pw:2", "b1"));
+    var s_ra = SyncMerge.Merge(aLocal, new SyncState(), Array.Empty<SyncDocument>(), Mac, t0, "A");
+    Eq(s_ra.Document.Records.Count == 2 && s_ra.Apply.Count == 0, true, "слияние: первая синхронизация - свои записи в файл");
+    var aState = SyncMerge.Remember(s_ra, aLocal, Mac, "S");
+    // компьютер B: пусто, получает записи A
+    var s_rb = SyncMerge.Merge(L(), new SyncState(), new[] { s_ra.Document }, Mac, t0.AddMinutes(1), "B");
+    Eq(s_rb.Apply.Select(x => x.Id).OrderBy(x => x).SequenceEqual(new[] { "pw:1", "pw:2" }), true, "слияние: новый компьютер получает все записи");
+    var bLocal = L(("pw:1", "a1"), ("pw:2", "b1"));
+    var bState = SyncMerge.Remember(s_rb, bLocal, Mac, "S");
+    // на B правят pw:1 и удаляют pw:2; на A ничего не меняется
+    var bLocal2 = L(("pw:1", "a2"));
+    var s_rb2 = SyncMerge.Merge(bLocal2, bState, new[] { s_ra.Document }, Mac, t0.AddMinutes(5), "B");
+    Eq(s_rb2.Apply.Count == 0 && s_rb2.Remove.Count == 0 && s_rb2.LocalChanges == 2, true, "слияние: правка и удаление на B не откатываются старым файлом A");
+    // A получает правку и удаление
+    var s_ra2 = SyncMerge.Merge(aLocal, aState, new[] { s_rb2.Document }, Mac, t0.AddMinutes(6), "A");
+    Eq(s_ra2.Apply.SingleOrDefault()?.Json == "a2" && s_ra2.Remove.SequenceEqual(new[] { "pw:2" }), true, "слияние: A получает правку и удаление с B");
+    // одновременная правка: побеждает более поздняя
+    var s_ra3 = SyncMerge.Merge(L(("pw:1", "a3")), SyncMerge.Remember(s_ra2, L(("pw:1", "a2")), Mac, "S"), new[] { s_rb2.Document }, Mac, t0.AddMinutes(10), "A");
+    Eq(s_ra3.Document.Records.Single(r => r.Id == "pw:1").Json, "a3", "слияние: более поздняя правка побеждает");
+    // запись, изменённая после удаления, восстанавливается
+    var revived = new SyncDocument { Records = { new SyncRecord { Id = "pw:2", Json = "b9", Stamp = t0.AddMinutes(20) } } };
+    var s_ra4 = SyncMerge.Merge(L(("pw:1", "a3")), SyncMerge.Remember(s_ra3, L(("pw:1", "a3")), Mac, "S"), new[] { s_rb2.Document, revived }, Mac, t0.AddMinutes(21), "A");
+    Eq(s_ra4.Apply.Any(x => x.Id == "pw:2" && x.Json == "b9"), true, "слияние: запись, изменённая после удаления, возвращается");
+    // повторное слияние без изменений ничего не делает
+    var aState4 = SyncMerge.Remember(s_ra4, L(("pw:1", "a3"), ("pw:2", "b9")), Mac, "S");
+    var s_ra5 = SyncMerge.Merge(L(("pw:1", "a3"), ("pw:2", "b9")), aState4, new[] { s_ra4.Document }, Mac, t0.AddMinutes(30), "A");
+    Eq(s_ra5.Apply.Count == 0 && s_ra5.Remove.Count == 0 && s_ra5.LocalChanges == 0, true, "слияние: без изменений - ничего не применяется");
+}
+
 // --- поля поиска и подсказки при вводе
 Eq(K("", ph: "Искать в Яндекс или ввести адрес"), FieldKind.None, "поле поиска стартовой страницы - не адрес");
 Eq(K("Поиск по сайту"), FieldKind.None, "поле «Поиск» не анкета");

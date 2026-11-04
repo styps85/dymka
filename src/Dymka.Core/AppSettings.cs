@@ -215,6 +215,15 @@ public sealed class AppSettings
     public bool PreloadNewTab { get; set; } = true;
     /// <summary>Не предлагать установку в папку пользователя (вы нажали «Больше не предлагать»).</summary>
     public bool InstallOfferDeclined { get; set; }
+
+    // синхронизация через папку (Dropbox): набор данных этого человека, ключ набора защищён учётной записью Windows
+    public string SyncFolder { get; set; } = "";
+    public string SyncSet { get; set; } = "";
+    public string SyncKey { get; set; } = "";
+    /// <summary>Короткая метка этого компьютера в имени его файла (на случай одинаковых имён компьютеров).</summary>
+    public string SyncDeviceId { get; set; } = "";
+    public DateTime SyncLast { get; set; }
+    public bool SyncConfigured => SyncFolder.Length > 0 && SyncSet.Length > 0 && SyncKey.Length > 0;
     /// <summary>Расширения, которые поставила сама «Дымка» (удалять можно только их, а не встроенные компоненты движка).</summary>
     public List<string> ManagedExtensionIds { get; set; } = new();
 

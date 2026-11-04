@@ -132,6 +132,39 @@ public partial class MainWindow
         RefreshViews();
     }
 
+    /// <summary>Закреплённые вкладки пришли с другого компьютера: недостающие сайты закрепляются (спящими вкладками),
+    /// снятые там - открепляются здесь (вкладка остаётся открытой). Сайт узнаётся по контейнеру и адресу сайта.</summary>
+    public void ApplySyncedPinned(List<PinnedSite> list)
+    {
+        static string Key(string c, string url) => AppSettings.ContainerById(c).Id + "|" + UrlTools.HostOf(url);
+        var want = list.Where(p => !string.IsNullOrEmpty(p.Url)).GroupBy(p => Key(p.Container, p.Url)).Select(g => g.First()).ToList();
+        var wantKeys = want.Select(p => Key(p.Container, p.Url)).ToHashSet();
+        var have = Shared.Windows.Where(w => !w.Incognito).SelectMany(w => w._tabs.Where(t => t.IsPinned).Select(t => (w, t))).ToList();
+        int added = 0, removed = 0;
+        foreach (var (w, t) in have)
+            if (!wantKeys.Contains(Key(t.Container, t.Url))) { t.IsPinned = false; removed++; w.RefreshViews(); }
+        var haveKeys = have.Select(x => Key(x.t.Container, x.t.Url)).ToHashSet();
+        int pos = _tabs.Count(t => t.IsPinned);
+        foreach (var p in want.Where(p => !haveKeys.Contains(Key(p.Container, p.Url))))
+        {
+            var tab = new BrowserTab(AppSettings.ContainerById(p.Container).Id)
+            {
+                Url = p.Url, Title = string.IsNullOrWhiteSpace(p.Title) ? UrlTools.HostOf(p.Url) : p.Title, IsPinned = true, IsSleeping = true,
+            };
+            tab.PropertyChanged += OnTabPropertyChanged;
+            _tabs.Insert(Math.Min(pos++, _tabs.Count), tab);
+            added++;
+        }
+        RefreshViews();
+        if (added + removed > 0)
+        {
+            App.Log($"Синхронизация: закреплённых вкладок добавлено {added}, откреплено {removed}");
+            SavePinned();
+        }
+    }
+
+    public void BroadcastStartDataFromSync() => BroadcastStartData();
+
     bool _pinnedExpanded;
 
     void UpdatePinnedUi()

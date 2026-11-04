@@ -278,6 +278,21 @@
           </StackPanel>
         </Border>
 
+        <Border x:Name="SyncCard" Style="{StaticResource Card}">
+          <StackPanel>
+            <TextBlock Text="Синхронизация между компьютерами" Style="{StaticResource CardTitle}"/>
+            <TextBlock Style="{StaticResource Hint}" Margin="0,0,0,10" Text="Пароли, карточки, банковские карты, плитки новой вкладки и закреплённые вкладки переносятся между вашими компьютерами через папку в Dropbox. Всё шифруется вашим паролем синхронизации: другие пользователи Dropbox видят только имена файлов. У каждого человека свой набор со своим паролем."/>
+            <Border Background="{DynamicResource Field}" CornerRadius="10" Padding="12,9">
+              <TextBlock x:Name="SyncStatusText" TextWrapping="Wrap"/>
+            </Border>
+            <WrapPanel Margin="0,10,0,0">
+              <Button x:Name="SyncSetupBtn" Content="Настроить…" Style="{StaticResource PrimaryButton}" Padding="16,0" Margin="0,0,8,6" Click="SyncSetup_Click"/>
+              <Button x:Name="SyncNowBtn" Content="Синхронизировать сейчас" Style="{StaticResource SecondaryButton}" Padding="14,0" Margin="0,0,8,6" Click="SyncNow_Click"/>
+              <Button x:Name="SyncOffBtn" Content="Отключить на этом компьютере" Style="{StaticResource SecondaryButton}" Padding="14,0" Margin="0,0,8,6" Click="SyncOff_Click"/>
+            </WrapPanel>
+          </StackPanel>
+        </Border>
+
         <Border x:Name="VideoCard" Style="{StaticResource Card}">
           <StackPanel>
             <TextBlock Text="Видео" Style="{StaticResource CardTitle}"/>
