@@ -529,25 +529,32 @@ sealed class SelfTest
             await WaitFor(() => tt.TranslateState != TranslateState.Working, 40);
             var tr = MainWindow.TranslatorForTest;
             Line($"ИНФО перевод: состояние {tt.TranslateState}, язык {tt.SourceLang}, способ {tr.LastMethod}, запросов {tr.Requests}, ошибка «{tt.TranslateError}{(tt.TranslateError.Length == 0 ? tr.LastError : "")}»");
-            Check(tt.TranslateState == TranslateState.Done && tt.SourceLang == "en", "страница переведена Яндекс Переводчиком (язык оригинала - английский)");
-            await Task.Delay(800);
-            string p1 = await core.ExecuteScriptAsync("document.getElementById('p1').innerText");
-            Line("ИНФО перевод абзаца: " + p1);
-            Check(HasCyrillic(p1), "текст абзаца теперь на русском");
-            Check(await core.ExecuteScriptAsync("document.querySelector('#p1 a') !== null") == "true", "ссылка внутри абзаца на месте");
-            Check((await core.ExecuteScriptAsync("document.getElementById('code').innerText")).Contains("var total"), "программный код не переводится");
-            Check((await core.ExecuteScriptAsync("document.getElementById('nt').innerText")).Contains("Do not translate"), "помеченное «не переводить» не переводится");
-            Capture(_w, "25-translated");
+            // Яндекс иногда временно ограничивает запросы с адресов сервера сборки (код 429) - это не ошибка браузера
+            bool limited = tt.TranslateState != TranslateState.Done && (tt.TranslateError + tr.LastError).Contains("429");
+            if (limited)
+                Line("ИНФО перевод страниц ПРОПУЩЕН: Яндекс Переводчик временно ограничил запросы с сервера сборки (код 429)");
+            else
+            {
+                Check(tt.TranslateState == TranslateState.Done && tt.SourceLang == "en", "страница переведена Яндекс Переводчиком (язык оригинала - английский)");
+                await Task.Delay(800);
+                string p1 = await core.ExecuteScriptAsync("document.getElementById('p1').innerText");
+                Line("ИНФО перевод абзаца: " + p1);
+                Check(HasCyrillic(p1), "текст абзаца теперь на русском");
+                Check(await core.ExecuteScriptAsync("document.querySelector('#p1 a') !== null") == "true", "ссылка внутри абзаца на месте");
+                Check((await core.ExecuteScriptAsync("document.getElementById('code').innerText")).Contains("var total"), "программный код не переводится");
+                Check((await core.ExecuteScriptAsync("document.getElementById('nt').innerText")).Contains("Do not translate"), "помеченное «не переводить» не переводится");
+                Capture(_w, "25-translated");
 
-            await core.ExecuteScriptAsync("var d=document.createElement('p');d.id='dyn';d.textContent='The weather is very nice today.';document.body.appendChild(d);");
-            string dyn = await PollScript(core, "document.getElementById('dyn').innerText", HasCyrillic, 15);
-            Check(HasCyrillic(dyn), "абзац, появившийся после перевода, переведён сам: " + dyn);
+                await core.ExecuteScriptAsync("var d=document.createElement('p');d.id='dyn';d.textContent='The weather is very nice today.';document.body.appendChild(d);");
+                string dyn = await PollScript(core, "document.getElementById('dyn').innerText", HasCyrillic, 15);
+                Check(HasCyrillic(dyn), "абзац, появившийся после перевода, переведён сам: " + dyn);
 
-            _w.Navigate(tt, "https://trackers.dymka-test.org/en2.html");
-            await WaitFor(() => tt.Url.Contains("en2.html") && !tt.IsLoading, 20);
-            string p3 = await PollScript(core, "document.getElementById('p3') ? document.getElementById('p3').innerText : ''", HasCyrillic, 25);
-            Check(HasCyrillic(p3), "следующая страница того же сайта в этой вкладке переводится сама");
+                _w.Navigate(tt, "https://trackers.dymka-test.org/en2.html");
+                await WaitFor(() => tt.Url.Contains("en2.html") && !tt.IsLoading, 20);
+                string p3 = await PollScript(core, "document.getElementById('p3') ? document.getElementById('p3').innerText : ''", HasCyrillic, 25);
+                Check(HasCyrillic(p3), "следующая страница того же сайта в этой вкладке переводится сама");
 
+            }
             _w.RestoreOriginal(tt);
             await Task.Delay(700);
             string orig = await core.ExecuteScriptAsync("document.getElementById('p1').innerText");

@@ -102,7 +102,9 @@ public sealed class YandexTranslator
             for (int attempt = 0; attempt < 2; attempt++)
             {
                 var sid = await GetSidAsync(attempt > 0, ct)
-                          ?? throw new TranslationException("нет связи с Яндекс Переводчиком" + (LastError.Length > 0 ? ": " + LastError : ""));
+                          ?? throw new TranslationException(LastError.Contains("429")
+                              ? "Яндекс Переводчик временно ограничил число переводов с вашего интернет-адреса (код 429) - попробуйте через несколько минут"
+                              : "нет связи с Яндекс Переводчиком" + (LastError.Length > 0 ? ": " + LastError : ""));
                 var url = Translation.BuildUrl(sid, target);
                 var body = Translation.BuildBody(segs);
                 string? json = null;
