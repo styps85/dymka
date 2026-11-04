@@ -1512,6 +1512,49 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "закрытие окна страницей: " + ex.Message); }
     }
 
+    /// <summary>Страницы с компьютера (file:///): отдельное хранилище, которое очистка при закрытии не стирает; сайты - в контейнере.</summary>
+    async Task TestLocalFilesAsync(string testDir)
+    {
+        try
+        {
+            var file = Path.Combine(testDir, "локальный проект.html");
+            File.WriteAllText(file, "<!doctype html><meta charset=\"utf-8\"><title>Проект с компьютера</title><h1>Проект</h1>");
+            var fileUrl = new Uri(file).AbsoluteUri;
+            var t = await _w.NewTabAsync(fileUrl, activate: true, container: "bank");
+            await WaitFor(() => t.Core != null && !t.IsLoading, 20);
+            Check(t.LocalFiles && t.Core!.Profile.ProfileName == BrowserTab.LocalFilesProfile && t.Container == "bank",
+                $"файл с компьютера открылся в отдельном хранилище ({t.Core?.Profile.ProfileName}), вкладка осталась в «Банке»");
+            var saved = await PollScript(t.Core!, "location.protocol === 'file:' ? (localStorage.setItem('keep','папка-проекта'), localStorage.getItem('keep')) : ''",
+                v => v.Contains("папка"), 10);
+            Check(saved.Contains("папка"), "страница с компьютера сохранила данные: " + saved);
+
+            // переход из этой вкладки на сайт - сайт открывается в хранилище контейнера
+            _w.Navigate(t, "https://trackers.dymka-test.org/incog.html");
+            Check(await WaitFor(() => _w.ActiveTab is { } a && a != t && !a.LocalFiles && a.Core?.Profile.ProfileName == "bank", 15) && !_w.Tabs.Contains(t),
+                "сайт из вкладки с файлом открылся уже в хранилище контейнера «Банк»");
+            var site = _w.ActiveTab!;
+            await WaitFor(() => !site.IsLoading, 15);
+            site.Core!.SetVirtualHostNameToFolderMapping("trackers.dymka-test.org", testDir, Microsoft.Web.WebView2.Core.CoreWebView2HostResourceAccessKind.Allow);
+            site.Core.Reload();
+            var siteSet = await PollScript(site.Core, "location.pathname.indexOf('incog') >= 0 ? (localStorage.setItem('gone','1'), localStorage.getItem('gone')) : ''", v => v.Contains("1"), 15);
+            Check(siteSet.Contains("1"), "сайт в «Банке» сохранил данные (их очистка должна стереть)");
+
+            // очистка при закрытии: хранилище контейнера стирается, хранилище страниц с компьютера - нет
+            await _w.CleanupForTest("bank", BrowserTab.LocalFilesProfile);
+            var t2 = await _w.NewTabAsync(fileUrl, activate: true, container: "work");
+            await WaitFor(() => t2.Core != null && !t2.IsLoading, 20);
+            var kept = await PollScript(t2.Core!, "location.protocol === 'file:' ? ('v:' + localStorage.getItem('keep')) : ''", v => v.StartsWith("\"v:"), 10);
+            Check(kept.Contains("папка-проекта"), "после очистки данные страницы с компьютера сохранились: " + kept);
+            site.Core.Reload();
+            await Task.Delay(800);
+            var siteAfter = await PollScript(site.Core, "location.pathname.indexOf('incog') >= 0 ? ('v:' + localStorage.getItem('gone')) : ''", v => v.StartsWith("\"v:"), 10);
+            Check(siteAfter.Contains("v:null"), "после очистки данные сайта в контейнере стёрты: " + siteAfter);
+            _w.CloseTab(t2, remember: false);
+            _w.CloseTab(site, remember: false);
+        }
+        catch (Exception ex) { Check(false, "страницы с компьютера: " + ex.Message); }
+    }
+
     /// <summary>Окно инкогнито: закрытый режим движка, свои cookie, не попадает в сеанс, данные исчезают после закрытия.</summary>
     async Task TestIncognitoAsync(string testDir)
     {
@@ -1827,6 +1870,7 @@ sealed class SelfTest
             await TestNewTabSpeedAsync();
             await TestInstallAsync();
             await TestIncognitoAsync(testDir);
+            await TestLocalFilesAsync(testDir);
             _w.ActivateForTest(probe);
             await Task.Delay(300);
 

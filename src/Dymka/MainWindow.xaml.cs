@@ -499,10 +499,12 @@ public partial class MainWindow : Window
             view.GotFocus += (_, _) => { if (InSplit(tab) && tab != _active) Activate(tab); };
             tab.View = view;
             ContentHost.Children.Add(view);
-            if (!_incognito) MarkContainerUsed(tab.Container);
+            // окно, открытое страницей, обязано быть в том же хранилище, что и она
+            if (!_incognito && !tab.OpenedByPage) tab.LocalFiles = UrlTools.IsLocalFile(url);
+            if (!_incognito) MarkContainerUsed(tab.Profile);
             var env = await AcquireEnvAsync();
             var opts = env.CreateCoreWebView2ControllerOptions();
-            opts.ProfileName = tab.Container;
+            opts.ProfileName = tab.Profile;
             if (_incognito) opts.IsInPrivateModeEnabled = true;
             await view.EnsureCoreWebView2Async(env, opts);
             if ((!_tabs.Contains(tab) && tab != _spare) || tab.View != view)
@@ -512,7 +514,7 @@ public partial class MainWindow : Window
                 return;
             }
             ConfigureCore(tab, view.CoreWebView2, env);
-            if (!_incognito) await EnsureExtensionsAsync(tab.Container, view.CoreWebView2);
+            if (!_incognito && !tab.LocalFiles) await EnsureExtensionsAsync(tab.Container, view.CoreWebView2);
             if (navigate && !string.IsNullOrEmpty(url))
                 NavigateCore(view.CoreWebView2, url);
             if (tab == _active)
@@ -899,6 +901,13 @@ public partial class MainWindow : Window
     void OnNavigationStarting(BrowserTab tab, CoreWebView2 core, CoreWebView2NavigationStartingEventArgs e)
     {
         var uri = e.Uri ?? "";
+        // файл с компьютера открывается в своём хранилище (оно не стирается при закрытии), сайты - в хранилище контейнера
+        if (!_incognito && !tab.OpenedByPage && _tabs.Contains(tab) && UrlTools.IsLocalFile(uri) != tab.LocalFiles && !uri.StartsWith("about:") && !uri.StartsWith("data:"))
+        {
+            e.Cancel = true;
+            Dispatcher.BeginInvoke(new Action(() => _ = SwitchProfileAsync(tab, uri)));
+            return;
+        }
         if (!UrlTools.IsStartPage(uri) && !e.IsRedirected)
         {
             var cleaned = UrlTools.CleanUrl(uri);
@@ -1106,7 +1115,7 @@ public partial class MainWindow : Window
         try
         {
             bool background = Native.IsCtrlDown() && !(e.WindowFeatures?.HasSize ?? false);
-            var tab = new BrowserTab(source.Container) { Url = e.Uri ?? "", OpenedByPage = true, Opener = source };
+            var tab = new BrowserTab(source.Container) { Url = e.Uri ?? "", OpenedByPage = true, Opener = source, LocalFiles = source.LocalFiles };
             tab.PropertyChanged += OnTabPropertyChanged;
             int idx = _tabs.IndexOf(source);
             if (idx >= 0 && idx < _tabs.Count - 1) _tabs.Insert(idx + 1, tab); else _tabs.Add(tab);
@@ -2051,7 +2060,7 @@ public partial class MainWindow : Window
             WebView2? temp = null;
             try
             {
-                var core = _tabs.FirstOrDefault(t => t.Container == id && t.Core != null)?.Core;
+                var core = _tabs.FirstOrDefault(t => t.Profile == id && t.Core != null)?.Core;
                 if (core == null)
                 {
                     temp = new WebView2 { Visibility = Visibility.Hidden, Width = 1, Height = 1 };
@@ -2067,6 +2076,19 @@ public partial class MainWindow : Window
                 foreach (var c in cookies)
                     if (!_settings.KeepsCookies(c.Domain.TrimStart('.')))
                         cm.DeleteCookie(c);
+
+                if (id == BrowserTab.LocalFilesProfile)
+                {
+                    // страницы с компьютера: их хранилище (выбранные папки, данные страницы) остаётся, стираются кэш и история
+                    await core.Profile.ClearBrowsingDataAsync(
+                        CoreWebView2BrowsingDataKinds.DiskCache |
+                        CoreWebView2BrowsingDataKinds.BrowsingHistory |
+                        CoreWebView2BrowsingDataKinds.DownloadHistory |
+                        CoreWebView2BrowsingDataKinds.GeneralAutofill |
+                        CoreWebView2BrowsingDataKinds.PasswordAutosave);
+                    _settings.PendingCleanup.Remove(id);
+                    continue;
+                }
 
                 await core.Profile.ClearBrowsingDataAsync(
                     CoreWebView2BrowsingDataKinds.DiskCache |

@@ -12,6 +12,7 @@ const string ddg = "https://duckduckgo.com/?q={0}";
 
 // --- адресная строка
 Eq(UrlTools.ToNavigable("kad.arbitr.ru", ddg), "https://kad.arbitr.ru", "домен без схемы");
+Eq(UrlTools.IsLocalFile("file:///C:/Users/User/Dropbox/Дела.html") && !UrlTools.IsLocalFile("https://file.ru/") && !UrlTools.IsLocalFile(null), true, "адрес файла на компьютере распознаётся");
 Eq(UrlTools.ToNavigable("  https://example.com/a?b=1 ", ddg), "https://example.com/a?b=1", "полный адрес");
 Eq(UrlTools.ToNavigable("госуслуги.рф", ddg), "https://госуслуги.рф", "кириллический домен");
 Eq(UrlTools.ToNavigable("localhost:8080/x", ddg), "http://localhost:8080/x", "localhost");

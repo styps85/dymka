@@ -249,6 +249,27 @@ public partial class MainWindow
         ShowToast("Вкладка перенесена в «" + AppSettings.ContainerById(container).Name + "»");
     }
 
+    /// <summary>Перевести вкладку в другое хранилище: файл с компьютера - в «local-files» (не стирается при закрытии),
+    /// сайт из такой вкладки - обратно в хранилище контейнера. Вкладка пересоздаётся на том же месте.</summary>
+    async Task SwitchProfileAsync(BrowserTab tab, string url)
+    {
+        if (!_tabs.Contains(tab)) return;
+        bool local = UrlTools.IsLocalFile(url);
+        App.Log(local ? "Файл с компьютера открывается в хранилище страниц с компьютера (оно не стирается при закрытии)"
+                      : $"Сайт {UrlTools.HostOf(url)} из вкладки с файлом открывается в хранилище контейнера {tab.Container}");
+        var nt = new BrowserTab(tab.Container) { Url = url, Title = tab.Title, IsPinned = tab.IsPinned };
+        nt.PropertyChanged += OnTabPropertyChanged;
+        int idx = _tabs.IndexOf(tab);
+        _tabs.Insert(idx + 1, nt);
+        if (InSplit(tab)) EndSplit();
+        if (tab == _active) Activate(nt); else RefreshViews();
+        await EnsureViewAsync(nt, url, navigate: true);
+        CloseTab(tab, remember: false);
+        if (nt.IsPinned) SavePinned();
+    }
+
+    public Task CleanupForTest(params string[] ids) => CleanupContainersAsync(ids);
+
     // ===================================================================== уведомление
 
     DispatcherTimer? _toastTimer;
@@ -586,7 +607,7 @@ public partial class MainWindow
         Shared.ExtensionsSynced.Clear();
         foreach (var w in Shared.Windows) { w.DisposeSpare(); w.ScheduleSpare(TimeSpan.FromSeconds(3)); }
         foreach (var w in Shared.Windows)
-            foreach (var group in w._tabs.Where(t => t.Core != null).GroupBy(t => t.Container))
+            foreach (var group in w._tabs.Where(t => t.Core != null && !t.LocalFiles && !w._incognito).GroupBy(t => t.Container))
                 await w.EnsureExtensionsAsync(group.Key, group.First().Core!);
     }
 

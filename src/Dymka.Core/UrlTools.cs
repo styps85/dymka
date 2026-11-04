@@ -102,6 +102,9 @@ public static class UrlTools
     public static bool IsThirdParty(string requestHost, string pageHost) =>
         !string.Equals(RegistrableDomain(requestHost), RegistrableDomain(pageHost), StringComparison.OrdinalIgnoreCase);
 
+    /// <summary>Адрес файла на компьютере (file:///…).</summary>
+    public static bool IsLocalFile(string? url) => url != null && url.StartsWith("file:", StringComparison.OrdinalIgnoreCase);
+
     public static string HostOf(string? url)
     {
         if (string.IsNullOrEmpty(url)) return "";

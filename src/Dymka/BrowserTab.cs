@@ -17,6 +17,14 @@ public sealed class BrowserTab : INotifyPropertyChanged
 
     public BrowserTab(string container) => Container = container;
 
+    /// <summary>Страница открыта из файла на компьютере: вкладка живёт в отдельном хранилище «local-files»,
+    /// данные которого (выбранные папки, сохранённое страницей) при закрытии браузера не стираются.</summary>
+    public bool LocalFiles { get; set; }
+
+    /// <summary>Профиль движка, в котором открыта вкладка.</summary>
+    public string Profile => LocalFiles ? LocalFilesProfile : Container;
+    public const string LocalFilesProfile = "local-files";
+
     public WebView2? View { get; set; }
 
     /// <summary>Движок страницы. После падения процесса движка обращение к View.CoreWebView2 бросает исключение,
