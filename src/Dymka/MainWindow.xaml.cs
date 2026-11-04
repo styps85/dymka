@@ -1136,14 +1136,25 @@ public partial class MainWindow : Window
         [CoreWebView2PermissionKind.Notifications] = ("notifications", "показу уведомлений"),
         [CoreWebView2PermissionKind.ClipboardRead] = ("clipboard", "чтению буфера обмена"),
         [CoreWebView2PermissionKind.MultipleAutomaticDownloads] = ("downloads", "скачиванию нескольких файлов подряд"),
+        // выбранная на странице папка или файл (File System Access: showDirectoryPicker и т.п.) - чтение и изменение файлов
+        [CoreWebView2PermissionKind.FileReadWrite] = ("files", "выбранной папке на компьютере (чтение и изменение файлов в ней)"),
     };
 
     void OnPermissionRequested(CoreWebView2PermissionRequestedEventArgs e)
     {
         try { e.SavesInProfile = false; } catch { }
         var host = UrlTools.HostOf(e.Uri);
+        string who = "Сайт " + host;
+        // страница, открытая из файла на компьютере (file:///…): у неё нет адреса сайта - запоминаем по папке файла
+        if (host.Length == 0 && Uri.TryCreate(e.Uri, UriKind.Absolute, out var fu) && fu.IsFile)
+        {
+            var local = fu.LocalPath;
+            host = "file:" + (Path.GetDirectoryName(local) ?? local).ToLowerInvariant();
+            who = $"Страница с вашего компьютера «{Path.GetFileName(local)}»";
+        }
         if (!PermissionNames.TryGetValue(e.PermissionKind, out var p) || host.Length == 0)
         {
+            App.Log($"Запрос доступа отклонён: {e.PermissionKind} ({(host.Length > 0 ? host : e.Uri)})");
             e.State = CoreWebView2PermissionState.Deny;
             return;
         }
@@ -1164,7 +1175,7 @@ public partial class MainWindow : Window
             try
             {
                 var (index, remember) = Dialogs.Show(this, "Запрос доступа",
-                    $"Сайт {host} просит доступ к {p.what}.",
+                    $"{who} просит доступ к {p.what}.",
                     new[] { "Разрешить", "Запретить" }, defaultIndex: 1,
                     checkbox: "Запомнить для этого сайта", checkboxValue: true);
                 bool allow = index == 0;
