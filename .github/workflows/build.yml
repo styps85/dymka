@@ -103,6 +103,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: selftest-${{ github.run_number }}
+          retention-days: 1
           path: dist/selftest
           if-no-files-found: ignore
 
@@ -122,6 +123,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: Dymka-${{ github.run_number }}
+          retention-days: 1
           path: |
             dist/single/Dymka.exe
             dist/Dymka-folder.zip
