@@ -44,7 +44,7 @@ public partial class App : Application
         {
             if (!File.Exists(path)) return;
             var lines = File.ReadAllLines(path);
-            var keep = lines.Where(l => !l.Contains("[incognito]") && !l.Contains("[" + MainWindow.IncognitoId + "]")).ToArray();
+            var keep = lines.Where(l => !l.Contains("[incognito]") && !l.Contains("[" + Dymka.MainWindow.IncognitoId + "]")).ToArray();
             if (keep.Length != lines.Length) File.WriteAllLines(path, keep);
         }
         catch { }
