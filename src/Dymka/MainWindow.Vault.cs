@@ -119,7 +119,7 @@ public partial class MainWindow
             frame.NavigationStarting += (_, e) =>
             {
                 var h = UrlTools.HostOf(e.Uri);
-                if (h.Length > 0 && h != "about") App.Log($"Фрейм (уровень {depth}): {h}");
+                if (h.Length > 0 && h != "about") App.Log($"Фрейм (уровень {depth}): {LogSite(tab, e.Uri)}");
             };
             // вложенные фреймы (окно в окне - так устроены формы оплаты Яндекс Пэй и банков);
             // событие есть не во всех версиях движка, поэтому подписка через отражение

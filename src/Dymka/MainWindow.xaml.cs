@@ -475,7 +475,7 @@ public partial class MainWindow : Window
             LastNewTabSpeed = (tab.Container, engine, total, first, false);
             if (total >= 1000)
                 App.Log($"Новая вкладка [{tab.Container}] открывалась {total / 1000.0:0.0} с: движок {engine / 1000.0:0.0} с, страница {(total - engine) / 1000.0:0.0} с" +
-                        (first ? " (первая в контейнере)" : "") + (tab.IsStart ? "" : $", {UrlTools.HostOf(tab.Url)}"));
+                        (first ? " (первая в контейнере)" : "") + (tab.IsStart ? "" : $", {LogSite(tab, tab.Url)}"));
         }
         core.NavigationCompleted += Done;
     }
@@ -610,7 +610,7 @@ public partial class MainWindow : Window
         core.NavigationCompleted += (_, e) =>
         {
             tab.IsLoading = false;
-            if (tab == _active) CrashDiagnostics.NotePage(core.Source);
+            if (tab == _active && tab.Container != IncognitoId) CrashDiagnostics.NotePage(core.Source);
             tab.LoadFailed = !e.IsSuccess && e.WebErrorStatus != CoreWebView2WebErrorStatus.OperationCanceled;
             if (e.IsSuccess && (core.Source.StartsWith("http://") || core.Source.StartsWith("https://")))
                 _ = ProbeLanguageAsync(tab, core, core.Source);
@@ -630,7 +630,7 @@ public partial class MainWindow : Window
         core.FaviconChanged += async (_, _) => await LoadFaviconAsync(tab, core);
         core.NewWindowRequested += (_, e) => OnNewWindowRequested(tab, e);
         core.ContextMenuRequested += (_, e) => CustomizeContextMenu(tab, e);
-        core.PermissionRequested += (_, e) => OnPermissionRequested(e);
+        core.PermissionRequested += (_, e) => OnPermissionRequested(e, tab);
         core.WebMessageReceived += (_, e) => OnWebMessage(tab, core, e);
         try { core.FrameCreated += (_, fe) => HookFrame(tab, fe.Frame); }
         catch (Exception ex) { App.Log("Фреймы: " + ex.Message); }
@@ -638,13 +638,15 @@ public partial class MainWindow : Window
         catch (Exception ex) { App.Log("Проверка сертификатов недоступна: " + ex.Message); }
         try { core.DownloadStarting += (_, e) => OnDownloadStarting(tab, e); }
         catch (Exception ex) { App.Log("Скачивания: " + ex.Message); }
+        try { core.SaveAsUIShowing += (_, e) => OnSaveAsUIShowing(tab, e); }
+        catch (Exception ex) { App.Log("Окно «Сохранить как» движка: " + ex.Message); }
         core.WindowCloseRequested += (_, _) =>
         {
             // страница просит закрыть своё окно (window.close() или окно, открытое ради скачивания файла):
             // закрываем только вкладку, открытую самой страницей, как в Chrome; само окно браузера - никогда
             _blockCloseUntil = DateTime.Now.AddSeconds(5);
             _lastPageCloseRequest = DateTime.Now;
-            App.Log($"Страница просит закрыть окно ({UrlTools.HostOf(tab.Url)}), вкладка открыта страницей: {tab.OpenedByPage}");
+            App.Log($"Страница просит закрыть окно ({LogSite(tab, tab.Url)}), вкладка открыта страницей: {tab.OpenedByPage}");
             if (tab.OpenedByPage)
                 Dispatcher.BeginInvoke(new Action(() =>
                 {
@@ -667,7 +669,7 @@ public partial class MainWindow : Window
         {
             string details = "";
             try { details = $", код {e.ExitCode}, процесс «{e.ProcessDescription}», причина {e.Reason}" + (string.IsNullOrEmpty(e.FailureSourceModulePath) ? "" : ", модуль " + e.FailureSourceModulePath); } catch { }
-            App.Log($"Сбой процесса движка: {e.ProcessFailedKind} ({RunFlag.SafeUrl(tab.Url)}){details}");
+            App.Log($"Сбой процесса движка: {e.ProcessFailedKind} ({LogUrl(tab, tab.Url)}){details}");
             if (e.ProcessFailedKind == CoreWebView2ProcessFailedKind.BrowserProcessExited)
             {
                 // упал весь движок: все страницы окна «мертвы», их надо пересоздать
@@ -721,7 +723,7 @@ public partial class MainWindow : Window
         }
 
         _active = tab;
-        CrashDiagnostics.NotePage(tab.Url);
+        CrashDiagnostics.NotePage(tab.Container == IncognitoId ? "" : tab.Url);
         // на весь экран была развёрнута другая вкладка - окно возвращается к обычному виду
         if (_fullscreen && tab.Core?.ContainsFullScreenElement != true) SetFullscreen(false);
         tab.IsActive = true;
@@ -1005,7 +1007,7 @@ public partial class MainWindow : Window
             string name = Path.GetFileName(e.ResultFilePath ?? "");
             // движок закрывает окно, открытое ради скачивания, и может задеть окно браузера - на время скачивания не даём
             _blockCloseUntil = DateTime.Now.AddSeconds(5);
-            App.Log($"Скачивание: {name} ({op.MimeType}, {UrlTools.HostOf(op.Uri)}) - вкладка {tab.Container}");
+            App.Log($"Скачивание: {name} ({op.MimeType}, {LogSite(tab, op.Uri)}) - вкладка {tab.Container}");
             tab.ActiveDownloads++;
             bool finished = false;
             ChooseDownloadPath(tab, e, name, () =>
@@ -1039,11 +1041,31 @@ public partial class MainWindow : Window
         catch (Exception ex) { App.Log("Скачивание: " + ex.Message); }
     }
 
-    /// <summary>Куда сохранить файл: окно «Сохранить как» (если включено «Спрашивать») или папка из настроек.</summary>
+    /// <summary>Куда сохранить файл: окно «Сохранить как» (если включено «Спрашивать») или папка из настроек.
+    /// Если место уже выбрали в окне самого движка (Ctrl+S, просмотрщик PDF), второе окно не показываем.</summary>
     void ChooseDownloadPath(BrowserTab tab, CoreWebView2DownloadStartingEventArgs e, string name, Action onCancel)
     {
         var folder = Directory.Exists(_settings.DownloadFolder) ? _settings.DownloadFolder : "";
-        if (!_settings.AskDownloadPath || _selfTestDir != null)
+        string engineDefault = "";
+        try { engineDefault = tab.Core?.Profile.DefaultDownloadFolderPath ?? ""; } catch { }
+        bool saveAsShown = DateTime.Now < tab.SaveAsShownUntil;
+        tab.SaveAsShownUntil = DateTime.MinValue;
+        var op = e.DownloadOperation;
+        // место уже выбрали в окне движка? (тогда ни нашего окна, ни папки из настроек)
+        var (notChosen, why) = DownloadPaths.ShouldAsk(true, e.ResultFilePath, engineDefault, saveAsShown, op.Uri, tab.Url, op.MimeType);
+        bool ask = notChosen && _settings.AskDownloadPath;
+        LastDownloadAsked = ask;
+        if (!notChosen)
+        {
+            App.Log($"Скачивание {name}: второе окно «Сохранить как» не нужно - {why}");
+            return;
+        }
+        if (!ask)
+        {
+            if (folder.Length > 0) e.ResultFilePath = DownloadPaths.Unique(folder, name, File.Exists);
+            return;
+        }
+        if (_selfTestDir != null)
         {
             if (folder.Length > 0) e.ResultFilePath = DownloadPaths.Unique(folder, name, File.Exists);
             return;
@@ -1053,25 +1075,10 @@ public partial class MainWindow : Window
         {
             try
             {
-                var engineDir = Path.GetDirectoryName(e.ResultFilePath ?? "") ?? "";
-                var dir = new[] { _settings.LastDownloadFolder, folder, engineDir }.FirstOrDefault(d => d.Length > 0 && Directory.Exists(d)) ?? "";
-                var ext = Path.GetExtension(name);
-                var dlg = new Microsoft.Win32.SaveFileDialog
+                var path = AskSavePath(name, Path.GetDirectoryName(e.ResultFilePath ?? "") ?? "");
+                if (path != null)
                 {
-                    Title = "Сохранить файл",
-                    FileName = DownloadPaths.Safe(name),
-                    InitialDirectory = dir,
-                    OverwritePrompt = true,
-                    AddExtension = false,
-                    Filter = ext.Length > 1 ? $"Файл {ext.TrimStart('.').ToUpperInvariant()} (*{ext})|*{ext}|Все файлы (*.*)|*.*" : "Все файлы (*.*)|*.*",
-                };
-                _blockCloseUntil = DateTime.Now.AddMinutes(30);
-                if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
-                if (dlg.ShowDialog(this) == true)
-                {
-                    e.ResultFilePath = dlg.FileName;
-                    _settings.LastDownloadFolder = Path.GetDirectoryName(dlg.FileName) ?? "";
-                    _settings.Save();
+                    e.ResultFilePath = path;
                     App.Log("Скачивание сохраняется в выбранную папку");
                 }
                 else
@@ -1082,13 +1089,86 @@ public partial class MainWindow : Window
                 }
             }
             catch (Exception ex) { App.Log("Окно «Сохранить как»: " + ex.Message); }
-            finally
-            {
-                _blockCloseUntil = DateTime.Now.AddSeconds(5);
-                deferral.Complete();
-            }
+            finally { deferral.Complete(); }
         }));
     }
+
+    /// <summary>Решение последнего скачивания: спрашивали ли место (для самопроверки).</summary>
+    public bool? LastDownloadAsked { get; private set; }
+
+    public void ResetDownloadDecisionForTest() => LastDownloadAsked = null;
+
+    /// <summary>Наше окно «Сохранить как» (начинает с папки, куда сохраняли в прошлый раз). null - нажали «Отмена».</summary>
+    string? AskSavePath(string name, string engineDir)
+    {
+        var folder = Directory.Exists(_settings.DownloadFolder) ? _settings.DownloadFolder : "";
+        var dir = new[] { _settings.LastDownloadFolder, folder, engineDir }.FirstOrDefault(d => d.Length > 0 && Directory.Exists(d)) ?? "";
+        var ext = Path.GetExtension(name);
+        var dlg = new Microsoft.Win32.SaveFileDialog
+        {
+            Title = "Сохранить файл",
+            FileName = DownloadPaths.Safe(name),
+            InitialDirectory = dir,
+            OverwritePrompt = true,
+            AddExtension = false,
+            Filter = ext.Length > 1 ? $"Файл {ext.TrimStart('.').ToUpperInvariant()} (*{ext})|*{ext}|Все файлы (*.*)|*.*" : "Все файлы (*.*)|*.*",
+        };
+        _blockCloseUntil = DateTime.Now.AddMinutes(30);
+        try
+        {
+            if (WindowState == WindowState.Minimized) WindowState = WindowState.Normal;
+            if (dlg.ShowDialog(this) != true) return null;
+            _settings.LastDownloadFolder = Path.GetDirectoryName(dlg.FileName) ?? "";
+            _settings.Save();
+            return dlg.FileName;
+        }
+        finally { _blockCloseUntil = DateTime.Now.AddSeconds(5); }
+    }
+
+    /// <summary>Движок собирается показать своё окно «Сохранить как» (Ctrl+S, кнопка сохранения в просмотрщике PDF).
+    /// Для PDF показываем вместо него своё (с папкой, куда сохраняли в прошлый раз); в любом случае следующее
+    /// скачивание этой вкладки второй раз место не спрашивает.</summary>
+    void OnSaveAsUIShowing(BrowserTab tab, CoreWebView2SaveAsUIShowingEventArgs e)
+    {
+        tab.SaveAsShownUntil = DateTime.Now.AddMinutes(3);
+        SaveAsShown++;
+        var mime = e.ContentMimeType ?? "";
+        App.Log($"Окно «Сохранить как» движка ({(mime.Length > 0 ? mime : "?")})");
+        if (SaveAsPathForTest != null)
+        {
+            e.SuppressDefaultDialog = true;
+            e.AllowReplace = true;
+            e.SaveAsFilePath = SaveAsPathForTest;
+            return;
+        }
+        if (!_settings.AskDownloadPath || _selfTestDir != null || !mime.Contains("pdf", StringComparison.OrdinalIgnoreCase)) return;
+        var proposed = e.SaveAsFilePath ?? "";
+        var name = Path.GetFileName(proposed);
+        if (name.Length == 0) return;
+        var deferral = e.GetDeferral();
+        Dispatcher.BeginInvoke(new Action(() =>
+        {
+            try
+            {
+                var path = AskSavePath(name, Path.GetDirectoryName(proposed) ?? "");
+                if (path == null) { e.Cancel = true; tab.SaveAsShownUntil = DateTime.MinValue; }
+                else
+                {
+                    e.SuppressDefaultDialog = true;
+                    e.AllowReplace = true;   // о замене уже спросило наше окно
+                    e.SaveAsFilePath = path;
+                }
+            }
+            catch (Exception ex) { App.Log("Окно «Сохранить как»: " + ex.Message); }
+            finally { deferral.Complete(); }
+        }));
+    }
+
+    /// <summary>Сколько раз движок открывал своё окно «Сохранить как» (для самопроверки).</summary>
+    public int SaveAsShown { get; private set; }
+
+    /// <summary>Самопроверка: куда «сохранить как», не открывая окно.</summary>
+    public string? SaveAsPathForTest { get; set; }
 
     /// <summary>Закрывает вкладку, открытую страницей (например, ради скачивания файла), и возвращает на исходную.</summary>
     void ClosePageOpenedTab(BrowserTab tab)
@@ -1155,7 +1235,7 @@ public partial class MainWindow : Window
         [CoreWebView2PermissionKind.FileReadWrite] = ("files", "выбранной папке на компьютере (чтение и изменение файлов в ней)"),
     };
 
-    void OnPermissionRequested(CoreWebView2PermissionRequestedEventArgs e)
+    void OnPermissionRequested(CoreWebView2PermissionRequestedEventArgs e, BrowserTab? tab = null)
     {
         try { e.SavesInProfile = false; } catch { }
         var host = UrlTools.HostOf(e.Uri);
@@ -1169,7 +1249,7 @@ public partial class MainWindow : Window
         }
         if (!PermissionNames.TryGetValue(e.PermissionKind, out var p) || host.Length == 0)
         {
-            App.Log($"Запрос доступа отклонён: {e.PermissionKind} ({(host.Length > 0 ? host : e.Uri)})");
+            App.Log($"Запрос доступа отклонён: {e.PermissionKind} ({(tab?.Container == IncognitoId ? "сайт в окне инкогнито" : host.Length > 0 ? host : e.Uri)})");
             e.State = CoreWebView2PermissionState.Deny;
             return;
         }
@@ -2168,10 +2248,10 @@ public partial class MainWindow : Window
                 _closeCheckPending = false;
                 if (_lastPageCloseRequest >= asked.AddSeconds(-1) || DateTime.Now < _blockCloseUntil)
                 {
-                    App.Log($"Закрытие окна отменено: его просила страница, закрывается только её вкладка ({RunFlag.SafeUrl(_active?.Url)})");
+                    App.Log($"Закрытие окна отменено: его просила страница, закрывается только её вкладка ({LogUrl(_active, _active?.Url)})");
                     return;
                 }
-                App.Log("Закрытие окна по команде не от пользователя" + (stack.Length > 0 ? ": " + stack : "") + $"; активная вкладка: {RunFlag.SafeUrl(_active?.Url)}");
+                App.Log("Закрытие окна по команде не от пользователя" + (stack.Length > 0 ? ": " + stack : "") + $"; активная вкладка: {LogUrl(_active, _active?.Url)}");
                 _closeByApp = true;
                 Close();
             });
@@ -2232,10 +2312,11 @@ public partial class MainWindow : Window
         Sidebar.Visibility = side ? Visibility.Visible : Visibility.Collapsed;
         SideCol.Width = new GridLength(side ? 260 : 0);
         TopStrip.Visibility = side ? Visibility.Collapsed : Visibility.Visible;
-        TopRow.Height = new GridLength(side ? 0 : 46);
+        TopRow.Height = new GridLength(side ? 0 : StripHeight);
         Grid.SetRow(WindowButtons, side ? 1 : 0);
+        TabRowsBtn.Visibility = side ? Visibility.Collapsed : Visibility.Visible;
         ToolbarDock.Margin = side ? new Thickness(12, 0, 148, 0) : new Thickness(12, 0, 10, 0);
-        WindowChrome.GetWindowChrome(this).CaptionHeight = side ? 56 : 46;
+        WindowChrome.GetWindowChrome(this).CaptionHeight = side ? 56 : StripHeight;
         RefreshViews();
         // мини-плеер держится за край области страницы: после смены вида вкладок - на новое место
         Dispatcher.BeginInvoke(new Action(PositionMediaBar), DispatcherPriority.Loaded);

@@ -37,6 +37,19 @@ public partial class App : Application
         }
     }
 
+    /// <summary>Старые версии писали в журнал адреса сайтов из окна инкогнито - такие строки удаляем.</summary>
+    static void ScrubIncognitoLines(string path)
+    {
+        try
+        {
+            if (!File.Exists(path)) return;
+            var lines = File.ReadAllLines(path);
+            var keep = lines.Where(l => !l.Contains("[incognito]") && !l.Contains("[" + MainWindow.IncognitoId + "]")).ToArray();
+            if (keep.Length != lines.Length) File.WriteAllLines(path, keep);
+        }
+        catch { }
+    }
+
     /// <summary>Последняя ошибка записи в папку данных (пусто - запись работает).</summary>
     public static string LastWriteError { get; private set; } = "";
 
@@ -74,6 +87,7 @@ public partial class App : Application
         dataDir ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "Dymka");
         Directory.CreateDirectory(dataDir);
         _logPath = Path.Combine(dataDir, "log.txt");
+        ScrubIncognitoLines(_logPath);
 
         if (args.Contains("--uninstall"))
         {

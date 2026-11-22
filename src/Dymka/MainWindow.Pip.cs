@@ -50,10 +50,10 @@ return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()";
             // если вы уже вернулись на эту вкладку, мини-окно не нужно
             if (tab == _active) { await EvalWithGestureAsync(tab.Core, PipExitJs); return; }
             tab.InPip = true;
-            App.Log("Мини-окно с видео: " + UrlTools.HostOf(tab.Url));
+            App.Log("Мини-окно с видео: " + LogSite(tab, tab.Url));
         }
         else if (res.StartsWith("err") || res == "off")
-            App.Log($"Мини-окно с видео не открылось ({UrlTools.HostOf(tab.Url)}): {res}");
+            App.Log($"Мини-окно с видео не открылось ({LogSite(tab, tab.Url)}): {res}");
     }
 
     async Task PipExitAsync(BrowserTab tab)
@@ -100,6 +100,6 @@ return 'ok';}catch(e){return 'err:'+(e&&e.message);}})()";
         if (WindowState == System.Windows.WindowState.Minimized) WindowState = System.Windows.WindowState.Normal;
         base.Activate();
         Activate(tab);
-        App.Log("Возврат из мини-окна на вкладку " + UrlTools.HostOf(tab.Url));
+        App.Log("Возврат из мини-окна на вкладку " + LogSite(tab, tab.Url));
     }
 }

@@ -9,6 +9,13 @@ namespace Dymka;
 public partial class MainWindow
 {
     public const string IncognitoId = "incognito";
+
+    /// <summary>Сайт для журнала: адреса из окна инкогнито в журнал не попадают.</summary>
+    static string LogSite(BrowserTab? tab, string? url) =>
+        tab?.Container == IncognitoId ? "сайт в окне инкогнито" : UrlTools.HostOf(url ?? "");
+
+    static string LogUrl(BrowserTab? tab, string? url) =>
+        tab?.Container == IncognitoId ? "сайт в окне инкогнито" : RunFlag.SafeUrl(url);
     bool _incognito;
 
     public bool Incognito

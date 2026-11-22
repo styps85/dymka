@@ -930,6 +930,33 @@ sealed class SelfTest
             _w.Settings.DownloadFolder = "";
             await Task.Delay(500);
             Capture(_w, "39-downloads");
+
+            // PDF во встроенном просмотрщике: «Сохранить как» движка (Ctrl+S, кнопка сохранения) - одно окно, а не два
+            bool askWas = _w.Settings.AskDownloadPath;
+            _w.Settings.AskDownloadPath = true;
+            try
+            {
+                _w.Navigate(tab, $"http://127.0.0.1:{port}/doc.pdf");
+                Check(await WaitFor(() => tab.Url.Contains("doc.pdf") && !tab.IsLoading, 20), "PDF открылся во встроенном просмотрщике");
+                await Task.Delay(1500);
+                Capture(_w, "39b-pdf-viewer");
+                var target = Path.Combine(dlDir, "сохранить-как.pdf");
+                _w.SaveAsPathForTest = target;
+                int shown = _w.SaveAsShown;
+                _w.ResetDownloadDecisionForTest();
+                var res = await core.ShowSaveAsUIAsync();
+                Line("ИНФО «Сохранить как» в просмотрщике PDF: " + res);
+                Check(await WaitFor(() => File.Exists(target) && new FileInfo(target).Length > 100, 20) &&
+                      File.ReadAllText(target).StartsWith("%PDF"), "PDF из просмотрщика сохранён в место, выбранное в окне «Сохранить как»");
+                Check(_w.SaveAsShown > shown, "окно «Сохранить как» движка «Дымка» видит (для PDF показывает своё)");
+                await Task.Delay(1000);
+                Check(_w.LastDownloadAsked != true, $"после окна «Сохранить как» второе окно не появляется (решение: {(_w.LastDownloadAsked?.ToString() ?? "скачивания не было")})");
+            }
+            finally
+            {
+                _w.SaveAsPathForTest = null;
+                _w.Settings.AskDownloadPath = askWas;
+            }
             _w.CloseTab(tab, remember: false);
         }
         catch (Exception ex)
@@ -1254,6 +1281,32 @@ sealed class SelfTest
         }
     }
 
+    /// <summary>Маленький настоящий PDF из одной страницы с текстом.</summary>
+    static byte[] MiniPdf(string text)
+    {
+        var content = $"BT /F1 24 Tf 72 720 Td ({text}) Tj ET";
+        var objs = new[]
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+            $"<< /Length {content.Length} >>\nstream\n{content}\nendstream",
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+        };
+        var sb = new StringBuilder("%PDF-1.4\n");
+        var offs = new List<int>();
+        for (int i = 0; i < objs.Length; i++)
+        {
+            offs.Add(sb.Length);
+            sb.Append($"{i + 1} 0 obj\n{objs[i]}\nendobj\n");
+        }
+        int xref = sb.Length;
+        sb.Append($"xref\n0 {objs.Length + 1}\n0000000000 65535 f \n");
+        foreach (var o in offs) sb.Append($"{o:D10} 00000 n \n");
+        sb.Append($"trailer\n<< /Size {objs.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        return Encoding.ASCII.GetBytes(sb.ToString());
+    }
+
     static async Task ServeDownload(System.Net.Sockets.TcpClient client, byte[] cert)
     {
         using (client)
@@ -1267,7 +1320,12 @@ sealed class SelfTest
                 var path = req.Split(' ').Length > 1 ? req.Split(' ')[1] : "/";
                 byte[] body;
                 string head;
-                if (path == "/" || path.StartsWith("/?"))
+                if (path.StartsWith("/doc.pdf"))
+                {
+                    body = MiniPdf("Dymka test PDF");
+                    head = $"HTTP/1.1 200 OK\r\nContent-Type: application/pdf\r\nContent-Length: {body.Length}\r\nConnection: close\r\n\r\n";
+                }
+                else if (path == "/" || path.StartsWith("/?"))
                 {
                     body = Encoding.UTF8.GetBytes("<!doctype html><meta charset=\"utf-8\"><title>Скачать сертификаты</title><body style=\"font:16px Segoe UI;margin:40px\">" +
                         "<p><a id=\"direct\" href=\"/russian_trusted_root_ca.cer\">Корневой</a></p>" +
@@ -1787,6 +1845,67 @@ sealed class SelfTest
         catch (Exception ex) { Check(false, "полноэкранный режим: " + ex.Message); }
     }
 
+    /// <summary>Вкладки сверху: много вкладок - прокрутка стрелками, активная видна; несколько рядов; крестик только при наведении.</summary>
+    async Task TestTopTabsAsync()
+    {
+        var layoutWas = _w.Settings.Layout;
+        bool rowsWas = _w.Settings.TabRows;
+        List<BrowserTab> extra = new();
+        try
+        {
+            _w.Settings.Layout = "top";
+            _w.ApplyLayoutForTest();
+            _w.SetTabRows(false);
+            var active = _w.ActiveTab;
+            extra = _w.AddSleepingTabsForTest(40, active?.Container ?? "work");
+            await Task.Delay(800);
+            _w.UpdateLayout();
+            var st = _w.TopTabsStateForTest();
+            Line($"ИНФО вкладки сверху: ширина вкладки {st.tabWidth:0}, лишние {st.overflow}, рядов {st.rows}");
+            Check(st.overflow && st.canRight && !st.canLeft, "много вкладок в один ряд: появились стрелки прокрутки, правее есть ещё вкладки");
+            Check(active != null && _w.TopTabVisibleForTest(active), "активная вкладка видна в полосе");
+            Check(_w.InactiveCloseCollapsedForTest(), "у неактивной вкладки крестик скрыт, пока на неё не навели мышь (место - под название)");
+            Capture(_w, "58-tabs-overflow");
+            _w.ScrollTopTabsForTest(100);
+            await Task.Delay(400);
+            _w.UpdateLayout();
+            st = _w.TopTabsStateForTest();
+            Check(st.offset > 0 && st.canLeft && !st.canRight && _w.TopTabVisibleForTest(extra[^1]),
+                $"стрелка вправо прокручивает к последним вкладкам (сдвиг {st.offset:0})");
+            Capture(_w, "59-tabs-scrolled");
+            if (active != null)
+            {
+                _w.ActivateForTest(extra[^1]);
+                await Task.Delay(300);
+                _w.ActivateForTest(active);
+                await Task.Delay(600);
+                _w.UpdateLayout();
+                Check(_w.TopTabVisibleForTest(active), "при переходе на вкладку за краем полоса сама прокручивается к ней");
+            }
+            _w.SetTabRows(true);
+            await Task.Delay(800);
+            _w.UpdateLayout();
+            st = _w.TopTabsStateForTest();
+            Line($"ИНФО несколько рядов: рядов {st.rows}, ширина вкладки {st.tabWidth:0}, высота полосы {st.stripHeight:0}");
+            Check(st.rows >= 2 && !st.overflow && st.stripHeight > 50, "режим «несколько рядов»: вкладки переносятся во второй-третий ряд, полоса выше");
+            Check(extra.All(t => _w.TopTabVisibleForTest(t)), "в несколько рядов видны все вкладки, прокрутка не нужна");
+            Capture(_w, "60-tabs-rows");
+            _w.SetTabRows(false);
+            await Task.Delay(500);
+            _w.UpdateLayout();
+            Check(_w.TopTabsStateForTest().rows == 1 && _w.TopTabsStateForTest().stripHeight < 50, "обратно в один ряд - полоса прежней высоты");
+        }
+        catch (Exception ex) { Check(false, "вкладки сверху: " + ex.Message); }
+        finally
+        {
+            foreach (var t in extra) if (_w.Tabs.Contains(t)) _w.CloseTab(t, remember: false);
+            _w.SetTabRows(rowsWas);
+            _w.Settings.Layout = layoutWas;
+            _w.ApplyLayoutForTest();
+            await Task.Delay(300);
+        }
+    }
+
     /// <summary>Мини-плеер: страница с Media Session в фоновой вкладке, команды «следующий» и «пауза».</summary>
     async Task TestMediaBarAsync(string testDir, BrowserTab probe)
     {
@@ -1950,6 +2069,7 @@ sealed class SelfTest
             await TestMediaBarAsync(testDir, probe);
             await TestPageCloseAsync(probe);
             await TestFullscreenAsync();
+            await TestTopTabsAsync();
             await TestNewTabSpeedAsync();
             await TestInstallAsync();
             await TestIncognitoAsync(testDir);

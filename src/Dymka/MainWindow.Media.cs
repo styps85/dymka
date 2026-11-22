@@ -136,7 +136,7 @@ window.__dymkaMedia=function(cmd){
         MediaMuteGlyph.Data = (Geometry)FindResource(tab.IsMuted ? "IcSpeakerOff" : "IcSpeaker");
         MediaMuteBtn.ToolTip = tab.IsMuted ? "Включить звук вкладки" : "Выключить звук вкладки";
         SetMediaArt(st.Art);
-        if (!MediaBar.IsOpen) { MediaBar.IsOpen = true; App.Log("Мини-плеер: " + host); }
+        if (!MediaBar.IsOpen) { MediaBar.IsOpen = true; App.Log("Мини-плеер: " + LogSite(tab, tab.Url)); }
         PositionMediaBar();
     }
 

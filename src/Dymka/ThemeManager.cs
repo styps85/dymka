@@ -31,6 +31,7 @@ static class ThemeManager
         ("Segment", "#E3E8EF", "#22262E"),
         ("TabHover", "#E2E7EE", "#262A33"),
         ("TabBorder", "#E1E6ED", "#343A45"),
+        ("TabSeparator", "#C5CCD7", "#3A414C"),
         ("Thumb", "#C3CAD5", "#4A5260"),
         ("SwitchOff", "#C9D0DB", "#4A5260"),
         ("Green", "#1C7F53", "#45C083"),

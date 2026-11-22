@@ -75,7 +75,7 @@ public partial class MainWindow
             var json = JsonSerializer.Deserialize<string>(raw) ?? "{}";
             using var doc = JsonDocument.Parse(json);
             int groups = doc.RootElement.TryGetProperty("groups", out var g) ? g.GetInt32() : 0;
-            App.Log($"Перевод страницы {UrlTools.HostOf(tab.Url)}: абзацев {groups}");
+            App.Log($"Перевод страницы {LogSite(tab, tab.Url)}: абзацев {groups}");
             if (groups == 0 && tab.TranslatePending == 0)
             {
                 tab.TranslateState = TranslateState.None;

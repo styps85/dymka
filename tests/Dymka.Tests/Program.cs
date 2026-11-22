@@ -635,6 +635,22 @@ Eq(DownloadPaths.Unique("D", "новый.docx", taken.Contains), Path.Combine("D
 Eq(DownloadPaths.Safe("a:b?.txt"), "a_b_.txt", "скачивание: недопустимые знаки заменяются");
 Eq(DownloadPaths.Safe(""), "download", "скачивание: пустое имя");
 
+// --- скачивание: одно окно «Сохранить как», а не два
+const string Dl = @"C:\Users\User\Downloads";
+const string KadPdf = "https://kad.arbitr.ru/Document/Pdf/abc/A60-1.pdf?isAddStamp=True";
+Eq(DownloadPaths.ShouldAsk(true, Dl + @"\акт.pdf", Dl, false, "https://site.ru/get?id=5", "https://site.ru/case", "application/pdf").ask, true,
+    "скачивание по ссылке со страницы: спрашиваем, куда сохранить");
+Eq(DownloadPaths.ShouldAsk(false, Dl + @"\акт.pdf", Dl, false, "https://site.ru/a.pdf", "https://site.ru/", "application/pdf").ask, false,
+    "скачивание: «не спрашивать» в настройках");
+Eq(DownloadPaths.ShouldAsk(true, @"C:\Users\User\Dropbox\Входящие\акт (1).pdf", Dl, false, KadPdf, "https://kad.arbitr.ru/Card/1", "application/pdf").ask, false,
+    "скачивание: папку уже выбрали в окне движка - второго окна нет");
+Eq(DownloadPaths.ShouldAsk(true, Dl + @"\A60-1.pdf", Dl, false, KadPdf + "#page=2", KadPdf, "application/pdf").ask, false,
+    "скачивание: кнопка сохранения в просмотрщике PDF - второго окна нет");
+Eq(DownloadPaths.ShouldAsk(true, Dl + @"\стр.html", Dl, true, "https://site.ru/", "https://site.ru/", "text/html").ask, false,
+    "скачивание: после Ctrl+S (окно движка) второго окна нет");
+Eq(DownloadPaths.ShouldAsk(true, Dl.ToLowerInvariant() + @"\x.zip", Dl + @"\", false, "https://site.ru/x.zip", "https://site.ru/", "application/zip").ask, true,
+    "скачивание: папка загрузок в другом регистре и с чертой - это та же папка, спрашиваем");
+
 // --- мини-плеер: по умолчанию светлый, выбор вручную сохраняется
 var tmpS = Path.Combine(Path.GetTempPath(), "dymka-test-settings.json");
 File.WriteAllText(tmpS, "{\"MiniPlayerStyle\":\"dark\"}");

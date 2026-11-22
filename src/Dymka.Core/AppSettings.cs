@@ -65,6 +65,8 @@ public sealed class AppSettings
 
     /// <summary>"top" - вкладки сверху, "side" - вкладки сбоку.</summary>
     public string Layout { get; set; } = "top";
+    /// <summary>Вкладки сверху в несколько рядов (до трёх), а не в один ряд с прокруткой.</summary>
+    public bool TabRows { get; set; }
     public string SearchEngineId { get; set; } = "ddg";
     public string LastContainer { get; set; } = "work";
 

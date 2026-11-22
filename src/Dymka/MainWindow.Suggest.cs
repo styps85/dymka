@@ -58,7 +58,7 @@ public partial class MainWindow
             if (!_settings.TrustRussianCa || host.Length == 0) return;
             if (!RussianCa.IsAllowedHost(host, _settings.RussianCaSites))
             {
-                App.Log($"Сертификат {host}: не доверенный ({e.ErrorStatus}), сайт не в российской зоне");
+                App.Log($"Сертификат {LogSite(tab, e.RequestUri)}: не доверенный ({e.ErrorStatus}), сайт не в российской зоне");
                 return;
             }
             var cert = e.ServerCertificate;
@@ -67,9 +67,9 @@ public partial class MainWindow
             {
                 e.Action = CoreWebView2ServerCertificateErrorAction.AlwaysAllow;
                 lock (Shared.RussianCaHosts) Shared.RussianCaHosts.Add(host.ToLowerInvariant());
-                App.Log($"Сертификат {host}: принят по сертификату Минцифры");
+                App.Log($"Сертификат {LogSite(tab, e.RequestUri)}: принят по сертификату Минцифры");
             }
-            else App.Log($"Сертификат {host}: не принят ({e.ErrorStatus}; {why})");
+            else App.Log($"Сертификат {LogSite(tab, e.RequestUri)}: не принят ({e.ErrorStatus}; {why})");
         }
         catch (Exception ex)
         {

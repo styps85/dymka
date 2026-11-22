@@ -110,6 +110,9 @@ public sealed class BrowserTab : INotifyPropertyChanged
     public BrowserTab? Opener { get; set; }
     /// <summary>Сколько файлов сейчас скачивается со страницы этой вкладки.</summary>
     public int ActiveDownloads { get; set; }
+
+    /// <summary>До какого времени считать, что движок только что показал своё окно «Сохранить как» для этой вкладки.</summary>
+    public DateTime SaveAsShownUntil { get; set; }
     /// <summary>Страница попросила закрыть вкладку, но идёт скачивание - закроем, когда оно закончится.</summary>
     public bool CloseAfterDownloads { get; set; }
 
@@ -142,6 +145,10 @@ public sealed class BrowserTab : INotifyPropertyChanged
 
     bool _isActive;
     public bool IsActive { get => _isActive; set => Set(ref _isActive, value); }
+
+    bool _inUpperRow;
+    /// <summary>Вкладки сверху в несколько рядов: эта - не в нижнем ряду (активная тогда рисуется отдельной «таблеткой»).</summary>
+    public bool InUpperRow { get => _inUpperRow; set => Set(ref _inUpperRow, value); }
 
     bool _isSleeping;
     public bool IsSleeping { get => _isSleeping; set => Set(ref _isSleeping, value); }
